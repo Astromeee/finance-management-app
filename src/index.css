@@ -3,12 +3,14 @@
 :root {
   --bg: #121315;
   --bg-deep: #0d0e10;
-  --surface: #1b1c20;
-  --surface-2: #232428;
-  --surface-3: #2a2b30;
+  --surface: #1a1c20;
+  --surface-2: #23262b;
+  --surface-3: #2c3036;
+  --surface-elevated: #f6f3ea;
   --border: rgba(255, 255, 255, 0.08);
   --border-strong: rgba(255, 255, 255, 0.14);
   --text: #f6f3ea;
+  --text-dark: #151719;
   --muted: #a7a8ac;
   --muted-2: #777b82;
   --accent: #ddff45;
@@ -33,7 +35,9 @@
 body {
   margin: 0;
   min-width: 320px;
-  background: var(--bg);
+  background:
+    radial-gradient(circle at 16% 0%, rgba(221, 255, 69, 0.08), transparent 24rem),
+    linear-gradient(180deg, #151619 0%, #0d0e10 100%);
 }
 
 button,
@@ -56,22 +60,648 @@ select option {
 .balance-card {
   min-width: 0;
   border: 1px solid var(--border);
-  border-radius: 22px;
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.22);
+  border-radius: 24px;
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.24);
   transition: border-color 0.18s ease, transform 0.18s ease, background 0.18s ease, box-shadow 0.18s ease;
 }
 
 .card {
-  background: var(--surface);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.045), transparent 42%),
+    var(--surface);
   padding: 16px;
 }
 
 .balance-card {
   border-color: rgba(221, 255, 69, 0.16);
   background:
-    radial-gradient(circle at 92% 10%, rgba(221, 255, 69, 0.12), transparent 30%),
-    linear-gradient(145deg, #25262b, #17181b);
+    radial-gradient(circle at 92% 10%, rgba(221, 255, 69, 0.16), transparent 32%),
+    radial-gradient(circle at 4% 96%, rgba(139, 226, 143, 0.08), transparent 34%),
+    linear-gradient(145deg, #27292f, #16181c);
   padding: 18px;
+}
+
+.dashboard-hero {
+  position: relative;
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid rgba(221, 255, 69, 0.18);
+  border-radius: 0 0 34px 34px;
+  background:
+    radial-gradient(circle at 84% 10%, rgba(221, 255, 69, 0.22), transparent 18rem),
+    radial-gradient(circle at 10% 20%, rgba(139, 226, 143, 0.1), transparent 16rem),
+    linear-gradient(155deg, #262a31 0%, #171a1f 58%, #0e1115 100%);
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.38);
+}
+
+.dashboard-hero::before {
+  content: "";
+  position: absolute;
+  inset: auto -5rem -8rem auto;
+  width: 18rem;
+  height: 18rem;
+  border-radius: 999px;
+  border: 2.7rem solid rgba(255, 255, 255, 0.035);
+}
+
+.dashboard-hero::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: 0.85rem;
+  width: 4rem;
+  height: 0.32rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.2);
+  transform: translateX(-50%);
+}
+
+.hero-tab {
+  flex: 0 0 auto;
+  border-radius: 999px;
+  padding: 0.72rem 1rem;
+  color: rgba(246, 243, 234, 0.68);
+  font-size: 0.92rem;
+  font-weight: 750;
+  transition: background 0.18s ease, color 0.18s ease, transform 0.18s ease;
+}
+
+.hero-tab-active {
+  background: var(--text);
+  color: #111318;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.26);
+}
+
+.insight-strip {
+  border: 1px solid rgba(221, 255, 69, 0.18);
+  border-radius: 24px;
+  background: rgba(8, 15, 25, 0.84);
+  box-shadow: 0 18px 34px rgba(0, 0, 0, 0.24);
+  backdrop-filter: blur(18px);
+}
+
+.content-panel {
+  min-width: 0;
+  border: 1px solid rgba(255, 255, 255, 0.075);
+  border-radius: 32px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.048), rgba(255, 255, 255, 0.012)),
+    rgba(22, 24, 28, 0.94);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04), 0 24px 54px rgba(0, 0, 0, 0.22);
+}
+
+.home-screen {
+  min-width: 0;
+  max-width: 58rem;
+  margin: 0 auto;
+  padding-top: 1.25rem;
+}
+
+.home-profile-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 2rem;
+}
+
+.home-avatar {
+  display: grid;
+  width: 4.25rem;
+  height: 4.25rem;
+  place-items: center;
+  border-radius: 999px;
+  background: var(--accent);
+  color: #101214;
+  font-size: 2rem;
+  font-weight: 850;
+  box-shadow: 0 0 0 1px rgba(221, 255, 69, 0.45), 0 0 28px rgba(221, 255, 69, 0.34);
+}
+
+.home-glass-icon {
+  display: grid;
+  width: 3.8rem;
+  height: 3.8rem;
+  place-items: center;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 1.45rem;
+  background: rgba(255, 255, 255, 0.045);
+  color: white;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 16px 36px rgba(0, 0, 0, 0.32);
+  backdrop-filter: blur(18px);
+}
+
+.home-balance-card {
+  position: relative;
+  overflow: hidden;
+  min-height: 17.5rem;
+  border: 1px solid rgba(221, 255, 69, 0.46);
+  border-radius: 2.2rem;
+  background:
+    radial-gradient(circle at 78% 62%, rgba(221, 255, 69, 0.2), transparent 20rem),
+    linear-gradient(120deg, rgba(255, 255, 255, 0.035), rgba(255, 255, 255, 0.01)),
+    #101316;
+  padding: 3rem 3.2rem;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.05),
+    0 0 0 1px rgba(221, 255, 69, 0.06),
+    0 0 42px rgba(221, 255, 69, 0.08);
+}
+
+.home-balance-card::after {
+  content: "";
+  position: absolute;
+  inset: auto 0 0 3.8rem;
+  width: 6rem;
+  height: 0.35rem;
+  border-radius: 999px;
+  background: var(--accent);
+  box-shadow: 0 0 24px rgba(221, 255, 69, 0.55);
+}
+
+.home-wire-globe {
+  position: absolute;
+  right: -9rem;
+  bottom: -11rem;
+  width: 28rem;
+  height: 28rem;
+  border-radius: 50%;
+  opacity: 0.78;
+  background:
+    repeating-radial-gradient(circle at 50% 50%, rgba(221, 255, 69, 0.16) 0 1px, transparent 1px 2rem),
+    repeating-linear-gradient(104deg, rgba(221, 255, 69, 0.12) 0 1px, transparent 1px 1.55rem),
+    repeating-linear-gradient(14deg, rgba(221, 255, 69, 0.08) 0 1px, transparent 1px 1.8rem);
+  mask-image: radial-gradient(circle, black 0 57%, transparent 68%);
+  -webkit-mask-image: radial-gradient(circle, black 0 57%, transparent 68%);
+  filter: drop-shadow(0 0 22px rgba(221, 255, 69, 0.32));
+  transform: rotate(-18deg);
+}
+
+.home-overview-pill,
+.home-trend-button,
+.home-action-icon {
+  display: inline-grid;
+  place-items: center;
+  border: 1px solid rgba(255, 255, 255, 0.13);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.055), rgba(255, 255, 255, 0.01)),
+    rgba(17, 19, 21, 0.82);
+  color: var(--accent);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.055), 0 16px 32px rgba(0, 0, 0, 0.28);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+}
+
+.home-overview-pill {
+  grid-auto-flow: column;
+  gap: 0.55rem;
+  min-height: 3.35rem;
+  border-radius: 999px;
+  padding: 0 1.45rem;
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+
+.home-trend-button {
+  width: 4.75rem;
+  height: 4.75rem;
+  border-radius: 1.55rem;
+  border-color: rgba(221, 255, 69, 0.32);
+}
+
+.home-action-pill {
+  position: relative;
+  z-index: 2;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0;
+  margin-top: 1.25rem;
+  margin-bottom: 2.4rem;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 2rem;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.055), rgba(255, 255, 255, 0.018)),
+    rgba(20, 22, 25, 0.82);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 22px 48px rgba(0, 0, 0, 0.26);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+}
+
+.home-action-button {
+  position: relative;
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  min-height: 7rem;
+  color: white;
+  font-size: 1rem;
+  font-weight: 560;
+  transition: background 0.18s ease, color 0.18s ease;
+}
+
+.home-action-button i {
+  position: absolute;
+  right: 0;
+  top: 26%;
+  width: 1px;
+  height: 48%;
+  background: rgba(255, 255, 255, 0.13);
+}
+
+.home-action-icon {
+  width: 3.45rem;
+  height: 3.45rem;
+  border-radius: 1.25rem;
+}
+
+.home-action-button:hover .home-action-icon {
+  border-color: rgba(221, 255, 69, 0.42);
+  background:
+    linear-gradient(180deg, rgba(221, 255, 69, 0.18), rgba(221, 255, 69, 0.065)),
+    rgba(17, 19, 21, 0.9);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 0 22px rgba(221, 255, 69, 0.22);
+}
+
+.home-accounts-section {
+  padding: 0 0.6rem 1.3rem;
+}
+
+.home-account-list {
+  display: grid;
+  gap: 0.8rem;
+}
+
+.home-account-card {
+  position: relative;
+  display: flex;
+  min-height: 9.6rem;
+  width: 100%;
+  min-width: 0;
+  align-items: center;
+  gap: 1.65rem;
+  overflow: hidden;
+  border: 1px solid currentColor;
+  border-radius: 0.65rem;
+  background:
+    radial-gradient(circle at 86% 50%, color-mix(in srgb, currentColor 16%, transparent), transparent 18rem),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.035), rgba(255, 255, 255, 0.012)),
+    rgba(15, 17, 20, 0.96);
+  padding: 1.55rem 1.8rem 1.55rem 2.25rem;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04), 0 18px 36px rgba(0, 0, 0, 0.22);
+}
+
+.home-card-line {
+  position: absolute;
+  left: 0;
+  top: 14%;
+  bottom: 14%;
+  width: 0.28rem;
+  border-radius: 0 999px 999px 0;
+  background: currentColor;
+  box-shadow: 0 0 22px currentColor;
+}
+
+.home-card-pattern {
+  position: absolute;
+  inset: 0 0 0 auto;
+  width: 45%;
+  opacity: 0.22;
+  background:
+    repeating-radial-gradient(circle at 78% 50%, currentColor 0 1px, transparent 1px 2.05rem),
+    repeating-linear-gradient(132deg, currentColor 0 1px, transparent 1px 1.35rem);
+  mask-image: linear-gradient(90deg, transparent, black);
+  -webkit-mask-image: linear-gradient(90deg, transparent, black);
+}
+
+.home-logo-box {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  width: 6.4rem;
+  height: 6.4rem;
+  flex: 0 0 auto;
+  place-items: center;
+  border: 1px solid color-mix(in srgb, currentColor 50%, white 12%);
+  border-radius: 999px;
+  background: color-mix(in srgb, currentColor 14%, transparent);
+  color: currentColor;
+  font-size: 1.45rem;
+  font-weight: 850;
+  letter-spacing: -0.03em;
+  box-shadow: inset 0 1px 18px color-mix(in srgb, currentColor 18%, transparent);
+}
+
+.home-account-card > :not(.home-card-pattern, .home-card-line) {
+  position: relative;
+  z-index: 1;
+}
+
+.home-account-cash {
+  color: #ddff45;
+}
+
+.home-account-hbl {
+  color: #35e7cc;
+}
+
+.home-account-meezan {
+  color: #b46cff;
+}
+
+.home-account-jazzcash {
+  color: #ff9f2f;
+}
+
+.home-account-easypaisa {
+  color: #39dced;
+}
+
+.home-account-default {
+  color: var(--accent);
+}
+
+.home-balance-card {
+  position: relative;
+  min-height: 17rem;
+  overflow: hidden;
+  border: 1px solid rgba(221, 255, 69, 0.34);
+  border-radius: 2rem;
+  background:
+    radial-gradient(circle at 82% 50%, rgba(221, 255, 69, 0.14), transparent 32%),
+    linear-gradient(135deg, rgba(27, 32, 31, 0.95), rgba(5, 8, 12, 0.98) 56%, rgba(17, 22, 18, 0.95));
+  padding: 3rem 3.1rem;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 0 32px rgba(221, 255, 69, 0.08), 0 28px 62px rgba(0, 0, 0, 0.28);
+}
+
+.home-balance-card::after {
+  content: "";
+  position: absolute;
+  bottom: -1px;
+  left: 3.6rem;
+  width: 5.2rem;
+  height: 0.35rem;
+  border-radius: 999px 999px 0 0;
+  background: var(--accent);
+  box-shadow: 0 0 24px rgba(221, 255, 69, 0.65);
+}
+
+.home-wire-globe {
+  position: absolute;
+  top: -4.5rem;
+  right: -5.6rem;
+  width: 28rem;
+  height: 25rem;
+  border-radius: 50%;
+  opacity: 0.68;
+  background:
+    repeating-radial-gradient(ellipse at 55% 55%, transparent 0 1.55rem, rgba(221, 255, 69, 0.15) 1.6rem 1.68rem),
+    repeating-linear-gradient(104deg, transparent 0 1.1rem, rgba(221, 255, 69, 0.12) 1.14rem 1.2rem),
+    radial-gradient(circle at 25% 56%, rgba(221, 255, 69, 0.42), transparent 29%);
+  filter: blur(0.1px);
+  mask-image: radial-gradient(circle at 36% 58%, black 0 54%, transparent 76%);
+  pointer-events: none;
+}
+
+.home-overview-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  min-height: 3.35rem;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.035);
+  padding: 0 1.45rem;
+  color: var(--accent);
+  font-size: 1.08rem;
+  font-weight: 650;
+  backdrop-filter: blur(14px);
+}
+
+.home-trend-button {
+  display: grid;
+  width: 4.3rem;
+  height: 4.3rem;
+  place-items: center;
+  border: 1px solid rgba(221, 255, 69, 0.32);
+  border-radius: 1.35rem;
+  background: rgba(255, 255, 255, 0.045);
+  color: var(--accent);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07), 0 0 22px rgba(221, 255, 69, 0.09);
+  backdrop-filter: blur(16px);
+}
+
+.home-action-pill {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  align-items: center;
+  margin-top: 1.05rem;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 2rem;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.055), rgba(255, 255, 255, 0.012)),
+    rgba(14, 17, 21, 0.9);
+  padding: 1.45rem 1.2rem;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 24px 58px rgba(0, 0, 0, 0.28);
+  backdrop-filter: blur(20px);
+}
+
+.home-action-button {
+  position: relative;
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: center;
+  gap: 0.9rem;
+  color: white;
+  font-size: 1rem;
+  font-weight: 580;
+}
+
+.home-action-button i {
+  position: absolute;
+  top: 50%;
+  right: 0;
+  width: 1px;
+  height: 2.9rem;
+  transform: translateY(-50%);
+  background: rgba(255, 255, 255, 0.11);
+}
+
+.home-action-icon {
+  display: grid;
+  width: 3.35rem;
+  height: 3.35rem;
+  place-items: center;
+  border: 1px solid rgba(221, 255, 69, 0.16);
+  border-radius: 999px;
+  background: rgba(221, 255, 69, 0.045);
+  color: var(--accent);
+}
+
+.home-accounts-section {
+  margin-top: 2.35rem;
+}
+
+.home-account-list {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.home-account-card {
+  --home-accent: var(--accent);
+  position: relative;
+  display: flex;
+  min-height: 8.65rem;
+  align-items: center;
+  gap: 1.55rem;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--home-accent) 52%, transparent);
+  border-radius: 0.62rem;
+  background:
+    radial-gradient(circle at 83% 50%, color-mix(in srgb, var(--home-accent) 16%, transparent), transparent 38%),
+    linear-gradient(110deg, color-mix(in srgb, var(--home-accent) 16%, transparent), rgba(12, 15, 20, 0.97) 46%, rgba(8, 10, 14, 0.98));
+  padding: 1.45rem 1.6rem 1.45rem 2.65rem;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.055), 0 17px 36px rgba(0, 0, 0, 0.22);
+}
+
+.home-account-cash {
+  --home-accent: #ddff45;
+}
+
+.home-account-hbl {
+  --home-accent: #35e7cc;
+}
+
+.home-account-meezan {
+  --home-accent: #b46cff;
+}
+
+.home-account-jazzcash {
+  --home-accent: #ff9f2f;
+}
+
+.home-account-easypaisa {
+  --home-accent: #39dced;
+}
+
+.home-account-default {
+  --home-accent: var(--accent);
+}
+
+.home-card-line {
+  position: absolute;
+  top: 1.35rem;
+  bottom: 1.35rem;
+  left: 0;
+  width: 0.22rem;
+  border-radius: 0 999px 999px 0;
+  background: var(--home-accent);
+  box-shadow: 0 0 22px color-mix(in srgb, var(--home-accent) 70%, transparent);
+}
+
+.home-logo-box {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  width: 5.4rem;
+  height: 5.4rem;
+  flex: 0 0 auto;
+  place-items: center;
+  border: 1px solid color-mix(in srgb, var(--home-accent) 52%, rgba(255, 255, 255, 0.12));
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--home-accent) 15%, rgba(255, 255, 255, 0.05));
+  color: var(--home-accent);
+  font-size: 1.4rem;
+  font-weight: 850;
+  letter-spacing: -0.04em;
+  box-shadow: inset 0 0 26px color-mix(in srgb, var(--home-accent) 13%, transparent);
+}
+
+.home-card-pattern {
+  position: absolute;
+  inset: 0;
+  opacity: 0.42;
+  background:
+    repeating-radial-gradient(circle at 82% 52%, transparent 0 2.9rem, color-mix(in srgb, var(--home-accent) 16%, transparent) 2.95rem 3rem),
+    repeating-linear-gradient(130deg, transparent 0 0.72rem, color-mix(in srgb, var(--home-accent) 12%, transparent) 0.74rem 0.78rem);
+  mask-image: linear-gradient(90deg, transparent 0 42%, black 70%, transparent 100%);
+  pointer-events: none;
+}
+
+.home-account-card > *:not(.home-card-pattern):not(.home-card-line) {
+  position: relative;
+  z-index: 1;
+}
+
+@media (max-width: 640px) {
+  .home-screen {
+    padding-top: 0.25rem;
+  }
+
+  .home-profile-row {
+    margin-bottom: 1.4rem;
+  }
+
+  .home-avatar {
+    width: 3.75rem;
+    height: 3.75rem;
+    font-size: 1.75rem;
+  }
+
+  .home-glass-icon {
+    width: 3.35rem;
+    height: 3.35rem;
+    border-radius: 1.25rem;
+  }
+
+  .home-balance-card {
+    min-height: 15.8rem;
+    border-radius: 1.65rem;
+    padding: 2.35rem 1.8rem;
+  }
+
+  .home-wire-globe {
+    top: -2.2rem;
+    right: -9.5rem;
+    width: 24rem;
+    height: 22rem;
+  }
+
+  .home-action-pill {
+    border-radius: 1.8rem;
+    padding: 1.1rem 0.45rem;
+  }
+
+  .home-action-button {
+    flex-direction: column;
+    gap: 0.42rem;
+    font-size: 0.78rem;
+  }
+
+  .home-action-button i {
+    height: 2.6rem;
+  }
+
+  .home-action-icon {
+    width: 2.7rem;
+    height: 2.7rem;
+  }
+
+  .home-account-card {
+    min-height: 7.8rem;
+    gap: 1rem;
+    border-radius: 0.58rem;
+    padding: 1.15rem 1rem 1.15rem 1.45rem;
+  }
+
+  .home-logo-box {
+    width: 4.35rem;
+    height: 4.35rem;
+    font-size: 1rem;
+  }
 }
 
 @media (hover: hover) {
@@ -105,7 +735,9 @@ select option {
 }
 
 .nav-button-active {
-  background: var(--surface-2);
+  background:
+    linear-gradient(135deg, rgba(221, 255, 69, 0.14), rgba(255, 255, 255, 0.045)),
+    var(--surface-2);
   color: var(--text);
   box-shadow: inset 3px 0 0 var(--accent);
 }
@@ -114,7 +746,7 @@ select option {
   display: inline-flex;
   align-items: center;
   gap: 9px;
-  border-radius: 16px;
+  border-radius: 999px;
   background: var(--accent);
   padding: 12px 16px;
   font-weight: 750;
@@ -131,7 +763,8 @@ select option {
   width: 42px;
   height: 42px;
   place-items: center;
-  border-radius: 15px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
   background: var(--surface-2);
   color: var(--text);
 }
@@ -147,7 +780,7 @@ select option {
   width: 100%;
   min-height: 46px;
   border: 1px solid var(--border);
-  border-radius: 16px;
+  border-radius: 18px;
   background: var(--surface-2);
   padding: 12px 14px;
   color: var(--text);
@@ -162,6 +795,7 @@ select option {
 .chip {
   flex-shrink: 0;
   border-radius: 999px;
+  border: 1px solid var(--border);
   background: var(--surface-2);
   padding: 9px 13px;
   color: var(--muted);
@@ -190,7 +824,7 @@ select option {
 .section-title h3 {
   margin-top: 3px;
   color: var(--text);
-  font-size: 17px;
+  font-size: 18px;
   font-weight: 700;
 }
 
@@ -235,20 +869,201 @@ select option {
 
 .type-badge.transfer,
 .type-badge.goal,
-.type-badge.debt {
+.type-badge.debt,
+.type-badge.goal_saving,
+.type-badge.debt_payment {
   background: rgba(174, 183, 197, 0.13);
   color: var(--info);
 }
 
 .transaction-row {
-  padding: 14px;
+  padding: 12px;
+}
+
+.transaction-filter-card {
+  border: 1px solid rgba(255, 255, 255, 0.085);
+  border-radius: 28px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.052), rgba(255, 255, 255, 0.014)),
+    rgba(22, 24, 28, 0.94);
+  padding: 20px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.045), 0 22px 50px rgba(0, 0, 0, 0.24);
+  backdrop-filter: blur(18px);
+}
+
+.transaction-filter-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 54px;
+  gap: 13px;
+  align-items: center;
+}
+
+.transaction-search-field,
+.transaction-select-wrap:nth-of-type(2),
+.transaction-select-wrap:nth-of-type(3) {
+  grid-column: 1 / -1;
+}
+
+.transaction-search-field {
+  position: relative;
+  display: block;
+  min-width: 0;
+}
+
+.transaction-search-icon {
+  position: absolute;
+  left: 18px;
+  top: 50%;
+  color: var(--muted-2);
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+
+.transaction-search-input {
+  width: 100%;
+  min-height: 58px;
+  border: 1px solid rgba(255, 255, 255, 0.095);
+  border-radius: 22px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.035), rgba(255, 255, 255, 0.008)),
+    var(--surface-2);
+  padding: 16px 18px 16px 52px;
+  color: var(--text);
+  font-size: 15px;
+  line-height: 1.35;
+  outline: none;
+  transition: border-color 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
+}
+
+.transaction-search-input::placeholder {
+  color: var(--muted-2);
+}
+
+.transaction-search-input:focus {
+  border-color: rgba(221, 255, 69, 0.52);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.012)),
+    var(--surface-2);
+  box-shadow: 0 0 0 4px rgba(221, 255, 69, 0.075);
+}
+
+.transaction-select-wrap {
+  position: relative;
+  display: block;
+  min-width: 0;
+}
+
+.transaction-select-wrap::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  right: 18px;
+  width: 0.58rem;
+  height: 0.58rem;
+  border-right: 2px solid var(--muted);
+  border-bottom: 2px solid var(--muted);
+  transform: translateY(-64%) rotate(45deg);
+  pointer-events: none;
+}
+
+.transaction-select-wrap select {
+  width: 100%;
+  min-height: 52px;
+  appearance: none;
+  border: 1px solid rgba(255, 255, 255, 0.095);
+  border-radius: 20px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.035), rgba(255, 255, 255, 0.008)),
+    var(--surface-2);
+  padding: 14px 44px 14px 16px;
+  color: var(--text);
+  font-size: 14px;
+  line-height: 1.35;
+  outline: none;
+  transition: border-color 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
+}
+
+.transaction-select-wrap select:focus {
+  border-color: rgba(221, 255, 69, 0.46);
+  box-shadow: 0 0 0 4px rgba(221, 255, 69, 0.07);
+}
+
+.transaction-filter-button {
+  display: grid;
+  width: 54px;
+  height: 54px;
+  place-items: center;
+  border: 1px solid rgba(255, 255, 255, 0.105);
+  border-radius: 18px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.01)),
+    var(--surface-2);
+  color: var(--muted);
+  transition: border-color 0.18s ease, color 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
+}
+
+.transaction-filter-button:hover,
+.transaction-filter-button:focus-visible {
+  border-color: rgba(221, 255, 69, 0.38);
+  color: var(--accent);
+  box-shadow: 0 0 0 4px rgba(221, 255, 69, 0.07);
+  outline: none;
+}
+
+.transaction-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.transaction-chip {
+  min-height: 42px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
+  background: var(--surface-2);
+  padding: 10px 15px;
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 650;
+  line-height: 1;
+  transition: border-color 0.18s ease, color 0.18s ease, background 0.18s ease;
+}
+
+.transaction-chip:hover {
+  border-color: rgba(221, 255, 69, 0.18);
+  color: var(--text);
+}
+
+.transaction-chip-active {
+  border-color: rgba(221, 255, 69, 0.46);
+  background: var(--accent);
+  color: #151719;
+}
+
+@media (min-width: 768px) {
+  .transaction-filter-card {
+    padding: 22px;
+  }
+
+  .transaction-filter-grid {
+    grid-template-columns: minmax(15rem, 1.55fr) minmax(8.5rem, 0.9fr) minmax(10rem, 1fr) minmax(8.5rem, 0.9fr) 54px;
+  }
+
+  .transaction-search-field,
+  .transaction-select-wrap:nth-of-type(2),
+  .transaction-select-wrap:nth-of-type(3) {
+    grid-column: auto;
+  }
 }
 
 .quick-action {
   min-width: 0;
   border: 1px solid var(--border);
-  border-radius: 20px;
-  background: var(--surface-2);
+  border-radius: 22px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.055), transparent 52%),
+    var(--surface-2);
   padding: 12px;
   color: var(--text);
   transition: transform 0.18s ease, border-color 0.18s ease, background 0.18s ease;
@@ -262,6 +1077,256 @@ select option {
 .quick-action-primary {
   background: var(--accent);
   color: #171910;
+}
+
+.action-orb {
+  display: grid;
+  width: 3.25rem;
+  height: 3.25rem;
+  place-items: center;
+  border: 1px solid rgba(221, 255, 69, 0.18);
+  border-radius: 20px;
+  background:
+    linear-gradient(180deg, rgba(221, 255, 69, 0.14), transparent),
+    var(--surface-2);
+  color: var(--accent);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+.premium-row {
+  border: 1px solid rgba(255, 255, 255, 0.065);
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.035);
+  transition: border-color 0.18s ease, background 0.18s ease, transform 0.18s ease;
+}
+
+.premium-row:hover {
+  border-color: rgba(221, 255, 69, 0.16);
+  background: rgba(255, 255, 255, 0.055);
+}
+
+.upcoming-expense-card {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid rgba(221, 255, 69, 0.14);
+  border-radius: 26px;
+  background:
+    radial-gradient(circle at 92% 0%, rgba(221, 255, 69, 0.11), transparent 14rem),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.012)),
+    var(--surface);
+  padding: 18px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.045), 0 22px 48px rgba(0, 0, 0, 0.24);
+}
+
+.upcoming-expense-card::after {
+  content: "";
+  position: absolute;
+  inset: auto -3rem -5rem auto;
+  width: 14rem;
+  height: 14rem;
+  border: 1.7rem solid rgba(255, 255, 255, 0.035);
+  border-radius: 999px;
+  pointer-events: none;
+}
+
+.upcoming-expense-due_soon {
+  border-color: rgba(221, 255, 69, 0.28);
+  background:
+    radial-gradient(circle at 92% 0%, rgba(221, 255, 69, 0.16), transparent 15rem),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.048), rgba(255, 255, 255, 0.012)),
+    var(--surface);
+}
+
+.upcoming-expense-overdue {
+  border-color: rgba(233, 141, 103, 0.32);
+  background:
+    radial-gradient(circle at 92% 0%, rgba(233, 141, 103, 0.15), transparent 15rem),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.048), rgba(255, 255, 255, 0.012)),
+    var(--surface);
+}
+
+.upcoming-expense-paid {
+  border-color: rgba(139, 226, 143, 0.16);
+  opacity: 0.78;
+}
+
+.goal-debt-card {
+  min-height: 15.25rem;
+}
+
+.goals-overview-card {
+  --overview-accent: var(--accent);
+  position: relative;
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--overview-accent) 24%, rgba(255, 255, 255, 0.1));
+  border-radius: 24px;
+  background:
+    radial-gradient(circle at 92% 0%, color-mix(in srgb, var(--overview-accent) 16%, transparent), transparent 9rem),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.052), rgba(255, 255, 255, 0.014)),
+    rgba(24, 26, 30, 0.95);
+  padding: 18px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.055), 0 18px 40px rgba(0, 0, 0, 0.22);
+}
+
+.goals-overview-card::after {
+  content: "";
+  position: absolute;
+  right: -3.6rem;
+  bottom: -4.4rem;
+  width: 10rem;
+  height: 10rem;
+  border: 1.25rem solid color-mix(in srgb, var(--overview-accent) 10%, transparent);
+  border-radius: 999px;
+  pointer-events: none;
+}
+
+.goals-overview-icon {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  width: 2.85rem;
+  height: 2.85rem;
+  flex: 0 0 auto;
+  place-items: center;
+  border: 1px solid color-mix(in srgb, var(--overview-accent) 34%, rgba(255, 255, 255, 0.1));
+  border-radius: 1rem;
+  background: color-mix(in srgb, var(--overview-accent) 9%, rgba(255, 255, 255, 0.04));
+  color: var(--overview-accent);
+  box-shadow: 0 0 20px color-mix(in srgb, var(--overview-accent) 14%, transparent);
+}
+
+.goals-overview-lime {
+  --overview-accent: #ddff45;
+}
+
+.goals-overview-orange {
+  --overview-accent: #e98d67;
+}
+
+.goals-overview-cyan {
+  --overview-accent: #39dced;
+}
+
+.goals-overview-purple {
+  --overview-accent: #b46cff;
+}
+
+.upcoming-status-badge {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 0.32rem 0.62rem;
+  font-size: 0.72rem;
+  font-weight: 750;
+  line-height: 1;
+}
+
+.upcoming-status-upcoming {
+  border: 1px solid rgba(174, 183, 197, 0.18);
+  background: rgba(174, 183, 197, 0.1);
+  color: var(--info);
+}
+
+.upcoming-status-due_soon {
+  border: 1px solid rgba(221, 255, 69, 0.25);
+  background: rgba(221, 255, 69, 0.1);
+  color: var(--accent);
+}
+
+.upcoming-status-overdue {
+  border: 1px solid rgba(233, 141, 103, 0.26);
+  background: rgba(233, 141, 103, 0.1);
+  color: var(--negative);
+}
+
+.upcoming-status-paid {
+  border: 1px solid rgba(139, 226, 143, 0.24);
+  background: rgba(139, 226, 143, 0.1);
+  color: var(--positive);
+}
+
+.account-card {
+  position: relative;
+  min-height: 12.25rem;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 28px;
+  padding: 1.25rem;
+  box-shadow: 0 24px 42px rgba(0, 0, 0, 0.28);
+  transition: transform 0.18s ease, box-shadow 0.18s ease;
+}
+
+.account-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 30px 54px rgba(0, 0, 0, 0.34);
+}
+
+.account-card::before {
+  content: "";
+  position: absolute;
+  inset: auto -2.8rem -4rem auto;
+  width: 12rem;
+  height: 12rem;
+  border: 2.15rem solid rgba(255, 255, 255, 0.07);
+  border-radius: 999px;
+}
+
+.account-card::after {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  background: linear-gradient(120deg, rgba(255, 255, 255, 0.12), transparent 34%, rgba(0, 0, 0, 0.1));
+  pointer-events: none;
+}
+
+.account-stack {
+  display: grid;
+  gap: 0;
+  padding-bottom: 0.5rem;
+}
+
+.account-card-stacked {
+  min-height: 11.5rem;
+  transform-origin: center top;
+}
+
+.account-card-stacked + .account-card-stacked {
+  margin-top: -4.8rem;
+}
+
+.account-card-stacked:nth-child(1) {
+  z-index: 5;
+}
+
+.account-card-stacked:nth-child(2) {
+  z-index: 4;
+  transform: translateY(0.2rem) scale(0.982);
+}
+
+.account-card-stacked:nth-child(3) {
+  z-index: 3;
+  transform: translateY(0.4rem) scale(0.964);
+}
+
+.account-card-stacked:nth-child(4) {
+  z-index: 2;
+  transform: translateY(0.6rem) scale(0.946);
+}
+
+.account-card-stacked:nth-child(n + 5) {
+  z-index: 1;
+  transform: translateY(0.8rem) scale(0.928);
+}
+
+@media (min-width: 768px) {
+  .account-stack {
+    max-width: 32rem;
+  }
+
+  .account-card-stacked + .account-card-stacked {
+    margin-top: -4.35rem;
+  }
 }
 
 .amount-positive {

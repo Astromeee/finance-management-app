@@ -18,8 +18,8 @@ export function ProgressCard({ title, current, total, label, status, dueDate, wa
   return (
     <article className="card">
       <div className="flex items-start justify-between gap-4">
-        <div>
-          <p className="text-xs text-[var(--muted)] sm:text-sm">{label}</p>
+        <div className="min-w-0">
+          <p className="text-xs font-semibold uppercase text-[var(--muted)] sm:text-sm">{label}</p>
           <h3 className="mt-1 text-base font-semibold text-white sm:text-lg">{title}</h3>
         </div>
         {status && (
@@ -28,8 +28,8 @@ export function ProgressCard({ title, current, total, label, status, dueDate, wa
           </span>
         )}
       </div>
-      <div className="mt-4 h-2 overflow-hidden rounded-full bg-[var(--surface-3)] sm:mt-5">
-        <div className={cn('h-full rounded-full', warning ? 'bg-[var(--negative)]' : 'bg-[var(--accent)]')} style={{ width: `${progress}%` }} />
+      <div className="mt-4 h-2.5 overflow-hidden rounded-full bg-[var(--surface-3)] shadow-inner shadow-black/20 sm:mt-5">
+        <div className={cn('h-full rounded-full shadow-[0_0_18px_currentColor]', warning ? 'bg-[var(--negative)] text-[var(--negative)]' : 'bg-[var(--accent)] text-[var(--accent)]')} style={{ width: `${progress}%` }} />
       </div>
       <div className="mt-3 flex items-end justify-between gap-3 sm:mt-4">
         <div>

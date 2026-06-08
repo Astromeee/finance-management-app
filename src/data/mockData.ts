@@ -1,11 +1,11 @@
-import type { Account, Budget, Category, Debt, Goal, Transaction } from '../types/finance'
+import type { Account, Budget, Category, Debt, Goal, Transaction, UpcomingExpense } from '../types/finance'
 
 export const accounts: Account[] = [
-  { id: 'cash', name: 'Cash', type: 'cash', balance: 8500, color: '#34d399', activity: 'Groceries, transport, and daily cash' },
-  { id: 'hbl', name: 'HBL Account', type: 'bank', balance: 45000, color: '#60a5fa', activity: 'Parents support received' },
-  { id: 'meezan', name: 'Meezan Bank', type: 'bank', balance: 22000, color: '#a78bfa', activity: 'Course fee reserved' },
-  { id: 'jazzcash', name: 'JazzCash', type: 'wallet', balance: 6000, color: '#f97316', activity: 'Mobile package paid' },
-  { id: 'easypaisa', name: 'Easypaisa', type: 'wallet', balance: 3500, color: '#22d3ee', activity: 'Dining split settled' },
+  { id: 'cash', name: 'Cash', type: 'cash', balance: 8500, color: '#c9b38f', activity: 'Groceries, transport, and daily cash', cardLabel: 'CASH' },
+  { id: 'hbl', name: 'HBL Account', type: 'bank', balance: 45000, color: '#1d2026', activity: 'Parents support received', cardLabel: 'HBL' },
+  { id: 'meezan', name: 'Meezan Bank', type: 'bank', balance: 22000, color: '#1f4938', activity: 'Course fee reserved', cardLabel: 'MEEZ' },
+  { id: 'jazzcash', name: 'JazzCash', type: 'wallet', balance: 6000, color: '#c57b45', activity: 'Mobile package paid', cardLabel: 'JAZZ' },
+  { id: 'easypaisa', name: 'Easypaisa', type: 'wallet', balance: 3500, color: '#2e8f93', activity: 'Dining split settled', cardLabel: 'EASYP' },
 ]
 
 export const incomeSources: Category[] = [
@@ -39,6 +39,60 @@ export const debts: Debt[] = [
   { id: 'd1', name: 'Laptop Installment', total: 100000, paid: 35000, dueDate: '2026-09-30', status: 'Active' },
   { id: 'd2', name: 'Pending Course Fee', total: 50000, paid: 20000, dueDate: '2026-07-15', status: 'Active' },
   { id: 'd3', name: 'Borrowed from Sibling', total: 25000, paid: 10000, dueDate: '2026-06-10', status: 'Overdue' },
+]
+
+export const upcomingExpenses: UpcomingExpense[] = [
+  {
+    id: 'ue1',
+    title: 'Apartment Rent',
+    amount: 30000,
+    category: 'Apartment Rent',
+    dueDate: '2026-06-25',
+    linkedAccountId: 'hbl',
+    notes: 'Monthly rent planned payment.',
+    status: 'upcoming',
+    isRecurring: true,
+    recurringFrequency: 'monthly',
+    repeatStartDate: '2026-06-25',
+    reminderDaysBefore: 3,
+    createdAt: '2026-06-01T09:00:00.000Z',
+  },
+  {
+    id: 'ue2',
+    title: 'Internet Bill',
+    amount: 4500,
+    category: 'Internet Bill',
+    dueDate: '2026-06-12',
+    linkedAccountId: 'jazzcash',
+    status: 'upcoming',
+    isRecurring: true,
+    recurringFrequency: 'monthly',
+    repeatStartDate: '2026-06-12',
+    reminderDaysBefore: 2,
+    createdAt: '2026-06-01T09:05:00.000Z',
+  },
+  {
+    id: 'ue3',
+    title: 'University Fee',
+    amount: 8500,
+    category: 'University Fee',
+    dueDate: '2026-06-10',
+    linkedAccountId: 'meezan',
+    status: 'upcoming',
+    isRecurring: false,
+    createdAt: '2026-06-01T09:10:00.000Z',
+  },
+  {
+    id: 'ue4',
+    title: 'Mobile Package',
+    amount: 3000,
+    category: 'Mobile Package',
+    dueDate: '2026-06-04',
+    linkedAccountId: 'easypaisa',
+    status: 'overdue',
+    isRecurring: false,
+    createdAt: '2026-06-01T09:15:00.000Z',
+  },
 ]
 
 export const budgets: Budget[] = [

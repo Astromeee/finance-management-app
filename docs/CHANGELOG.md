@@ -1,5 +1,15 @@
 # Changelog
 
+## Version 0.6.0
+
+- Added Upcoming Expenses section with recurring planned expenses, due-date tracking, and mark-as-paid conversion into real expense transactions.
+
+## Version 0.5.0
+
+- Functional actions: added working income, expense, transfer, and goal flows with separate animated bottom-sheet modals and shared local finance state.
+- Added working debt payment flow, local toast feedback, and live account/transaction/budget/goal/debt updates across Dashboard, Accounts, Transactions, Reports, Budgets, and Goals.
+- Replaced the generic mock add-transaction flow with action-specific local-state mutations.
+
 ## Version 0.4.0
 
 - Accounts redesign: introduced premium wallet-card style account cards, icon-only mobile bottom navigation, professional headers, and manual balance adjustment logic with unexplained income/expense entries.

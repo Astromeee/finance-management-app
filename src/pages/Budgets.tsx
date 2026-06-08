@@ -1,9 +1,9 @@
 import { WalletCards } from 'lucide-react'
-import { budgets } from '../data/mockData'
 import { ProgressCard } from '../components/cards/ProgressCard'
 import { budgetUsage, formatPKR } from '../utils/financeCalculations'
+import type { Budget } from '../types/finance'
 
-export function Budgets() {
+export function Budgets({ budgets }: { budgets: Budget[] }) {
   const totalBudget = budgets.reduce((sum, budget) => sum + budget.amount, 0)
   const totalUsed = budgets.reduce((sum, budget) => sum + budget.used, 0)
   const nearLimit = budgets.filter((budget) => budgetUsage(budget) >= 80).length

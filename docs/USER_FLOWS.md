@@ -2,15 +2,15 @@
 
 ## Add Income
 
-Tap the floating plus button on mobile or Quick add on desktop, choose Income, enter amount, choose source, choose receiving account, add date and notes, then save.
+Tap the Income quick action, enter amount, choose source, choose receiving account, add date and notes, then save. The selected account balance increases and the transaction appears at the top of Transactions.
 
 ## Add Expense
 
-Tap the floating plus button on mobile or Quick add on desktop, choose Expense, enter amount, select category, choose paid-from account and payment method, add date and notes, then save.
+Tap the Home plus button, desktop Quick add, or Expense quick action. Enter amount, select category, choose paid-from account and payment method, add date and notes, then save. The selected account balance decreases. If the amount is larger than the balance, the modal warns that the balance will go negative.
 
 ## Transfer Money
 
-Choose Transfer, enter amount, select from account and to account, add date and notes, then save. Transfers update account balances but do not affect income or expenses.
+Tap the Transfer quick action, enter amount, select from account and to account, add date and notes, then save. Transfers update both account balances but do not affect income or expenses. Transfers are blocked when the selected from-account has insufficient balance.
 
 ## Adjust Account Balance
 
@@ -18,7 +18,7 @@ Open Accounts, choose Adjust on an account card, enter the actual balance, date,
 
 ## Add Savings Goal
 
-Create a goal with name, target amount, saved amount, optional due date, and status. Track progress on Goals & Debts and Reports.
+Tap the Goal quick action or Add goal on Goals & Debts. Enter goal name, target amount, initial saved amount, optional linked account, deadline, and notes. Track progress on Goals & Debts and Reports.
 
 ## Add Debt
 
@@ -26,7 +26,23 @@ Create a debt with name, total amount, paid amount, due date, and status. Overdu
 
 ## Pay Debt
 
-Choose Debt in the modal, select the debt, enter amount paid, choose paid-from account, add date and notes, and save.
+Tap Pay debt on Goals & Debts, select the debt, enter amount paid, choose paid-from account, add date and notes, and save. The account balance decreases, debt progress increases, and a debt payment transaction is added.
+
+## Add Upcoming Expense
+
+Open Goals & Debts, tap Add Upcoming Expense, enter title, amount, category, due date, optional linked account, and notes, then save. The item appears in Upcoming Expenses with a status badge. It does not reduce balances, increase monthly expenses, update budget used, or appear in Transactions until paid.
+
+## Add Recurring Upcoming Expense
+
+In Add Upcoming Expense, enable Recurring, choose frequency, repeat start date, optional repeat end date, and optional reminder days before due date. The current planned item appears like any other upcoming expense and shows a Recurring badge.
+
+## Mark Upcoming Expense As Paid
+
+Tap Mark as Paid on an upcoming expense. Confirm the paid-from account, payment date, and optional notes. The app creates a real expense transaction, decreases the selected account balance, updates matching budget usage, marks the planned expense Paid, and the item then counts in actual monthly expense totals and reports.
+
+## Auto-Create Next Recurring Expense
+
+When a recurring upcoming expense is marked paid, Pocket Ledger automatically creates the next unpaid planned expense using the selected frequency. If the next due date is beyond the optional repeat end date, no new item is created.
 
 ## Create Budget
 
@@ -42,4 +58,4 @@ Use the icon-only floating dock to switch between Home, Transactions, Accounts, 
 
 ## Dashboard Quick Actions
 
-Use the quick action row on the Dashboard hero for common actions: Income, Expense, Transfer, and Goal. These are currently visual shortcuts in the mock frontend and are ready to be wired to specific modal tabs later.
+Use the quick action row on the Dashboard for common actions. Income opens Add Income, Expense opens Add Expense, Transfer opens Transfer Money, and Goal opens Add Goal. Each action updates shared local state immediately.

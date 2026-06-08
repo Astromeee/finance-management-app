@@ -1,29 +1,54 @@
-import { ArrowRightLeft, Banknote, Building2, MoreHorizontal, PencilLine, Plus, Smartphone, X } from 'lucide-react'
+import { ArrowRightLeft, PencilLine, Plus, X } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { useMemo, useState, type Dispatch, type SetStateAction } from 'react'
+import { AccountPreviewCard } from '../components/cards/AccountPreviewCard'
 import type { Account, Transaction } from '../types/finance'
 import { formatPKR, totalBalance } from '../utils/financeCalculations'
 import { cn } from '../utils/ui'
 
-const iconMap = { cash: Banknote, bank: Building2, wallet: Smartphone }
+const cardColorOptions = [
+  { name: 'Red', value: '#c2413d' },
+  { name: 'Black', value: '#111317' },
+  { name: 'Silver', value: '#b9bec7' },
+  { name: 'Navy Blue', value: '#162a4a' },
+  { name: 'Green', value: '#1f4938' },
+  { name: 'Orange', value: '#c57b45' },
+  { name: 'Yellow', value: '#c9b431' },
+]
 
-const cardStyles: Record<string, { className: string; detail: string }> = {
-  cash: { className: 'bg-[#d8c7a3] text-[#181512]', detail: 'Daily cash' },
-  hbl: { className: 'bg-[#202125] text-white', detail: 'Main spending account' },
-  meezan: { className: 'bg-[#1f4938] text-[#f6f3ea]', detail: 'Savings bank' },
-  jazzcash: { className: 'bg-[#c57b45] text-[#17110d]', detail: 'Digital wallet' },
-  easypaisa: { className: 'bg-[#5e9da0] text-[#101718]', detail: 'PKR wallet' },
+function normalizeHex(value: string) {
+  const cleaned = value.trim().replace(/^#/, '').slice(0, 6)
+  return `#${cleaned}`
+}
+
+function isValidHex(value: string) {
+  return /^#[0-9a-fA-F]{6}$/.test(value)
+}
+
+function clampColorChannel(value: number) {
+  return Math.max(0, Math.min(255, Math.round(value)))
+}
+
+function adjustHexLightness(hex: string, amount: number) {
+  if (!isValidHex(hex)) return hex
+  const clean = hex.slice(1)
+  const channels = [0, 2, 4].map((start) => Number.parseInt(clean.slice(start, start + 2), 16))
+  const adjusted = channels.map((channel) => {
+    const target = amount >= 0 ? 255 : 0
+    return clampColorChannel(channel + (target - channel) * Math.abs(amount / 100))
+  })
+  return `#${adjusted.map((channel) => channel.toString(16).padStart(2, '0')).join('')}`
 }
 
 interface AccountsProps {
   accounts: Account[]
-  transactions: Transaction[]
   setAccounts: Dispatch<SetStateAction<Account[]>>
   setTransactions: Dispatch<SetStateAction<Transaction[]>>
 }
 
-export function Accounts({ accounts, transactions, setAccounts, setTransactions }: AccountsProps) {
+export function Accounts({ accounts, setAccounts, setTransactions }: AccountsProps) {
   const [selectedAccount, setSelectedAccount] = useState<Account | null>(null)
+  const [editingAccount, setEditingAccount] = useState<Account | null>(null)
   const [notice, setNotice] = useState('')
 
   const breakdown = useMemo(() => ({
@@ -32,23 +57,18 @@ export function Accounts({ accounts, transactions, setAccounts, setTransactions 
     wallets: accounts.filter((account) => account.type === 'wallet').reduce((sum, account) => sum + account.balance, 0),
   }), [accounts])
 
-  const recentActivity = [
-    ...transactions.filter((transaction) => accounts.some((account) => transaction.account.includes(account.name))).slice(0, 5),
-    { id: 'a1', title: 'ATM withdrawal to Cash', amount: 10000, type: 'transfer', category: 'Transfer', account: 'HBL Account to Cash', date: '2026-06-01' },
-  ].slice(0, 5) as Transaction[]
-
   return (
     <div className="space-y-4 sm:space-y-5">
       {notice && <div className="rounded-2xl border border-[rgba(221,255,69,.2)] bg-[var(--accent-soft)] px-4 py-3 text-sm text-[var(--accent)]">{notice}</div>}
 
       <section className="grid gap-4 xl:grid-cols-[.85fr_1.15fr]">
         <article className="balance-card">
-          <p className="text-sm text-[var(--muted)]">Total Balance</p>
+          <p className="text-sm font-semibold uppercase text-[var(--muted)]">Total Balance</p>
           <h3 className="mt-2 text-4xl font-semibold tracking-tight text-white sm:text-5xl">{formatPKR(totalBalance(accounts))}</h3>
           <div className="mt-5 grid gap-2 text-sm text-[var(--muted)]">
-            <div className="flex justify-between rounded-2xl bg-[var(--surface-2)] px-3 py-2"><span>Cash</span><strong className="text-white">{formatPKR(breakdown.cash)}</strong></div>
-            <div className="flex justify-between rounded-2xl bg-[var(--surface-2)] px-3 py-2"><span>Banks</span><strong className="text-white">{formatPKR(breakdown.banks)}</strong></div>
-            <div className="flex justify-between rounded-2xl bg-[var(--surface-2)] px-3 py-2"><span>Wallets</span><strong className="text-white">{formatPKR(breakdown.wallets)}</strong></div>
+            <div className="premium-row flex justify-between px-3 py-2.5"><span>Cash</span><strong className="text-white">{formatPKR(breakdown.cash)}</strong></div>
+            <div className="premium-row flex justify-between px-3 py-2.5"><span>Banks</span><strong className="text-white">{formatPKR(breakdown.banks)}</strong></div>
+            <div className="premium-row flex justify-between px-3 py-2.5"><span>Wallets</span><strong className="text-white">{formatPKR(breakdown.wallets)}</strong></div>
           </div>
         </article>
 
@@ -62,7 +82,7 @@ export function Accounts({ accounts, transactions, setAccounts, setTransactions 
         </article>
       </section>
 
-      <section className="grid gap-4 lg:grid-cols-[1.15fr_.85fr]">
+      <section>
         <div>
           <div className="mb-3 flex items-end justify-between">
             <div>
@@ -71,55 +91,9 @@ export function Accounts({ accounts, transactions, setAccounts, setTransactions 
             </div>
           </div>
           <div className="grid gap-3 md:grid-cols-2">
-            {accounts.map((account) => {
-              const Icon = iconMap[account.type]
-              const style = cardStyles[account.id] ?? cardStyles.hbl
-              return (
-                <article key={account.id} className={cn('relative min-h-44 overflow-hidden rounded-[1.75rem] p-5 shadow-xl shadow-black/25 transition hover:-translate-y-0.5', style.className)}>
-                  <div className="absolute -right-8 -top-10 h-32 w-32 rounded-full bg-white/10" />
-                  <div className="absolute -bottom-12 right-10 h-28 w-28 rounded-full border border-white/15" />
-                  <div className="relative flex items-start justify-between">
-                    <span className="grid h-11 w-11 place-items-center rounded-2xl bg-black/15"><Icon size={21} /></span>
-                    <button className="grid h-9 w-9 place-items-center rounded-full bg-black/15" aria-label={`Adjust ${account.name}`} onClick={() => setSelectedAccount(account)}>
-                      <MoreHorizontal size={19} />
-                    </button>
-                  </div>
-                  <div className="relative mt-7">
-                    <p className="text-sm opacity-75">{account.name}</p>
-                    <h4 className="mt-1 text-3xl font-semibold tracking-tight">{formatPKR(account.balance)}</h4>
-                  </div>
-                  <div className="relative mt-5 flex items-end justify-between">
-                    <div>
-                      <p className="text-xs uppercase tracking-[.16em] opacity-60">{account.type}</p>
-                      <p className="mt-1 text-sm opacity-80">{style.detail}</p>
-                    </div>
-                    <button className="rounded-full bg-black/15 px-3 py-1.5 text-xs font-semibold" onClick={() => setSelectedAccount(account)}>Adjust</button>
-                  </div>
-                </article>
-              )
-            })}
+            {accounts.map((account) => <AccountPreviewCard key={account.id} account={account} onEdit={setEditingAccount} />)}
           </div>
         </div>
-
-        <aside className="card">
-          <div className="section-title"><div><p>Recent</p><h3>Account activity</h3></div></div>
-          <div className="space-y-2.5">
-            {recentActivity.map((activity) => (
-              <div key={activity.id} className="flex items-center justify-between gap-3 rounded-2xl bg-[var(--surface-2)] p-3">
-                <span className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-[var(--surface-3)] text-[var(--accent)]">
-                  {activity.type === 'income' ? <Plus size={18} /> : activity.type === 'transfer' ? <ArrowRightLeft size={18} /> : <Banknote size={18} />}
-                </span>
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-semibold text-white">{activity.title}</p>
-                  <p className="truncate text-xs text-[var(--muted)]">{activity.account} · {activity.date}</p>
-                </div>
-                <strong className={cn('text-sm', activity.type === 'income' ? 'amount-positive' : activity.type === 'expense' ? 'amount-negative' : 'amount-neutral')}>
-                  {activity.type === 'income' ? '+' : activity.type === 'expense' ? '-' : ''}{formatPKR(activity.amount)}
-                </strong>
-              </div>
-            ))}
-          </div>
-        </aside>
       </section>
 
       <AdjustBalanceModal
@@ -130,6 +104,140 @@ export function Accounts({ accounts, transactions, setAccounts, setTransactions 
         setAccounts={setAccounts}
         setTransactions={setTransactions}
       />
+      <EditAccountModal
+        key={editingAccount?.id ?? 'edit-closed'}
+        account={editingAccount}
+        onClose={() => setEditingAccount(null)}
+        onNotice={setNotice}
+        setAccounts={setAccounts}
+      />
+    </div>
+  )
+}
+
+function EditAccountModal({
+  account,
+  onClose,
+  onNotice,
+  setAccounts,
+}: {
+  account: Account | null
+  onClose: () => void
+  onNotice: (message: string) => void
+  setAccounts: Dispatch<SetStateAction<Account[]>>
+}) {
+  const [name, setName] = useState(account?.name ?? '')
+  const [type, setType] = useState<Account['type']>(account?.type ?? 'bank')
+  const [balance, setBalance] = useState(account?.balance.toString() ?? '')
+  const [cardLabel, setCardLabel] = useState(account?.cardLabel ?? '')
+  const [color, setColor] = useState(account?.color ?? '#1d2026')
+  const [baseColor, setBaseColor] = useState(account?.color ?? '#1d2026')
+  const [lightness, setLightness] = useState(0)
+  const [hexInput, setHexInput] = useState(account?.color ?? '#1d2026')
+
+  if (!account) return null
+
+  const setColorFromBase = (nextBase: string, nextLightness = lightness) => {
+    setBaseColor(nextBase)
+    setLightness(nextLightness)
+    const nextColor = adjustHexLightness(nextBase, nextLightness)
+    setColor(nextColor)
+    setHexInput(nextColor)
+  }
+
+  const setColorFromHex = (value: string) => {
+    const normalized = normalizeHex(value)
+    setHexInput(normalized)
+    if (!isValidHex(normalized)) return
+    setBaseColor(normalized)
+    setLightness(0)
+    setColor(normalized)
+  }
+
+  const saveAccount = () => {
+    const parsedBalance = Number(balance)
+    if (!name.trim() || !Number.isFinite(parsedBalance) || !isValidHex(color)) return
+
+    setAccounts((current) =>
+      current.map((item) =>
+        item.id === account.id
+          ? { ...item, name: name.trim(), type, balance: parsedBalance, color, cardLabel: cardLabel.trim().toUpperCase() || item.cardLabel }
+          : item,
+      ),
+    )
+    onNotice(`${name.trim()} updated. Home card stack is synced.`)
+    onClose()
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 grid items-end bg-black/70 p-0 backdrop-blur-sm sm:items-center sm:p-6">
+      <motion.section initial={{ opacity: 0, y: 44, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }} className="mx-auto max-h-[88svh] w-full max-w-lg overflow-y-auto rounded-t-[1.75rem] border border-white/10 bg-[var(--surface)] p-4 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-2xl sm:max-h-[90vh] sm:rounded-[2rem] sm:p-5">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-xs text-[var(--muted)]">Edit account card</p>
+            <h2 className="text-xl font-semibold text-white">{account.name}</h2>
+          </div>
+          <button className="icon-button" onClick={onClose} aria-label="Close edit account"><X size={19} /></button>
+        </div>
+
+        <div className="mt-5 grid gap-4">
+          <label>
+            <span className="form-label">Account name</span>
+            <input className="form-input" value={name} onChange={(event) => setName(event.target.value)} />
+          </label>
+          <label>
+            <span className="form-label">Account type</span>
+            <select className="form-input" value={type} onChange={(event) => setType(event.target.value as Account['type'])}>
+              <option value="cash">Cash</option>
+              <option value="bank">Bank</option>
+              <option value="wallet">Wallet</option>
+            </select>
+          </label>
+          <label>
+            <span className="form-label">Balance</span>
+            <input className="form-input text-2xl font-semibold" type="number" value={balance} onChange={(event) => setBalance(event.target.value)} />
+          </label>
+          <label>
+            <span className="form-label">Masked card label</span>
+            <input className="form-input uppercase" maxLength={8} placeholder="HBL" value={cardLabel} onChange={(event) => setCardLabel(event.target.value)} />
+          </label>
+          <div>
+            <span className="form-label">Card color</span>
+            <div className="grid grid-cols-4 gap-2 sm:grid-cols-7">
+              {cardColorOptions.map((option) => (
+                <button
+                  key={option.name}
+                  aria-label={`Use ${option.name}`}
+                  className={cn('h-12 rounded-2xl border transition', baseColor === option.value ? 'border-[var(--accent)] ring-2 ring-[rgba(221,255,69,.22)]' : 'border-white/10')}
+                  title={option.name}
+                  style={{ background: option.value }}
+                  onClick={() => setColorFromBase(option.value, 0)}
+                  type="button"
+                />
+              ))}
+            </div>
+            <label className="mt-4 block">
+              <span className="form-label">Lighten / darken</span>
+              <input className="w-full accent-[var(--accent)]" type="range" min="-55" max="55" value={lightness} onChange={(event) => setColorFromBase(baseColor, Number(event.target.value))} />
+              <div className="mt-1 flex justify-between text-xs text-[var(--muted)]"><span>Darker</span><span>{lightness > 0 ? `+${lightness}` : lightness}</span><span>Lighter</span></div>
+            </label>
+            <label className="mt-4 block">
+              <span className="form-label">Hex code</span>
+              <div className="grid grid-cols-[1fr_3.25rem] gap-3">
+                <input className="form-input uppercase" value={hexInput} onChange={(event) => setColorFromHex(event.target.value)} placeholder="#1D2026" />
+                <input className="form-input h-12 p-2" type="color" value={isValidHex(color) ? color : '#1d2026'} onChange={(event) => setColorFromHex(event.target.value)} aria-label="Custom card color" />
+              </div>
+              {!isValidHex(hexInput) && <p className="mt-2 text-xs text-[var(--negative)]">Use a 6-digit hex color, like #162A4A.</p>}
+            </label>
+            <div className="mt-4 h-12 rounded-2xl border border-white/10" style={{ background: isValidHex(color) ? color : '#1d2026' }} />
+          </div>
+        </div>
+
+        <div className="mt-5 grid grid-cols-2 gap-3">
+          <button className="rounded-2xl bg-[var(--surface-2)] px-4 py-3 text-sm font-semibold text-white" onClick={onClose}>Cancel</button>
+          <button className="btn-primary justify-center disabled:opacity-60" onClick={saveAccount} disabled={!name.trim() || !Number.isFinite(Number(balance)) || !isValidHex(color)}>Save</button>
+        </div>
+      </motion.section>
     </div>
   )
 }
@@ -195,7 +303,7 @@ function AdjustBalanceModal({
 
   return (
     <div className="fixed inset-0 z-50 grid items-end bg-black/70 p-0 backdrop-blur-sm sm:items-center sm:p-6">
-      <motion.section initial={{ opacity: 0, y: 44, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }} className="mx-auto w-full max-w-lg rounded-t-[1.75rem] border border-white/10 bg-[var(--surface)] p-4 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-2xl sm:rounded-[2rem] sm:p-5">
+      <motion.section initial={{ opacity: 0, y: 44, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }} className="mx-auto max-h-[88svh] w-full max-w-lg overflow-y-auto rounded-t-[1.75rem] border border-white/10 bg-[var(--surface)] p-4 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-2xl sm:max-h-[90vh] sm:rounded-[2rem] sm:p-5">
         <div className="flex items-center justify-between">
           <div>
             <p className="text-xs text-[var(--muted)]">Adjust Balance</p>

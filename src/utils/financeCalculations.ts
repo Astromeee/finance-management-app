@@ -38,3 +38,43 @@ export const safeToSpend = (accounts: Account[], budgets: Budget[], goals: Goal[
 export const goalProgress = (goal: Goal) => percent(goal.saved, goal.target)
 export const debtProgress = (debt: Debt) => percent(debt.paid, debt.total)
 export const budgetUsage = (budget: Budget) => percent(budget.used, budget.amount)
+
+const categoryColors = ['#ddff45', '#d4d4d0', '#e98d67', '#aeb7c5', '#8f949c', '#c9a46a']
+
+export const categorySpendFromTransactions = (transactions: Transaction[]) => {
+  const totals = transactions
+    .filter((transaction) => transaction.type === 'expense')
+    .reduce<Record<string, number>>((items, transaction) => {
+      const category = transaction.category ?? transaction.title
+      items[category] = (items[category] ?? 0) + transaction.amount
+      return items
+    }, {})
+
+  return Object.entries(totals)
+    .map(([name, value], index) => ({ name, value, color: categoryColors[index % categoryColors.length] }))
+    .sort((a, b) => b.value - a.value)
+}
+
+export const incomeBreakdownFromTransactions = (transactions: Transaction[]) => {
+  const totals = transactions
+    .filter((transaction) => transaction.type === 'income')
+    .reduce<Record<string, number>>((items, transaction) => {
+      const source = transaction.source ?? transaction.category ?? transaction.title
+      items[source] = (items[source] ?? 0) + transaction.amount
+      return items
+    }, {})
+
+  return Object.entries(totals).map(([source, amount]) => ({ source, amount }))
+}
+
+export const weeklyTrendFromTransactions = (transactions: Transaction[]) => {
+  const byDay = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day) => ({ day, spending: 0, income: 0 }))
+  transactions.forEach((transaction) => {
+    const date = new Date(transaction.date)
+    if (Number.isNaN(date.getTime())) return
+    const item = byDay[date.getDay()]
+    if (transaction.type === 'income') item.income += transaction.amount
+    if (transaction.type === 'expense') item.spending += transaction.amount
+  })
+  return [1, 2, 3, 4, 5, 6, 0].map((index) => byDay[index])
+}
