@@ -17,7 +17,6 @@ import type { Budget, Debt, Goal, RecurringFrequency, Transaction, UpcomingExpen
 type ActionModal = 'income' | 'expense' | 'transfer' | 'goal' | 'debt' | null
 
 const makeId = (prefix: string) => `${prefix}-${Date.now()}-${Math.random().toString(16).slice(2, 7)}`
-const authRedirectUrl = import.meta.env.VITE_AUTH_REDIRECT_URL as string | undefined
 
 const initialFinanceState: FinanceState = {
   accounts: initialAccounts,
@@ -47,6 +46,7 @@ function App() {
   const [authReady, setAuthReady] = useState(!isSupabaseConfigured)
   const [financeUserId, setFinanceUserId] = useState<string | null>(null)
   const [authEmail, setAuthEmail] = useState('')
+  const [authPassword, setAuthPassword] = useState('')
   const [authMessage, setAuthMessage] = useState('')
   const [authLoading, setAuthLoading] = useState(false)
   const [accounts, setAccounts] = useState(initialAccounts)
@@ -141,18 +141,18 @@ function App() {
     return () => window.clearTimeout(saveTimer.current)
   }, [accounts, budgets, debts, financeUserId, goals, showToast, transactions, upcomingExpenses])
 
-  const handleMagicLink = async (event: FormEvent<HTMLFormElement>) => {
+  const handlePasswordLogin = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
-    if (!supabase || !authEmail.trim()) return
+    if (!supabase || !authEmail.trim() || !authPassword) return
 
     setAuthLoading(true)
     setAuthMessage('')
-    const { error } = await supabase.auth.signInWithOtp({
+    const { error } = await supabase.auth.signInWithPassword({
       email: authEmail.trim(),
-      options: { emailRedirectTo: authRedirectUrl || window.location.origin },
+      password: authPassword,
     })
     setAuthLoading(false)
-    setAuthMessage(error ? error.message : 'Check your email for the Pocket Ledger sign-in link.')
+    setAuthMessage(error ? error.message : '')
   }
 
   const addTransaction = (transaction: Transaction) => {
@@ -276,12 +276,16 @@ function App() {
   if (isSupabaseConfigured && !financeUserId) {
     return (
       <SupabaseAuthShell title="Pocket Ledger">
-        <form className="mt-6 grid gap-4" onSubmit={handleMagicLink}>
+        <form className="mt-6 grid gap-4" onSubmit={handlePasswordLogin}>
           <label>
             <span className="form-label">Email address</span>
             <input className="form-input" type="email" value={authEmail} onChange={(event) => setAuthEmail(event.target.value)} placeholder="you@example.com" required />
           </label>
-          <button className="btn-primary justify-center disabled:opacity-60" disabled={authLoading}>{authLoading ? 'Sending link...' : 'Send magic link'}</button>
+          <label>
+            <span className="form-label">Password</span>
+            <input className="form-input" type="password" value={authPassword} onChange={(event) => setAuthPassword(event.target.value)} placeholder="Enter your password" required />
+          </label>
+          <button className="btn-primary justify-center disabled:opacity-60" disabled={authLoading}>{authLoading ? 'Signing in...' : 'Log in'}</button>
           {authMessage && <p className="rounded-2xl border border-[rgba(221,255,69,.16)] bg-[rgba(221,255,69,.06)] p-3 text-sm text-[var(--muted)]">{authMessage}</p>}
         </form>
       </SupabaseAuthShell>
@@ -372,7 +376,7 @@ function SupabaseAuthShell({ title, children }: { title: string; children?: Reac
         <div className="mt-5 text-center">
           <p className="text-sm font-semibold uppercase tracking-[0.18em] text-[var(--muted)]">Supabase sync</p>
           <h1 className="mt-2 text-3xl font-semibold text-white">{title}</h1>
-          <p className="mt-2 text-sm text-[var(--muted)]">Sign in to save and load your private finance ledger.</p>
+          <p className="mt-2 text-sm text-[var(--muted)]">Log in to save and load your private finance ledger.</p>
         </div>
         {children}
       </section>
