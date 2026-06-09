@@ -20,6 +20,7 @@ export function Dashboard({
   debts,
   budgets,
   onAction,
+  onNavigate,
 }: {
   accounts: Account[]
   transactions: Transaction[]
@@ -27,6 +28,7 @@ export function Dashboard({
   debts: Debt[]
   budgets: Budget[]
   onAction: (action: DashboardAction) => void
+  onNavigate: (page: string) => void
 }) {
   void transactions
   void goals
@@ -70,7 +72,7 @@ export function Dashboard({
           </div>
           <h2 className="text-5xl font-semibold tracking-tight text-white sm:text-6xl">{formatPKR(totalBalance(accounts))}</h2>
           <div className="mt-6 flex items-center justify-between gap-4">
-            <button className="home-overview-pill">
+            <button className="home-overview-pill" onClick={() => onNavigate('reports')}>
               <span>Overview</span>
               <ChevronRight size={20} />
             </button>
@@ -105,7 +107,7 @@ export function Dashboard({
                 <span className="home-card-line" />
                 <div className="home-logo-box">{meta.logo}</div>
                 <div className="min-w-0 flex-1">
-                  <h3 className="truncate text-xl font-semibold" style={{ color: meta.accent }}>{account.name}</h3>
+                  <h3 className="truncate text-xl font-semibold text-white">{account.name}</h3>
                   <p className="mt-1 text-xs font-medium uppercase tracking-[0.2em] text-[var(--muted)]">{meta.typeLabel}</p>
                   <span className="mt-3 inline-flex rounded-full border px-3 py-1 text-xs font-semibold tracking-[0.16em] text-[var(--muted)]" style={{ borderColor: `${meta.accent}55`, backgroundColor: `${meta.accent}12` }}>
                     **** {account.cardLabel || meta.mask}

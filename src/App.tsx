@@ -17,6 +17,7 @@ import type { Budget, Debt, Goal, RecurringFrequency, Transaction, UpcomingExpen
 type ActionModal = 'income' | 'expense' | 'transfer' | 'goal' | 'debt' | null
 
 const makeId = (prefix: string) => `${prefix}-${Date.now()}-${Math.random().toString(16).slice(2, 7)}`
+const authRedirectUrl = import.meta.env.VITE_AUTH_REDIRECT_URL as string | undefined
 
 const initialFinanceState: FinanceState = {
   accounts: initialAccounts,
@@ -148,7 +149,7 @@ function App() {
     setAuthMessage('')
     const { error } = await supabase.auth.signInWithOtp({
       email: authEmail.trim(),
-      options: { emailRedirectTo: window.location.origin },
+      options: { emailRedirectTo: authRedirectUrl || window.location.origin },
     })
     setAuthLoading(false)
     setAuthMessage(error ? error.message : 'Check your email for the Pocket Ledger sign-in link.')
@@ -163,7 +164,7 @@ function App() {
   }
 
   const pages: Record<string, { title: string; subtitle: string; component: ReactNode }> = {
-    dashboard: { title: 'Dashboard', subtitle: 'Your financial overview', component: <Dashboard accounts={accounts} transactions={transactions} goals={goals} debts={debts} budgets={budgets} onAction={setActiveModal} /> },
+    dashboard: { title: 'Dashboard', subtitle: 'Your financial overview', component: <Dashboard accounts={accounts} transactions={transactions} goals={goals} debts={debts} budgets={budgets} onAction={setActiveModal} onNavigate={setActivePage} /> },
     transactions: { title: 'Transactions', subtitle: 'Track income, spending, and transfers', component: <Transactions transactions={transactions} /> },
     accounts: {
       title: 'Accounts',
