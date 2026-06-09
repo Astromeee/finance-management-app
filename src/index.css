@@ -1158,25 +1158,26 @@ select option {
   --overview-accent: var(--accent);
   position: relative;
   min-width: 0;
+  min-height: 8.35rem;
   overflow: hidden;
   border: 1px solid color-mix(in srgb, var(--overview-accent) 24%, rgba(255, 255, 255, 0.1));
-  border-radius: 24px;
+  border-radius: 28px;
   background:
-    radial-gradient(circle at 92% 0%, color-mix(in srgb, var(--overview-accent) 16%, transparent), transparent 9rem),
+    radial-gradient(circle at 92% 0%, color-mix(in srgb, var(--overview-accent) 18%, transparent), transparent 10rem),
     linear-gradient(180deg, rgba(255, 255, 255, 0.052), rgba(255, 255, 255, 0.014)),
     rgba(24, 26, 30, 0.95);
-  padding: 18px;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.055), 0 18px 40px rgba(0, 0, 0, 0.22);
+  padding: 22px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.055), 0 22px 48px rgba(0, 0, 0, 0.24);
 }
 
 .goals-overview-card::after {
   content: "";
   position: absolute;
-  right: -3.6rem;
-  bottom: -4.4rem;
-  width: 10rem;
-  height: 10rem;
-  border: 1.25rem solid color-mix(in srgb, var(--overview-accent) 10%, transparent);
+  right: -4rem;
+  bottom: -4.8rem;
+  width: 11.5rem;
+  height: 11.5rem;
+  border: 1.45rem solid color-mix(in srgb, var(--overview-accent) 10%, transparent);
   border-radius: 999px;
   pointer-events: none;
 }
@@ -1185,12 +1186,12 @@ select option {
   position: relative;
   z-index: 1;
   display: grid;
-  width: 2.85rem;
-  height: 2.85rem;
+  width: 3.35rem;
+  height: 3.35rem;
   flex: 0 0 auto;
   place-items: center;
   border: 1px solid color-mix(in srgb, var(--overview-accent) 34%, rgba(255, 255, 255, 0.1));
-  border-radius: 1rem;
+  border-radius: 1.15rem;
   background: color-mix(in srgb, var(--overview-accent) 9%, rgba(255, 255, 255, 0.04));
   color: var(--overview-accent);
   box-shadow: 0 0 20px color-mix(in srgb, var(--overview-accent) 14%, transparent);
@@ -1210,6 +1211,136 @@ select option {
 
 .goals-overview-purple {
   --overview-accent: #b46cff;
+}
+
+.reports-filter-card,
+.reports-panel,
+.reports-summary-card {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.052), rgba(255, 255, 255, 0.014)),
+    rgba(24, 26, 30, 0.94);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 22px 48px rgba(0, 0, 0, 0.22);
+  backdrop-filter: blur(18px);
+}
+
+.reports-filter-card {
+  display: grid;
+  gap: 1rem;
+  border-color: rgba(221, 255, 69, 0.16);
+  border-radius: 28px;
+  padding: 18px;
+}
+
+.reports-period-select {
+  position: relative;
+  display: block;
+}
+
+.reports-period-select::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  right: 18px;
+  width: 0.58rem;
+  height: 0.58rem;
+  border-right: 2px solid var(--accent);
+  border-bottom: 2px solid var(--accent);
+  transform: translateY(-64%) rotate(45deg);
+  pointer-events: none;
+}
+
+.reports-period-select select {
+  width: 100%;
+  min-height: 52px;
+  appearance: none;
+  border: 1px solid rgba(221, 255, 69, 0.2);
+  border-radius: 999px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.012)),
+    var(--surface-2);
+  padding: 0 46px 0 18px;
+  color: var(--text);
+  font-weight: 700;
+  outline: none;
+  transition: border-color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.reports-period-select select:focus {
+  border-color: rgba(221, 255, 69, 0.52);
+  box-shadow: 0 0 0 4px rgba(221, 255, 69, 0.075);
+}
+
+.reports-summary-card {
+  --reports-accent: var(--accent);
+  min-height: 8.6rem;
+  border-color: color-mix(in srgb, var(--reports-accent) 22%, rgba(255, 255, 255, 0.1));
+  border-radius: 24px;
+  padding: 18px;
+}
+
+.reports-summary-card::after {
+  content: "";
+  position: absolute;
+  right: -3.6rem;
+  bottom: -4.5rem;
+  width: 10rem;
+  height: 10rem;
+  border: 1.25rem solid color-mix(in srgb, var(--reports-accent) 10%, transparent);
+  border-radius: 999px;
+  pointer-events: none;
+}
+
+.reports-summary-negative {
+  --reports-accent: var(--negative);
+}
+
+.reports-summary-icon {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  width: 2.65rem;
+  height: 2.65rem;
+  place-items: center;
+  border: 1px solid color-mix(in srgb, var(--reports-accent) 34%, rgba(255, 255, 255, 0.1));
+  border-radius: 0.95rem;
+  background: color-mix(in srgb, var(--reports-accent) 9%, rgba(255, 255, 255, 0.04));
+  color: var(--reports-accent);
+}
+
+.reports-panel {
+  border-radius: 28px;
+  padding: 18px;
+}
+
+.reports-ranked-row,
+.reports-mini-metric {
+  border: 1px solid rgba(255, 255, 255, 0.075);
+  border-radius: 22px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.012)),
+    rgba(255, 255, 255, 0.028);
+  padding: 14px;
+}
+
+.reports-chart-frame {
+  width: 100%;
+  height: 18rem;
+  min-height: 18rem;
+}
+
+@media (min-width: 768px) {
+  .reports-filter-card {
+    grid-template-columns: 1fr minmax(20rem, 34rem);
+    align-items: center;
+    padding: 20px;
+  }
+
+  .reports-panel {
+    padding: 20px;
+  }
 }
 
 .upcoming-status-badge {

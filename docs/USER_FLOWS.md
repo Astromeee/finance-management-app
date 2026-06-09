@@ -50,7 +50,11 @@ Choose a category, set the monthly budget amount, and track used, remaining, nea
 
 ## View Reports
 
-Open Reports to review monthly income, expenses, savings, spending categories, trends, income sources, budgets, goals, debts, account balances, and needs vs wants.
+Open Reports, choose a period from the top selector, and review the structured analytics in order: summary cards, Spending by Category, Income by Source, Spending Trend, Needs vs Wants, Spending by Account, Budget Performance, Upcoming Expenses, and Goals & Debts.
+
+Changing the period recalculates income, actual expenses, net saved, savings rate, category totals, income sources, spending trend, account usage, and budget performance. All Time includes every transaction. Custom Range uses the selected start and end dates.
+
+Upcoming Expenses stay in their own planned section and do not count as actual expenses until marked paid elsewhere.
 
 ## Mobile Navigation
 

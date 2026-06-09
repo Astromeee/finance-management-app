@@ -9,7 +9,7 @@ Pocket Ledger is a personal finance tracking frontend prototype for daily PKR mo
 - Accounts with total balance, cash/bank/wallet breakdown, premium wallet-card account cards, compact account actions, editable card labels/colors, and manual balance adjustment.
 - Goals & Debts with savings goals, debt progress cards, and Upcoming Expenses for future planned payments.
 - Budgets with monthly category limits, used amounts, remaining balance, progress bars, near-limit warnings, and over-budget states.
-- Reports with monthly summary, category donut chart, weekly spending trend, income source bar chart, account breakdown, budget usage, goal progress, debt progress, and needs vs wants comparison.
+- Reports / Analytics with period filtering, structured financial summaries, spending and income breakdowns, spending trends, needs vs wants, account usage, budget performance, upcoming expenses preview, and goals/debts progress.
 - Settings with currency, theme, categories, accounts, export/import placeholders, Supabase placeholder, and documentation reference.
 
 ## Working Finance Actions
@@ -27,6 +27,19 @@ Pocket Ledger now uses separate animated bottom-sheet modals for the main action
 - Manual balance adjustment remains available from Accounts and records unexplained income or expense when balances differ.
 
 All action results update the Dashboard, Home account cards, Accounts, Transactions, Reports, Goals, Debts, and Budgets immediately during the current session.
+
+## Reports / Analytics
+
+- Period selector supports This Month, Last Month, Last 3 Months, Last 6 Months, This Year, All Time, Custom Range, and available transaction months such as June 2026.
+- Main summary cards show Total Income, Total Expenses, Net Saved, and Savings Rate for the selected period.
+- Spending by Category uses only actual `expense` transactions and shows ranked bars, totals, percentages, top category, and category count.
+- Income by Source uses only `income` transactions and groups by source/category.
+- Spending Trend shows daily bars for a single selected month and monthly bars for longer periods.
+- Needs vs Wants compares necessary spending categories against lifestyle spending categories.
+- Spending by Account ranks expense usage by amount, percentage, and transaction count.
+- Budget Performance compares selected-period actual spending against each budget and labels rows Under Budget, Near Limit, or Over Budget.
+- Upcoming Expenses are shown separately as planned items and are not counted in actual spending until marked paid.
+- Goals & Debts shows aggregate target/saved/debt progress plus compact active goal and debt progress rows.
 
 ## Responsive Behavior
 

@@ -19,6 +19,34 @@ All amounts are displayed in Pakistani Rupees using `PKR / Rs.` formatting.
 - Account Breakdown = grouped total of cash, bank, and wallet account balances.
 - Upcoming Expense Planning Total = unpaid planned expenses by due date; these are planning values, not actual spending.
 
+## Reports Period Filtering
+
+Reports use a selected period before calculating summaries and breakdowns.
+
+- `This Month` uses the current calendar month.
+- `Last Month` uses the previous full calendar month.
+- `Last 3 Months` and `Last 6 Months` start at the first day of the earliest included month and end today.
+- `This Year` starts on January 1 of the current year.
+- `All Time` includes every transaction in local state.
+- `Custom Range` includes transactions between the selected start and end dates.
+- Specific month options such as `June 2026` use the first through last day of that month.
+
+All transaction-driven report sections use this selected period.
+
+## Reports Actual Calculations
+
+- Actual Income = sum of selected-period transactions where `type === "income"`.
+- Actual Expenses = sum of selected-period transactions where `type === "expense"`.
+- Net Saved = Actual Income - Actual Expenses.
+- Savings Rate = Net Saved / Actual Income x 100. If income is zero, savings rate displays as 0%.
+- Spending by Category groups only actual `expense` transactions by category.
+- Income by Source groups only actual `income` transactions by source, category, or title.
+- Spending by Account groups only actual `expense` transactions by account and counts those expense transactions.
+- Transfers are excluded from income, expenses, account spending, and category reports.
+- `goal`, `goal_saving`, `debt`, and `debt_payment` transaction types are not counted as actual income or actual expenses.
+- Unpaid upcoming expenses are excluded from Actual Expenses, category breakdowns, budget actuals, account usage, needs vs wants, and spending trends.
+- Upcoming expenses appear only in the Upcoming Expenses report preview until they are marked paid and converted into a real `expense` transaction.
+
 ## Transfers
 
 Transfers move money from one account to another. They do not count as income or expenses.

@@ -84,14 +84,15 @@ export function AddIncomeModal({
   const [accountId, setAccountId] = useState(accounts[0]?.id ?? '')
   const [date, setDate] = useState(today())
   const [notes, setNotes] = useState('')
-  const invalid = numeric(amount) <= 0 || !source || !accountId || !date
+  const selectedAccountId = accountId || accounts[0]?.id || ''
+  const invalid = numeric(amount) <= 0 || !source || !selectedAccountId || !date
 
   return (
     <Sheet title="Add income" eyebrow="Money received" open={open} onClose={onClose}>
-      <form className="mt-5 grid gap-4" onSubmit={(event) => { event.preventDefault(); if (!invalid) { onSubmit({ amount: numeric(amount), source, accountId, date, notes }); onClose() } }}>
+      <form className="mt-5 grid gap-4" onSubmit={(event) => { event.preventDefault(); if (!invalid) { onSubmit({ amount: numeric(amount), source, accountId: selectedAccountId, date, notes }); onClose() } }}>
         <Field label="Amount" type="number" value={amount} onChange={setAmount} placeholder="Rs. 5,000" />
         <Select label="Source" value={source} onChange={setSource} options={incomeSources.map((item) => item.name)} />
-        <Select label="Account received in" value={accountId} onChange={setAccountId} options={accounts.map((account) => ({ value: account.id, label: account.name }))} />
+        <Select label="Account received in" value={selectedAccountId} onChange={setAccountId} options={accounts.map((account) => ({ value: account.id, label: account.name }))} />
         <Field label="Date" type="date" value={date} onChange={setDate} />
         <TextArea label="Notes" value={notes} onChange={setNotes} />
         <ActionFooter submit="Add income" disabled={invalid} onCancel={onClose} />
@@ -117,17 +118,18 @@ export function AddExpenseModal({
   const [paymentMethod, setPaymentMethod] = useState('Cash')
   const [date, setDate] = useState(today())
   const [notes, setNotes] = useState('')
-  const account = accounts.find((item) => item.id === accountId)
+  const selectedAccountId = accountId || accounts[0]?.id || ''
+  const account = accounts.find((item) => item.id === selectedAccountId)
   const parsedAmount = numeric(amount)
-  const invalid = parsedAmount <= 0 || !category || !accountId || !date
+  const invalid = parsedAmount <= 0 || !category || !selectedAccountId || !date
   const warning = account && parsedAmount > account.balance ? 'This will make the account balance negative.' : ''
 
   return (
     <Sheet title="Add expense" eyebrow="Record spending" open={open} onClose={onClose}>
-      <form className="mt-5 grid gap-4" onSubmit={(event) => { event.preventDefault(); if (!invalid) { onSubmit({ amount: parsedAmount, category, accountId, paymentMethod, date, notes }); onClose() } }}>
+      <form className="mt-5 grid gap-4" onSubmit={(event) => { event.preventDefault(); if (!invalid) { onSubmit({ amount: parsedAmount, category, accountId: selectedAccountId, paymentMethod, date, notes }); onClose() } }}>
         <Field label="Amount" type="number" value={amount} onChange={setAmount} placeholder="Rs. 2,500" />
         <Select label="Category" value={category} onChange={setCategory} options={expenseCategories.map((item) => item.name)} />
-        <Select label="Account paid from" value={accountId} onChange={setAccountId} options={accounts.map((item) => ({ value: item.id, label: `${item.name} · ${formatPKR(item.balance)}` }))} />
+        <Select label="Account paid from" value={selectedAccountId} onChange={setAccountId} options={accounts.map((item) => ({ value: item.id, label: `${item.name} · ${formatPKR(item.balance)}` }))} />
         <Select label="Payment method" value={paymentMethod} onChange={setPaymentMethod} options={['Cash', 'Bank Transfer', 'Card', 'Wallet', 'Online Payment']} />
         <Field label="Date" type="date" value={date} onChange={setDate} />
         <TextArea label="Notes" value={notes} onChange={setNotes} />
@@ -154,18 +156,21 @@ export function TransferModal({
   const [toAccountId, setToAccountId] = useState(accounts[1]?.id ?? '')
   const [date, setDate] = useState(today())
   const [notes, setNotes] = useState('')
-  const fromAccount = accounts.find((item) => item.id === fromAccountId)
+  const selectedFromAccountId = fromAccountId || accounts[0]?.id || ''
+  const selectedToAccountId = toAccountId || accounts.find((item) => item.id !== selectedFromAccountId)?.id || ''
+  const fromAccount = accounts.find((item) => item.id === selectedFromAccountId)
   const parsedAmount = numeric(amount)
   const insufficient = fromAccount ? parsedAmount > fromAccount.balance : false
-  const sameAccount = fromAccountId === toAccountId
-  const invalid = parsedAmount <= 0 || !fromAccountId || !toAccountId || !date || insufficient || sameAccount
+  const sameAccount = selectedFromAccountId === selectedToAccountId
+  const invalid = parsedAmount <= 0 || !selectedFromAccountId || !selectedToAccountId || !date || insufficient || sameAccount
 
   return (
     <Sheet title="Transfer money" eyebrow="Move between accounts" open={open} onClose={onClose}>
-      <form className="mt-5 grid gap-4" onSubmit={(event) => { event.preventDefault(); if (!invalid) { onSubmit({ amount: parsedAmount, fromAccountId, toAccountId, date, notes }); onClose() } }}>
+      <form className="mt-5 grid gap-4" onSubmit={(event) => { event.preventDefault(); if (!invalid) { onSubmit({ amount: parsedAmount, fromAccountId: selectedFromAccountId, toAccountId: selectedToAccountId, date, notes }); onClose() } }}>
+        {accounts.length < 2 && <ErrorText>Add at least two accounts before making a transfer.</ErrorText>}
         <Field label="Amount" type="number" value={amount} onChange={setAmount} placeholder="Rs. 10,000" />
-        <Select label="From account" value={fromAccountId} onChange={setFromAccountId} options={accounts.map((item) => ({ value: item.id, label: `${item.name} · ${formatPKR(item.balance)}` }))} />
-        <Select label="To account" value={toAccountId} onChange={setToAccountId} options={accounts.map((item) => ({ value: item.id, label: item.name }))} />
+        <Select label="From account" value={selectedFromAccountId} onChange={setFromAccountId} options={accounts.map((item) => ({ value: item.id, label: `${item.name} · ${formatPKR(item.balance)}` }))} />
+        <Select label="To account" value={selectedToAccountId} onChange={setToAccountId} options={accounts.map((item) => ({ value: item.id, label: item.name }))} />
         <Field label="Date" type="date" value={date} onChange={setDate} />
         <TextArea label="Notes" value={notes} onChange={setNotes} />
         <ErrorText>{sameAccount ? 'From and To account cannot be the same.' : insufficient ? 'Insufficient balance in selected account.' : ''}</ErrorText>

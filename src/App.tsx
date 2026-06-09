@@ -1,8 +1,10 @@
-import { useState } from 'react'
-import type { ReactNode } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import type { FormEvent, ReactNode } from 'react'
 import { AddExpenseModal, AddGoalModal, AddIncomeModal, DebtPaymentModal, TransferModal } from './components/forms/FinanceActionModals'
 import { AppShell } from './components/layout/AppShell'
 import { accounts as initialAccounts, budgets as initialBudgets, debts as initialDebts, goals as initialGoals, transactions as initialTransactions, upcomingExpenses as initialUpcomingExpenses } from './data/mockData'
+import { loadFinanceState, saveFinanceState, type FinanceState } from './lib/financeStateStore'
+import { isSupabaseConfigured, supabase } from './lib/supabase'
 import { Accounts } from './pages/Accounts'
 import { Budgets } from './pages/Budgets'
 import { Dashboard } from './pages/Dashboard'
@@ -15,6 +17,15 @@ import type { Budget, Debt, Goal, RecurringFrequency, Transaction, UpcomingExpen
 type ActionModal = 'income' | 'expense' | 'transfer' | 'goal' | 'debt' | null
 
 const makeId = (prefix: string) => `${prefix}-${Date.now()}-${Math.random().toString(16).slice(2, 7)}`
+
+const initialFinanceState: FinanceState = {
+  accounts: initialAccounts,
+  transactions: initialTransactions,
+  goals: initialGoals,
+  debts: initialDebts,
+  budgets: initialBudgets,
+  upcomingExpenses: initialUpcomingExpenses,
+}
 
 function nextRecurringDate(dueDate: string, frequency: RecurringFrequency) {
   const date = new Date(dueDate)
@@ -32,16 +43,115 @@ function App() {
   const [activeModal, setActiveModal] = useState<ActionModal>(null)
   const [activeDebtId, setActiveDebtId] = useState<string | undefined>()
   const [toast, setToast] = useState('')
+  const [authReady, setAuthReady] = useState(!isSupabaseConfigured)
+  const [financeUserId, setFinanceUserId] = useState<string | null>(null)
+  const [authEmail, setAuthEmail] = useState('')
+  const [authMessage, setAuthMessage] = useState('')
+  const [authLoading, setAuthLoading] = useState(false)
   const [accounts, setAccounts] = useState(initialAccounts)
   const [transactions, setTransactions] = useState(initialTransactions)
   const [goals, setGoals] = useState<Goal[]>(initialGoals)
   const [debts, setDebts] = useState<Debt[]>(initialDebts)
   const [budgets, setBudgets] = useState<Budget[]>(initialBudgets)
   const [upcomingExpenses, setUpcomingExpenses] = useState<UpcomingExpense[]>(initialUpcomingExpenses)
+  const remoteStateLoaded = useRef(!isSupabaseConfigured)
+  const saveTimer = useRef<number | undefined>(undefined)
 
-  const showToast = (message: string) => {
+  const showToast = useCallback((message: string) => {
     setToast(message)
     window.setTimeout(() => setToast(''), 2600)
+  }, [])
+
+  useEffect(() => {
+    if (!supabase) return
+
+    let mounted = true
+
+    supabase.auth.getSession().then(({ data, error }) => {
+      if (!mounted) return
+      if (error) console.warn('Supabase session check failed:', error)
+      setFinanceUserId(data.session?.user.id ?? null)
+      setAuthReady(true)
+    })
+
+    const { data } = supabase.auth.onAuthStateChange((_event, session) => {
+      setFinanceUserId(session?.user.id ?? null)
+      setAuthReady(true)
+      if (!session?.user) remoteStateLoaded.current = false
+    })
+
+    return () => {
+      mounted = false
+      data.subscription.unsubscribe()
+    }
+  }, [])
+
+  useEffect(() => {
+    let cancelled = false
+
+    async function loadRemoteState() {
+      if (!isSupabaseConfigured || !financeUserId) return
+
+      try {
+        remoteStateLoaded.current = false
+        const remoteState = await loadFinanceState(initialFinanceState)
+        if (cancelled) return
+        setAccounts(remoteState.accounts)
+        setTransactions(remoteState.transactions)
+        setGoals(remoteState.goals)
+        setDebts(remoteState.debts)
+        setBudgets(remoteState.budgets)
+        setUpcomingExpenses(remoteState.upcomingExpenses)
+        remoteStateLoaded.current = true
+        showToast('Supabase connected')
+      } catch (error) {
+        remoteStateLoaded.current = true
+        console.warn('Supabase sync disabled:', error)
+        showToast('Using local data')
+      }
+    }
+
+    loadRemoteState()
+    return () => {
+      cancelled = true
+    }
+  }, [financeUserId, showToast])
+
+  useEffect(() => {
+    if (!isSupabaseConfigured || !financeUserId || !remoteStateLoaded.current) return
+
+    const state: FinanceState = {
+      accounts,
+      transactions,
+      goals,
+      debts,
+      budgets,
+      upcomingExpenses,
+    }
+
+    window.clearTimeout(saveTimer.current)
+    saveTimer.current = window.setTimeout(() => {
+      saveFinanceState(state).catch((error) => {
+        console.warn('Supabase save failed:', error)
+        showToast('Supabase save failed')
+      })
+    }, 500)
+
+    return () => window.clearTimeout(saveTimer.current)
+  }, [accounts, budgets, debts, financeUserId, goals, showToast, transactions, upcomingExpenses])
+
+  const handleMagicLink = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    if (!supabase || !authEmail.trim()) return
+
+    setAuthLoading(true)
+    setAuthMessage('')
+    const { error } = await supabase.auth.signInWithOtp({
+      email: authEmail.trim(),
+      options: { emailRedirectTo: window.location.origin },
+    })
+    setAuthLoading(false)
+    setAuthMessage(error ? error.message : 'Check your email for the Pocket Ledger sign-in link.')
   }
 
   const addTransaction = (transaction: Transaction) => {
@@ -58,7 +168,7 @@ function App() {
     accounts: {
       title: 'Accounts',
       subtitle: 'Manage cash, banks, and wallets',
-      component: <Accounts accounts={accounts} setAccounts={setAccounts} setTransactions={setTransactions} />,
+      component: <Accounts accounts={accounts} setAccounts={setAccounts} setTransactions={setTransactions} onTransfer={() => setActiveModal('transfer')} />,
     },
     goals: {
       title: 'Goals & Debts',
@@ -77,6 +187,22 @@ function App() {
           onAddDebt={({ name, total, paid, dueDate, status }) => {
             setDebts((current) => [{ id: makeId('debt'), name, total, paid, dueDate, status }, ...current])
             showToast('Debt added')
+          }}
+          onUpdateGoal={(goalId, payload) => {
+            setGoals((current) => current.map((goal) => goal.id === goalId ? { ...goal, ...payload } : goal))
+            showToast('Goal updated')
+          }}
+          onDeleteGoal={(goalId) => {
+            setGoals((current) => current.filter((goal) => goal.id !== goalId))
+            showToast('Goal deleted')
+          }}
+          onUpdateDebt={(debtId, payload) => {
+            setDebts((current) => current.map((debt) => debt.id === debtId ? { ...debt, ...payload } : debt))
+            showToast('Debt updated')
+          }}
+          onDeleteDebt={(debtId) => {
+            setDebts((current) => current.filter((debt) => debt.id !== debtId))
+            showToast('Debt deleted')
           }}
           onAddSavings={({ goalId, amount, accountId, date, notes }) => {
             const goal = goals.find((item) => item.id === goalId)
@@ -142,6 +268,23 @@ function App() {
     budgets: { title: 'Budgets', subtitle: 'Monthly limits and usage', component: <Budgets budgets={budgets} /> },
     reports: { title: 'Reports', subtitle: 'Spending trends and insights', component: <Reports accounts={accounts} transactions={transactions} goals={goals} debts={debts} budgets={budgets} upcomingExpenses={upcomingExpenses} /> },
     settings: { title: 'Settings', subtitle: 'Preferences and data tools', component: <Settings /> },
+  }
+
+  if (isSupabaseConfigured && !authReady) return <SupabaseAuthShell title="Connecting to Supabase" />
+
+  if (isSupabaseConfigured && !financeUserId) {
+    return (
+      <SupabaseAuthShell title="Pocket Ledger">
+        <form className="mt-6 grid gap-4" onSubmit={handleMagicLink}>
+          <label>
+            <span className="form-label">Email address</span>
+            <input className="form-input" type="email" value={authEmail} onChange={(event) => setAuthEmail(event.target.value)} placeholder="you@example.com" required />
+          </label>
+          <button className="btn-primary justify-center disabled:opacity-60" disabled={authLoading}>{authLoading ? 'Sending link...' : 'Send magic link'}</button>
+          {authMessage && <p className="rounded-2xl border border-[rgba(221,255,69,.16)] bg-[rgba(221,255,69,.06)] p-3 text-sm text-[var(--muted)]">{authMessage}</p>}
+        </form>
+      </SupabaseAuthShell>
+    )
   }
 
   return (
@@ -217,6 +360,22 @@ function App() {
         }}
       />
     </AppShell>
+  )
+}
+
+function SupabaseAuthShell({ title, children }: { title: string; children?: ReactNode }) {
+  return (
+    <main className="grid min-h-screen place-items-center bg-[var(--bg-deep)] p-5">
+      <section className="w-full max-w-md rounded-[2rem] border border-[rgba(221,255,69,.18)] bg-[var(--surface)] p-6 shadow-2xl shadow-black/35">
+        <div className="mx-auto grid h-16 w-16 place-items-center rounded-full bg-[var(--accent)] text-3xl font-black text-[#111318] shadow-[0_0_30px_rgba(221,255,69,.3)]">M</div>
+        <div className="mt-5 text-center">
+          <p className="text-sm font-semibold uppercase tracking-[0.18em] text-[var(--muted)]">Supabase sync</p>
+          <h1 className="mt-2 text-3xl font-semibold text-white">{title}</h1>
+          <p className="mt-2 text-sm text-[var(--muted)]">Sign in to save and load your private finance ledger.</p>
+        </div>
+        {children}
+      </section>
+    </main>
   )
 }
 

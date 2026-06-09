@@ -48,7 +48,7 @@ export function AppShell({ activePage, title, subtitle, children, setActivePage,
           </AnimatePresence>
         </main>
       </div>
-      {!isDashboard && (
+      {isDashboard && (
         <button aria-label="Add transaction" className="fixed bottom-[calc(5.65rem+env(safe-area-inset-bottom))] right-4 z-40 grid h-12 w-12 place-items-center rounded-full bg-[var(--accent)] text-[#171910] shadow-2xl shadow-black/35 transition hover:scale-105 sm:hidden" onClick={onAdd}>
           <Plus size={21} />
         </button>

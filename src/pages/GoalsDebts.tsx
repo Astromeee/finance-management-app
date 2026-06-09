@@ -1,4 +1,4 @@
-import { ArrowRight, CalendarClock, CheckCircle2, Landmark, PiggyBank, PencilLine, Plus, Repeat2, Target, Trash2, X, type LucideIcon } from 'lucide-react'
+import { ArrowRight, CalendarClock, CheckCircle2, Landmark, PencilLine, Plus, Repeat2, Target, Trash2, WalletCards, X, type LucideIcon } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
@@ -11,7 +11,12 @@ import { cn } from '../utils/ui'
 type UpcomingPayload = Omit<UpcomingExpense, 'id' | 'status' | 'createdAt' | 'paidTransactionId'>
 type PaidPayload = { accountId: string; paymentDate: string; notes?: string }
 type DebtPayload = { name: string; total: number; paid: number; dueDate?: string; status: Debt['status'] }
+type GoalPayload = { name: string; target: number; saved: number; dueDate?: string; linkedAccountId?: string; notes?: string; status: Goal['status'] }
 type SavingsPayload = { goalId: string; amount: number; accountId: string; date: string; notes?: string }
+type DeleteTarget =
+  | { kind: 'upcoming'; id: string; title: string }
+  | { kind: 'goal'; id: string; title: string }
+  | { kind: 'debt'; id: string; title: string }
 
 const frequencyLabels: Record<RecurringFrequency, string> = {
   weekly: 'Weekly',
@@ -29,6 +34,10 @@ export function GoalsDebts({
   onAddGoal,
   onDebtPayment,
   onAddDebt,
+  onUpdateGoal,
+  onDeleteGoal,
+  onUpdateDebt,
+  onDeleteDebt,
   onAddSavings,
   onAddUpcomingExpense,
   onUpdateUpcomingExpense,
@@ -42,6 +51,10 @@ export function GoalsDebts({
   onAddGoal: () => void
   onDebtPayment: (debtId: string) => void
   onAddDebt: (payload: DebtPayload) => void
+  onUpdateGoal: (goalId: string, payload: GoalPayload) => void
+  onDeleteGoal: (goalId: string) => void
+  onUpdateDebt: (debtId: string, payload: DebtPayload) => void
+  onDeleteDebt: (debtId: string) => void
   onAddSavings: (payload: SavingsPayload) => void
   onAddUpcomingExpense: (payload: UpcomingPayload) => void
   onUpdateUpcomingExpense: (expenseId: string, payload: UpcomingPayload) => void
@@ -52,8 +65,10 @@ export function GoalsDebts({
   const [showAddExpense, setShowAddExpense] = useState(false)
   const [showAddDebt, setShowAddDebt] = useState(false)
   const [savingGoal, setSavingGoal] = useState<Goal | null>(null)
+  const [editingGoal, setEditingGoal] = useState<Goal | null>(null)
+  const [editingDebt, setEditingDebt] = useState<Debt | null>(null)
   const [payingExpense, setPayingExpense] = useState<UpcomingExpense | null>(null)
-  const [deletingExpense, setDeletingExpense] = useState<UpcomingExpense | null>(null)
+  const [deleteTarget, setDeleteTarget] = useState<DeleteTarget | null>(null)
   const sortedUpcoming = useMemo(
     () => [...upcomingExpenses].sort((a, b) => a.status === 'paid' && b.status !== 'paid' ? 1 : b.status === 'paid' && a.status !== 'paid' ? -1 : a.dueDate.localeCompare(b.dueDate)),
     [upcomingExpenses],
@@ -65,7 +80,7 @@ export function GoalsDebts({
   return (
     <div className="space-y-6">
       <section className="grid grid-cols-2 gap-3 sm:gap-4">
-        <OverviewStatCard label="Total savings" value={formatPKR(totalSavings)} icon={PiggyBank} tone="lime" />
+        <OverviewStatCard label="Total savings" value={formatPKR(totalSavings)} icon={WalletCards} tone="lime" />
         <OverviewStatCard label="Debt to pay" value={formatPKR(totalDebtToPay)} icon={Landmark} tone="orange" />
         <OverviewStatCard label="Upcoming this month" value={formatPKR(summary.thisMonth)} icon={CalendarClock} tone="cyan" />
         <OverviewStatCard label="Due next 7 days" value={formatPKR(summary.nextSevenDays)} icon={Target} tone="purple" />
@@ -77,7 +92,15 @@ export function GoalsDebts({
           <button className="btn-primary" onClick={onAddGoal}>Add goal</button>
         </div>
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {goals.map((goal) => <GoalNeonCard key={goal.id} goal={goal} onAddSavings={() => setSavingGoal(goal)} />)}
+          {goals.map((goal) => (
+            <GoalNeonCard
+              key={goal.id}
+              goal={goal}
+              onAddSavings={() => setSavingGoal(goal)}
+              onEdit={() => setEditingGoal(goal)}
+              onDelete={() => setDeleteTarget({ kind: 'goal', id: goal.id, title: goal.name })}
+            />
+          ))}
         </div>
       </section>
 
@@ -87,7 +110,15 @@ export function GoalsDebts({
           <button className="btn-primary" onClick={() => setShowAddDebt(true)}><Plus size={18} /> Add debt</button>
         </div>
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {debts.map((debt) => <DebtNeonCard key={debt.id} debt={debt} onPayDebt={() => onDebtPayment(debt.id)} />)}
+          {debts.map((debt) => (
+            <DebtNeonCard
+              key={debt.id}
+              debt={debt}
+              onPayDebt={() => onDebtPayment(debt.id)}
+              onEdit={() => setEditingDebt(debt)}
+              onDelete={() => setDeleteTarget({ kind: 'debt', id: debt.id, title: debt.name })}
+            />
+          ))}
         </div>
       </section>
 
@@ -122,7 +153,7 @@ export function GoalsDebts({
                 <div className="mt-4 flex flex-wrap gap-2">
                   <button className="btn-primary px-4 py-2 text-sm disabled:opacity-50" disabled={displayStatus === 'paid'} onClick={() => setPayingExpense(expense)}><CheckCircle2 size={16} /> Mark as Paid</button>
                   <button className="rounded-full bg-[var(--surface-2)] px-4 py-2 text-sm font-semibold text-white" onClick={() => setEditingExpense(expense)}><PencilLine className="inline" size={15} /> Edit</button>
-                  <button className="rounded-full border border-[rgba(233,141,103,.22)] bg-[rgba(233,141,103,.08)] px-4 py-2 text-sm font-semibold text-[var(--negative)]" onClick={() => setDeletingExpense(expense)}><Trash2 className="inline" size={15} /> Delete</button>
+                  <button className="rounded-full border border-[rgba(233,141,103,.22)] bg-[rgba(233,141,103,.08)] px-4 py-2 text-sm font-semibold text-[var(--negative)]" onClick={() => setDeleteTarget({ kind: 'upcoming', id: expense.id, title: expense.title })}><Trash2 className="inline" size={15} /> Delete</button>
                 </div>
               </article>
             )
@@ -151,6 +182,24 @@ export function GoalsDebts({
         onClose={() => setShowAddDebt(false)}
         onSubmit={onAddDebt}
       />
+      <EditGoalModal
+        key={editingGoal?.id ?? 'edit-goal-closed'}
+        goal={editingGoal}
+        accounts={accounts}
+        onClose={() => setEditingGoal(null)}
+        onSubmit={(payload) => {
+          if (editingGoal) onUpdateGoal(editingGoal.id, payload)
+        }}
+      />
+      <AddDebtModal
+        key={editingDebt?.id ?? 'edit-debt-closed'}
+        open={Boolean(editingDebt)}
+        debt={editingDebt ?? undefined}
+        onClose={() => setEditingDebt(null)}
+        onSubmit={(payload) => {
+          if (editingDebt) onUpdateDebt(editingDebt.id, payload)
+        }}
+      />
       <AddSavingsModal
         key={savingGoal?.id ?? 'saving-closed'}
         goal={savingGoal}
@@ -168,11 +217,13 @@ export function GoalsDebts({
         }}
       />
       <ConfirmDeleteModal
-        expense={deletingExpense}
-        onClose={() => setDeletingExpense(null)}
+        target={deleteTarget}
+        onClose={() => setDeleteTarget(null)}
         onConfirm={() => {
-          if (deletingExpense) onDeleteUpcomingExpense(deletingExpense.id)
-          setDeletingExpense(null)
+          if (deleteTarget?.kind === 'upcoming') onDeleteUpcomingExpense(deleteTarget.id)
+          if (deleteTarget?.kind === 'goal') onDeleteGoal(deleteTarget.id)
+          if (deleteTarget?.kind === 'debt') onDeleteDebt(deleteTarget.id)
+          setDeleteTarget(null)
         }}
       />
     </div>
@@ -185,15 +236,15 @@ function OverviewStatCard({ label, value, icon: Icon, tone }: { label: string; v
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--muted)]">{label}</p>
-          <h3 className="mt-2 truncate text-xl font-semibold text-white sm:text-2xl">{value}</h3>
+          <h3 className="mt-3 truncate text-2xl font-semibold text-white sm:text-3xl">{value}</h3>
         </div>
-        <span className="goals-overview-icon"><Icon size={20} /></span>
+        <span className="goals-overview-icon"><Icon size={22} /></span>
       </div>
     </article>
   )
 }
 
-function GoalNeonCard({ goal, onAddSavings }: { goal: Goal; onAddSavings: () => void }) {
+function GoalNeonCard({ goal, onAddSavings, onEdit, onDelete }: { goal: Goal; onAddSavings: () => void; onEdit: () => void; onDelete: () => void }) {
   const progress = percent(goal.saved, goal.target)
   const remaining = Math.max(0, goal.target - goal.saved)
 
@@ -216,12 +267,16 @@ function GoalNeonCard({ goal, onAddSavings }: { goal: Goal; onAddSavings: () => 
         </div>
         <strong className="text-2xl text-white">{progress}%</strong>
       </div>
-      <button className="btn-primary mt-5 px-4 py-2 text-sm" onClick={onAddSavings}><PiggyBank size={16} /> Add savings</button>
+      <div className="mt-5 flex flex-wrap gap-2">
+        <button className="btn-primary px-4 py-2 text-sm" onClick={onAddSavings}><WalletCards size={16} /> Add savings</button>
+        <button className="rounded-full bg-[var(--surface-2)] px-4 py-2 text-sm font-semibold text-white" onClick={onEdit}><PencilLine className="inline" size={15} /> Edit</button>
+        <button className="rounded-full border border-[rgba(233,141,103,.22)] bg-[rgba(233,141,103,.08)] px-4 py-2 text-sm font-semibold text-[var(--negative)]" onClick={onDelete}><Trash2 className="inline" size={15} /> Delete</button>
+      </div>
     </article>
   )
 }
 
-function DebtNeonCard({ debt, onPayDebt }: { debt: Debt; onPayDebt: () => void }) {
+function DebtNeonCard({ debt, onPayDebt, onEdit, onDelete }: { debt: Debt; onPayDebt: () => void; onEdit: () => void; onDelete: () => void }) {
   const progress = percent(debt.paid, debt.total)
   const remaining = Math.max(0, debt.total - debt.paid)
   const overdue = debt.status === 'Overdue'
@@ -245,7 +300,11 @@ function DebtNeonCard({ debt, onPayDebt }: { debt: Debt; onPayDebt: () => void }
         </div>
         <strong className="text-2xl text-white">{progress}%</strong>
       </div>
-      <button className="btn-primary mt-5 px-4 py-2 text-sm" disabled={debt.status === 'Completed'} onClick={onPayDebt}><CheckCircle2 size={16} /> Pay debt</button>
+      <div className="mt-5 flex flex-wrap gap-2">
+        <button className="btn-primary px-4 py-2 text-sm" disabled={debt.status === 'Completed'} onClick={onPayDebt}><CheckCircle2 size={16} /> Pay debt</button>
+        <button className="rounded-full bg-[var(--surface-2)] px-4 py-2 text-sm font-semibold text-white" onClick={onEdit}><PencilLine className="inline" size={15} /> Edit</button>
+        <button className="rounded-full border border-[rgba(233,141,103,.22)] bg-[rgba(233,141,103,.08)] px-4 py-2 text-sm font-semibold text-[var(--negative)]" onClick={onDelete}><Trash2 className="inline" size={15} /> Delete</button>
+      </div>
     </article>
   )
 }
@@ -336,24 +395,26 @@ export function AddUpcomingExpenseModal({
 
 function AddDebtModal({
   open,
+  debt,
   onClose,
   onSubmit,
 }: {
   open: boolean
+  debt?: Debt
   onClose: () => void
   onSubmit: (payload: DebtPayload) => void
 }) {
-  const [name, setName] = useState('')
-  const [total, setTotal] = useState('')
-  const [paid, setPaid] = useState('0')
-  const [dueDate, setDueDate] = useState('')
-  const [status, setStatus] = useState<Debt['status']>('Active')
+  const [name, setName] = useState(debt?.name ?? '')
+  const [total, setTotal] = useState(debt?.total.toString() ?? '')
+  const [paid, setPaid] = useState(debt?.paid.toString() ?? '0')
+  const [dueDate, setDueDate] = useState(debt?.dueDate ?? '')
+  const [status, setStatus] = useState<Debt['status']>(debt?.status ?? 'Active')
   const parsedTotal = Number(total)
   const parsedPaid = Number(paid)
   const invalid = !name.trim() || parsedTotal <= 0 || parsedPaid < 0 || parsedPaid > parsedTotal
 
   return (
-    <Sheet title="Add debt" eyebrow="New obligation" open={open} onClose={onClose}>
+    <Sheet title={debt ? 'Edit debt' : 'Add debt'} eyebrow={debt ? 'Update obligation' : 'New obligation'} open={open} onClose={onClose}>
       <form className="mt-5 grid gap-4" onSubmit={(event) => {
         event.preventDefault()
         if (invalid) return
@@ -365,7 +426,62 @@ function AddDebtModal({
         <Field label="Already paid" type="number" value={paid} onChange={setPaid} />
         <Field label="Due date optional" type="date" value={dueDate} onChange={setDueDate} />
         <Select label="Status" value={status} onChange={(value) => setStatus(value as Debt['status'])} options={['Active', 'Completed', 'Overdue']} />
-        <button className="btn-primary justify-center disabled:opacity-60" disabled={invalid}>Add debt</button>
+        <button className="btn-primary justify-center disabled:opacity-60" disabled={invalid}>{debt ? 'Save debt' : 'Add debt'}</button>
+      </form>
+    </Sheet>
+  )
+}
+
+function EditGoalModal({
+  goal,
+  accounts,
+  onClose,
+  onSubmit,
+}: {
+  goal: Goal | null
+  accounts: Account[]
+  onClose: () => void
+  onSubmit: (payload: GoalPayload) => void
+}) {
+  const [name, setName] = useState(goal?.name ?? '')
+  const [target, setTarget] = useState(goal?.target.toString() ?? '')
+  const [saved, setSaved] = useState(goal?.saved.toString() ?? '0')
+  const [linkedAccountId, setLinkedAccountId] = useState(goal?.linkedAccountId ?? '')
+  const [dueDate, setDueDate] = useState(goal?.dueDate ?? '')
+  const [notes, setNotes] = useState(goal?.notes ?? '')
+  const [status, setStatus] = useState<Goal['status']>(goal?.status ?? 'Active')
+
+  if (!goal) return null
+
+  const parsedTarget = Number(target)
+  const parsedSaved = Number(saved)
+  const invalid = !name.trim() || parsedTarget <= 0 || parsedSaved < 0 || parsedSaved > parsedTarget
+
+  return (
+    <Sheet title="Edit goal" eyebrow={goal.name} open={Boolean(goal)} onClose={onClose}>
+      <form className="mt-5 grid gap-4" onSubmit={(event) => {
+        event.preventDefault()
+        if (invalid) return
+        onSubmit({
+          name: name.trim(),
+          target: parsedTarget,
+          saved: parsedSaved,
+          linkedAccountId: linkedAccountId || undefined,
+          dueDate: dueDate || undefined,
+          notes: notes.trim() || undefined,
+          status: parsedSaved >= parsedTarget ? 'Completed' : status,
+        })
+        onClose()
+      }}>
+        <Field label="Goal name" value={name} onChange={setName} placeholder="New laptop" />
+        <Field label="Target amount" type="number" value={target} onChange={setTarget} placeholder="Rs. 250,000" />
+        <Field label="Saved amount" type="number" value={saved} onChange={setSaved} />
+        <Select label="Linked account optional" value={linkedAccountId} onChange={setLinkedAccountId} options={[{ value: '', label: 'No linked account' }, ...accounts.map((item) => ({ value: item.id, label: item.name }))]} />
+        <Field label="Deadline optional" type="date" value={dueDate} onChange={setDueDate} />
+        <Select label="Status" value={status} onChange={(value) => setStatus(value as Goal['status'])} options={['Active', 'Completed', 'Overdue']} />
+        <TextArea label="Notes" value={notes} onChange={setNotes} />
+        {parsedSaved > parsedTarget && <p className="text-sm text-[var(--negative)]">Saved amount cannot be greater than target amount.</p>}
+        <button className="btn-primary justify-center disabled:opacity-60" disabled={invalid}>Save goal</button>
       </form>
     </Sheet>
   )
@@ -415,15 +531,30 @@ function AddSavingsModal({
 }
 
 function ConfirmDeleteModal({
-  expense,
+  target,
   onClose,
   onConfirm,
 }: {
-  expense: UpcomingExpense | null
+  target: DeleteTarget | null
   onClose: () => void
   onConfirm: () => void
 }) {
-  if (!expense) return null
+  if (!target) return null
+
+  const labels: Record<DeleteTarget['kind'], { eyebrow: string; note: string }> = {
+    upcoming: {
+      eyebrow: 'Delete upcoming expense',
+      note: 'This removes the planned item only. It will not affect transactions, balances, or actual expenses.',
+    },
+    goal: {
+      eyebrow: 'Delete savings goal',
+      note: 'This removes the goal card only. It will not delete past savings transactions or change account balances.',
+    },
+    debt: {
+      eyebrow: 'Delete debt',
+      note: 'This removes the debt card only. It will not delete past debt payment transactions or change account balances.',
+    },
+  }
 
   return (
     <div className="fixed inset-0 z-50 grid place-items-center bg-black/60 p-5 backdrop-blur-sm" onMouseDown={onClose}>
@@ -435,12 +566,12 @@ function ConfirmDeleteModal({
       >
         <div className="flex items-start justify-between gap-4">
           <div>
-            <p className="text-xs text-[var(--muted)]">Delete upcoming expense</p>
-            <h2 className="mt-1 text-xl font-semibold text-white">Delete {expense.title}?</h2>
+            <p className="text-xs text-[var(--muted)]">{labels[target.kind].eyebrow}</p>
+            <h2 className="mt-1 text-xl font-semibold text-white">Delete {target.title}?</h2>
           </div>
           <button className="icon-button" onClick={onClose} aria-label="Close delete confirmation"><X size={18} /></button>
         </div>
-        <p className="mt-3 text-sm text-[var(--muted)]">This removes the planned item only. It will not affect transactions, balances, or actual expenses.</p>
+        <p className="mt-3 text-sm text-[var(--muted)]">{labels[target.kind].note}</p>
         <div className="mt-5 grid grid-cols-2 gap-3">
           <button className="rounded-2xl bg-[var(--surface-2)] px-4 py-3 text-sm font-semibold text-white" onClick={onClose}>Keep it</button>
           <button className="rounded-2xl border border-[rgba(233,141,103,.24)] bg-[rgba(233,141,103,.1)] px-4 py-3 text-sm font-semibold text-[var(--negative)]" onClick={onConfirm}>Delete</button>

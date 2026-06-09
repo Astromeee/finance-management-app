@@ -3,6 +3,7 @@
 ## Version 0.6.0
 
 - Added Upcoming Expenses section with recurring planned expenses, due-date tracking, and mark-as-paid conversion into real expense transactions.
+- Reports page redesign: added period filtering, structured financial summaries, category and income breakdowns, spending trends, needs vs wants, account usage, budget performance, upcoming expenses preview, and goals/debts progress.
 
 ## Version 0.5.0
 
