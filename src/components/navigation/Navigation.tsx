@@ -1,3 +1,4 @@
+import { motion } from 'framer-motion'
 import { navItems } from '../../data/navigation'
 import { cn } from '../../utils/ui'
 
@@ -34,15 +35,35 @@ export function Sidebar({ activePage, setActivePage }: { activePage: string; set
 
 export function BottomNav({ activePage, setActivePage }: { activePage: string; setActivePage: (page: string) => void }) {
   const mobileItems = navItems.filter((item) => ['dashboard', 'transactions', 'accounts', 'goals', 'reports'].includes(item.id))
+  const activeWidths: Record<string, number> = {
+    dashboard: 134,
+    transactions: 174,
+    accounts: 132,
+    goals: 128,
+    reports: 162,
+  }
   return (
-    <nav className="fixed bottom-4 left-1/2 z-30 w-max -translate-x-1/2 rounded-full border border-white/10 bg-[#17181b]/68 px-5 py-2 shadow-2xl shadow-black/45 backdrop-blur-2xl lg:hidden">
-      <div className="grid grid-cols-5 gap-2">
-        {mobileItems.map(({ id, label, icon: Icon }) => (
-          <button key={id} aria-label={label} className={cn('grid h-11 w-11 place-items-center rounded-full text-[var(--muted)] transition hover:text-white', activePage === id && 'bg-[var(--accent)] text-[#101214] shadow-[0_10px_28px_rgba(221,255,69,.22)] ring-1 ring-[rgba(221,255,69,.28)] hover:text-[#101214] [&_svg]:text-[#101214] hover:[&_svg]:text-[#101214]')} onClick={() => navigate(setActivePage, id)}>
-            <Icon size={20} />
-          </button>
-        ))}
-      </div>
+    <nav className="fixed bottom-[calc(1rem+env(safe-area-inset-bottom))] left-1/2 z-30 flex w-[min(29.5rem,calc(100vw-.25rem))] -translate-x-1/2 items-center justify-center gap-2.5 lg:hidden" aria-label="Primary navigation">
+      {mobileItems.map(({ id, label, icon: Icon }) => {
+        const active = activePage === id
+        return (
+          <motion.button
+            key={id}
+            layout
+            aria-label={label}
+            className={cn('mobile-nav-item', active && 'mobile-nav-item-active')}
+            initial={false}
+            animate={{ width: active ? activeWidths[id] : 62 }}
+            transition={{ type: 'spring', stiffness: 760, damping: 42, mass: 0.42 }}
+            onClick={() => navigate(setActivePage, id)}
+          >
+            {active && <motion.span className="mobile-nav-label" initial={{ opacity: 0, x: -4 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.1 }}>{label}</motion.span>}
+            <span className="mobile-nav-icon">
+              <Icon size={21} />
+            </span>
+          </motion.button>
+        )
+      })}
     </nav>
   )
 }

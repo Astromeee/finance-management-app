@@ -31,12 +31,12 @@ export const netSaving = (transactions: Transaction[]) =>
 export const safeToSpend = (accounts: Account[], budgets: Budget[], goals: Goal[], debts: Debt[]) => {
   const remainingBudgets = budgets.reduce((sum, budget) => sum + Math.max(0, budget.amount - budget.used), 0)
   const shortTermGoals = goals.reduce((sum, goal) => sum + Math.max(0, goal.target - goal.saved) * 0.08, 0)
-  const debtReserve = debts.reduce((sum, debt) => sum + Math.max(0, debt.total - debt.paid) * 0.06, 0)
+  const debtReserve = debts.reduce((sum, debt) => sum + Math.max(0, (debt.totalAmount ?? debt.total ?? 0) - (debt.paidAmount ?? debt.paid ?? 0)) * 0.06, 0)
   return Math.max(0, Math.round(totalBalance(accounts) - remainingBudgets - shortTermGoals - debtReserve))
 }
 
 export const goalProgress = (goal: Goal) => percent(goal.saved, goal.target)
-export const debtProgress = (debt: Debt) => percent(debt.paid, debt.total)
+export const debtProgress = (debt: Debt) => percent(debt.paidAmount ?? debt.paid ?? 0, debt.totalAmount ?? debt.total ?? 0)
 export const budgetUsage = (budget: Budget) => percent(budget.used, budget.amount)
 
 const categoryColors = ['#ddff45', '#d4d4d0', '#e98d67', '#aeb7c5', '#8f949c', '#c9a46a']

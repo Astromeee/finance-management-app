@@ -57,7 +57,7 @@ Transfers move money from one account to another. They do not count as income or
 - Expense decreases the selected account balance and creates an `expense` transaction with category, payment method, account, date, and optional notes. If a matching budget category exists, its used amount increases.
 - Transfer moves money from one account to another and creates a `transfer` transaction. Total balance stays the same and transfers are excluded from income and expense calculations.
 - Goal creation adds a new goal to shared local state. Initial saved amount is recorded on the goal; if present, a `goal_saving` transaction is also added for audit context, but the app does not subtract it from an account yet.
-- Debt payment decreases the selected account balance, increases the selected debt paid amount, and creates a `debt_payment` transaction.
+- Debt / money owed payment decreases the selected account balance, increases the selected item's paid amount, recalculates remaining amount, marks the item Paid when paid amount reaches total amount, and creates a `debt_payment` transaction titled `Payment toward [debt title]`.
 - Upcoming expenses are planned expenses. They do not reduce account balances or increase actual expenses until marked as paid.
 - Creating or editing an upcoming expense only updates `upcomingExpenses` in shared local state.
 - Marking an upcoming expense as paid creates a real `expense` transaction, decreases the selected account balance, updates matching budget usage, stores the transaction id on the planned expense, and marks the planned expense `paid`.
@@ -95,6 +95,33 @@ Statuses display as:
 
 Unpaid upcoming expenses do not appear in Transactions and do not feed actual expense charts. Only paid conversion creates a real transaction.
 
+## Debts & Money Owed
+
+Debt-related records cover formal debts, overdue payments, installments, and personal money owed to someone.
+
+Each item stores:
+
+- `id`
+- `title`
+- optional `personOrCompany`
+- `totalAmount`
+- `paidAmount`
+- calculated remaining amount: `totalAmount - paidAmount`
+- optional `dueDate`
+- `category`: Debt, Overdue Payment, Money I Owe, Installment, or Other
+- `status`: Active, Due Soon, Overdue, or Paid
+- optional `notes`
+- `createdAt`
+
+Status display logic:
+
+- Paid when `paidAmount >= totalAmount`.
+- Overdue when the due date has passed and the item is not fully paid.
+- Due Soon when the due date is within the next 7 days and the item is not fully paid.
+- Active when it is not paid, overdue, or due soon.
+
+Debt payments are recorded as `debt_payment` transactions and are excluded from normal expense category reports. They still reduce the selected account balance because cash has left that account.
+
 ## Mock Content
 
-The v3 mock data remains tuned for a Pakistani personal finance workflow for Moeed, including accounts like Cash, HBL Account, Meezan Bank, JazzCash, and Easypaisa; income such as Parents Support and Freelancing Payment; and expenses such as Food & Groceries, Transport, Course Fee, Clothes, and Dining Out.
+The default mock finance state stays minimal, with debt examples for Borrowed from Brother, Laptop Installment, Pending Course Fee, and Owe friend for shared dinner to demonstrate the Debts & Money Owed flow.

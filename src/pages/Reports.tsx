@@ -1,15 +1,20 @@
 import { useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
 import {
+  Area,
+  AreaChart,
   Bar,
   BarChart,
+  Cell,
   CartesianGrid,
+  Pie,
+  PieChart,
   ResponsiveContainer,
   Tooltip,
   XAxis,
   YAxis,
 } from 'recharts'
-import { Target, TrendingDown, TrendingUp, WalletCards, type LucideIcon } from 'lucide-react'
+import { ChevronDown, Landmark, PieChart as PieChartIcon, WalletCards, type LucideIcon } from 'lucide-react'
 import { formatPKR, percent } from '../utils/financeCalculations'
 import type { Account, Budget, Debt, Goal, Transaction, UpcomingExpense } from '../types/finance'
 import { cn } from '../utils/ui'
@@ -40,7 +45,7 @@ const needsCategories = new Set([
   'Electricity Bill',
   'University Fee',
   'Transport',
-  'Food & Groceries',
+  'Food and Groceries',
   'Mobile Package',
   'Course Fee',
   'Health',
@@ -70,6 +75,8 @@ export function Reports({
   debts,
   budgets,
   upcomingExpenses,
+  expenseCategories,
+  onAddExpenseCategory,
 }: {
   accounts: Account[]
   transactions: Transaction[]
@@ -77,10 +84,14 @@ export function Reports({
   debts: Debt[]
   budgets: Budget[]
   upcomingExpenses: UpcomingExpense[]
+  expenseCategories: string[]
+  onAddExpenseCategory: (category: string) => void
 }) {
   const [period, setPeriod] = useState<PeriodSelection>('this-month')
   const [customStart, setCustomStart] = useState(monthStart(new Date()).toISOString().slice(0, 10))
   const [customEnd, setCustomEnd] = useState(new Date().toISOString().slice(0, 10))
+  const [newExpenseCategory, setNewExpenseCategory] = useState('')
+  const [showMoreAnalytics, setShowMoreAnalytics] = useState(false)
 
   const range = useMemo(() => getRange(period, customStart, customEnd), [period, customEnd, customStart])
   const periodTransactions = useMemo(
@@ -94,6 +105,7 @@ export function Reports({
   const totalExpenses = expenseTransactions.reduce((sum, transaction) => sum + transaction.amount, 0)
   const netSaved = totalIncome - totalExpenses
   const savingsRate = totalIncome > 0 ? (netSaved / totalIncome) * 100 : 0
+  const totalBalance = accounts.reduce((sum, account) => sum + account.balance, 0)
 
   const spendingByCategory = groupTransactions(expenseTransactions, (transaction) => transaction.category ?? transaction.title, totalExpenses)
   const incomeBySource = groupTransactions(incomeTransactions, (transaction) => transaction.source ?? transaction.category ?? transaction.title, totalIncome)
@@ -116,6 +128,16 @@ export function Reports({
   })
   const upcoming = upcomingReport(upcomingExpenses)
   const goalDebt = goalDebtReport(goals, debts)
+  const hasMoneyMovement = periodTransactions.length > 0 || totalIncome > 0 || totalExpenses > 0
+  const snapshotSentence = buildSnapshotSentence({ rangeLabel: range.label, totalIncome, totalExpenses, netSaved, debtRemaining: goalDebt.debtRemaining, upcomingDue: upcoming.nextSevenDays })
+  const cashflowData = cashflowTrend(periodTransactions, range)
+  const spendingMix = spendingByCategory.length ? spendingByCategory.slice(0, 5) : [{ name: 'No spending', value: 1, percent: 100 }]
+  const needsWantsMix = [
+    { name: 'Needs', value: needsWants.needs, color: '#ddff45' },
+    { name: 'Wants', value: needsWants.wants, color: '#e98d67' },
+  ].filter((item) => item.value > 0)
+  const debtProgress = goalDebt.debtTotal > 0 ? Math.round((goalDebt.debtPaid / goalDebt.debtTotal) * 100) : 0
+  const advancedOpen = showMoreAnalytics || hasMoneyMovement
 
   return (
     <div className="reports-page space-y-5 pb-28">
@@ -140,28 +162,103 @@ export function Reports({
         </div>
       </section>
 
-      <section className="grid grid-cols-2 gap-3 xl:grid-cols-4">
-        <SummaryCard label="Total Income" value={formatPKR(totalIncome)} tone="positive" icon={TrendingUp} />
-        <SummaryCard label="Total Expenses" value={formatPKR(totalExpenses)} tone="negative" icon={TrendingDown} />
-        <SummaryCard label="Net Saved" value={formatPKR(netSaved)} tone={netSaved >= 0 ? 'positive' : 'negative'} icon={WalletCards} />
-        <SummaryCard label="Savings Rate" value={`${savingsRate.toFixed(1)}%`} tone={savingsRate >= 0 ? 'positive' : 'negative'} icon={Target} />
+      <section className="reports-snapshot-card">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--muted)]">{range.label} snapshot</p>
+          <h2 className="mt-2 text-3xl font-semibold text-white">{netSaved >= 0 ? formatPKR(netSaved) : `-${formatPKR(Math.abs(netSaved))}`}</h2>
+          <p className="mt-2 text-sm leading-6 text-[var(--muted)]">{snapshotSentence}</p>
+        </div>
+        <div className="reports-snapshot-grid">
+          <MiniMetric label="Cash now" value={formatPKR(totalBalance)} tone="lime" />
+          <MiniMetric label="Upcoming 7 days" value={formatPKR(upcoming.nextSevenDays)} tone={upcoming.nextSevenDays > 0 ? 'orange' : 'neutral'} />
+          <MiniMetric label="Debt left" value={formatPKR(goalDebt.debtRemaining)} tone={goalDebt.debtRemaining > 0 ? 'orange' : 'lime'} />
+        </div>
       </section>
 
-      <section className="grid gap-5 xl:grid-cols-2">
-        <ReportPanel eyebrow="Actual expenses only" title="Spending by Category" meta={`${spendingByCategory.length} categories used`}>
-          <div className="mb-4 rounded-2xl border border-white/10 bg-white/[.035] p-3 text-sm text-[var(--muted)]">
-            Top spending category: <strong className="text-white">{spendingByCategory[0]?.name ?? 'None'}</strong>
+      <section className="grid gap-4 xl:grid-cols-3">
+        <InsightCard
+          title="Spending"
+          eyebrow="Actual expenses"
+          value={formatPKR(totalExpenses)}
+          note={spendingByCategory[0] ? `${spendingByCategory[0].name} is your top category.` : 'No spending logged in this period.'}
+          icon={PieChartIcon}
+          tone="orange"
+        >
+          <DonutChart data={spendingMix} colors={['#e98d67', '#ddff45', '#39dced', '#b46cff', '#aeb7c5']} empty={!spendingByCategory.length} />
+        </InsightCard>
+        <InsightCard
+          title="Cashflow"
+          eyebrow="Income minus expenses"
+          value={netSaved >= 0 ? formatPKR(netSaved) : `-${formatPKR(Math.abs(netSaved))}`}
+          note={totalIncome > 0 ? `${savingsRate.toFixed(1)}% savings rate for ${range.label}.` : 'No income logged yet for this period.'}
+          icon={WalletCards}
+          tone={netSaved >= 0 ? 'lime' : 'orange'}
+        >
+          {hasMoneyMovement ? <CashflowMiniChart data={cashflowData} /> : <EmptyInsight title="No cashflow yet" note="Add income and expenses to see money moving over time." />}
+        </InsightCard>
+        <InsightCard
+          title="Debt"
+          eyebrow="Money owed"
+          value={formatPKR(goalDebt.debtRemaining)}
+          note={goalDebt.debtTotal > 0 ? `${debtProgress}% paid across ${debts.length} items.` : 'No debt items are active.'}
+          icon={Landmark}
+          tone={goalDebt.debtRemaining > 0 ? 'orange' : 'lime'}
+        >
+          <ProgressRing value={goalDebt.debtTotal > 0 ? debtProgress : 100} label={goalDebt.debtTotal > 0 ? 'paid' : 'clear'} tone={goalDebt.debtRemaining > 0 ? 'orange' : 'lime'} />
+        </InsightCard>
+      </section>
+
+      <section className="grid gap-5 xl:grid-cols-[1.1fr_.9fr]">
+        <ReportPanel eyebrow="Where your money went" title="Spending Mix" meta={`${spendingByCategory.length} categories`}>
+          <div className="reports-chart-two-col">
+            <DonutChart data={spendingMix} colors={['#e98d67', '#ddff45', '#39dced', '#b46cff', '#aeb7c5']} empty={!spendingByCategory.length} />
+            <RankedBars items={spendingByCategory.slice(0, 5)} empty="No actual expenses in this period." />
           </div>
-          <RankedBars items={spendingByCategory} empty="No actual expenses in this period." />
         </ReportPanel>
 
-        <ReportPanel eyebrow="Income transactions only" title="Income by Source" meta={`${incomeBySource.length} sources`}>
-          <RankedBars items={incomeBySource} empty="No income in this period." accent="lime" />
+        <ReportPanel eyebrow="Necessary vs lifestyle spending" title="Needs vs Wants">
+          {needsWantsMix.length ? (
+            <div className="reports-chart-two-col reports-chart-two-col-tight">
+              <DonutChart data={needsWantsMix.map((item) => ({ name: item.name, value: item.value, percent: percent(item.value, needsWants.needs + needsWants.wants) }))} colors={needsWantsMix.map((item) => item.color)} />
+              <div className="grid gap-3">
+                <SplitCard label="Needs" amount={needsWants.needs} percent={needsWants.needsPercent} />
+                <SplitCard label="Wants" amount={needsWants.wants} percent={needsWants.wantsPercent} tone="orange" />
+              </div>
+            </div>
+          ) : <EmptyInsight title="No spending mix yet" note="Add expenses and this will separate needs from lifestyle spending." />}
         </ReportPanel>
       </section>
 
-      <section className="grid gap-5 xl:grid-cols-[1.25fr_.75fr]">
-        <ReportPanel eyebrow={range.start && range.end && sameMonth(range.start, range.end) ? 'Daily spending' : 'Monthly spending'} title="Spending Trend">
+      <ReportPanel eyebrow="Money in and out" title="Cashflow Trend">
+        {hasMoneyMovement ? <div className="reports-chart-frame">
+          <ResponsiveContainer width="100%" height="100%">
+            <AreaChart data={cashflowData} margin={{ top: 8, right: 8, left: -20, bottom: 0 }}>
+              <CartesianGrid stroke="rgba(255,255,255,.08)" vertical={false} />
+              <XAxis dataKey="label" stroke="#a7a8ac" tickLine={false} axisLine={false} />
+              <YAxis stroke="#a7a8ac" tickLine={false} axisLine={false} tickFormatter={(value) => `${Number(value) / 1000}k`} />
+              <Tooltip formatter={(value) => formatPKR(Number(value))} contentStyle={tooltipStyle} cursor={{ stroke: 'rgba(221,255,69,.18)' }} />
+              <Area type="monotone" dataKey="income" stroke="#ddff45" fill="rgba(221,255,69,.12)" strokeWidth={2.5} isAnimationActive={false} />
+              <Area type="monotone" dataKey="expenses" stroke="#e98d67" fill="rgba(233,141,103,.12)" strokeWidth={2.5} isAnimationActive={false} />
+            </AreaChart>
+          </ResponsiveContainer>
+        </div> : <EmptyInsight title="No trend to show yet" note="Once you record transactions, this chart will compare income and spending over the selected period." />}
+      </ReportPanel>
+
+      {!hasMoneyMovement && (
+        <button className="reports-more-toggle" onClick={() => setShowMoreAnalytics((current) => !current)}>
+          <span>{showMoreAnalytics ? 'Hide deeper analytics' : 'Show deeper analytics'}</span>
+          <ChevronDown className={cn(showMoreAnalytics && 'rotate-180')} size={18} />
+        </button>
+      )}
+
+      {advancedOpen && (
+        <>
+        <section className="grid gap-5 xl:grid-cols-2">
+          <ReportPanel eyebrow="Income transactions only" title="Income by Source" meta={`${incomeBySource.length} sources`}>
+            <RankedBars items={incomeBySource} empty="No income in this period." accent="lime" />
+          </ReportPanel>
+
+          <ReportPanel eyebrow={range.start && range.end && sameMonth(range.start, range.end) ? 'Daily spending' : 'Monthly spending'} title="Spending Trend">
           <div className="reports-chart-frame">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={trendData} margin={{ top: 8, right: 8, left: -20, bottom: 0 }}>
@@ -173,62 +270,65 @@ export function Reports({
               </BarChart>
             </ResponsiveContainer>
           </div>
+          </ReportPanel>
+        </section>
+
+        <ReportPanel eyebrow="Expense transactions only" title="Spending by Account" meta={`${expenseTransactions.length} transactions · ${accounts.length} accounts`}>
+          <RankedBars items={accountUsage} empty="No account spending in this period." showCount />
         </ReportPanel>
 
-        <ReportPanel eyebrow="Necessary vs lifestyle spending" title="Needs vs Wants">
-          <div className="grid gap-3">
-            <SplitCard label="Needs" amount={needsWants.needs} percent={needsWants.needsPercent} />
-            <SplitCard label="Wants" amount={needsWants.wants} percent={needsWants.wantsPercent} tone="orange" />
+        <ReportPanel eyebrow="Budget vs actual spending" title="Budget Performance">
+          {budgetRows.length ? (
+            <div className="grid gap-3 md:grid-cols-2">
+              {budgetRows.map((budget) => <BudgetRow key={budget.id} budget={budget} />)}
+            </div>
+          ) : <EmptyInsight title="No budgets yet" note="Create budgets to compare actual spending against your monthly limits." />}
+        </ReportPanel>
+
+        <ReportPanel eyebrow="Planned, not yet paid" title="Upcoming Expenses">
+          <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
+            <MiniMetric label="Upcoming this month" value={formatPKR(upcoming.thisMonth)} />
+            <MiniMetric label="Due in next 7 days" value={formatPKR(upcoming.nextSevenDays)} tone="lime" />
+            <MiniMetric label="Overdue unpaid" value={formatPKR(upcoming.overdue)} tone="orange" />
+            <MiniMetric label="Recurring upcoming" value={String(upcoming.recurring)} />
           </div>
         </ReportPanel>
-      </section>
 
-      <ReportPanel eyebrow="Expense transactions only" title="Spending by Account" meta={`${expenseTransactions.length} transactions · ${accounts.length} accounts`}>
-        <RankedBars items={accountUsage} empty="No account spending in this period." showCount />
-      </ReportPanel>
+        <ReportPanel eyebrow="Savings goals, debts, and money owed" title="Goals & Debts">
+          <div className="grid gap-3 md:grid-cols-3">
+            <MiniMetric label="Goal target" value={formatPKR(goalDebt.goalTarget)} />
+            <MiniMetric label="Saved toward goals" value={formatPKR(goalDebt.goalSaved)} tone="lime" />
+            <MiniMetric label="Goal progress" value={`${goalDebt.goalProgress}%`} />
+            <MiniMetric label="Total debt / money owed" value={formatPKR(goalDebt.debtTotal)} tone="orange" />
+            <MiniMetric label="Total paid" value={formatPKR(goalDebt.debtPaid)} />
+            <MiniMetric label="Total remaining" value={formatPKR(goalDebt.debtRemaining)} tone="orange" />
+            <MiniMetric label="Overdue items" value={String(goalDebt.overdueItems)} tone="orange" />
+            <MiniMetric label="Money I owe items" value={String(goalDebt.moneyOwedItems)} />
+          </div>
+          <div className="mt-4 grid gap-3 xl:grid-cols-2">
+            <CompactProgressList title="Active savings goals" items={goals.filter((goal) => goal.status !== 'Completed').map((goal) => ({ name: goal.name, current: goal.saved, total: goal.target }))} />
+            <CompactProgressList title="Debts & money owed" items={debts.filter((debt) => debtStatus(debt) !== 'Paid').map((debt) => ({ name: debt.title || debt.name || 'Debt', current: debt.paidAmount ?? debt.paid ?? 0, total: debt.totalAmount ?? debt.total ?? 0 }))} tone="orange" />
+          </div>
+        </ReportPanel>
+        </>
+      )}
 
-      <ReportPanel eyebrow="Budget vs actual spending" title="Budget Performance">
-        <div className="grid gap-3 md:grid-cols-2">
-          {budgetRows.map((budget) => <BudgetRow key={budget.id} budget={budget} />)}
-        </div>
-      </ReportPanel>
-
-      <ReportPanel eyebrow="Planned, not yet paid" title="Upcoming Expenses">
-        <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
-          <MiniMetric label="Upcoming this month" value={formatPKR(upcoming.thisMonth)} />
-          <MiniMetric label="Due in next 7 days" value={formatPKR(upcoming.nextSevenDays)} tone="lime" />
-          <MiniMetric label="Overdue unpaid" value={formatPKR(upcoming.overdue)} tone="orange" />
-          <MiniMetric label="Recurring upcoming" value={String(upcoming.recurring)} />
-        </div>
-      </ReportPanel>
-
-      <ReportPanel eyebrow="Savings goals and debt obligations" title="Goals & Debts">
-        <div className="grid gap-3 md:grid-cols-3">
-          <MiniMetric label="Goal target" value={formatPKR(goalDebt.goalTarget)} />
-          <MiniMetric label="Saved toward goals" value={formatPKR(goalDebt.goalSaved)} tone="lime" />
-          <MiniMetric label="Goal progress" value={`${goalDebt.goalProgress}%`} />
-          <MiniMetric label="Total debt" value={formatPKR(goalDebt.debtTotal)} tone="orange" />
-          <MiniMetric label="Debt paid" value={formatPKR(goalDebt.debtPaid)} />
-          <MiniMetric label="Remaining debt" value={formatPKR(goalDebt.debtRemaining)} tone="orange" />
-        </div>
-        <div className="mt-4 grid gap-3 xl:grid-cols-2">
-          <CompactProgressList title="Active savings goals" items={goals.filter((goal) => goal.status !== 'Completed').map((goal) => ({ name: goal.name, current: goal.saved, total: goal.target }))} />
-          <CompactProgressList title="Active debts" items={debts.filter((debt) => debt.status !== 'Completed').map((debt) => ({ name: debt.name, current: debt.paid, total: debt.total }))} tone="orange" />
+      <ReportPanel eyebrow="Expense category setup" title="Add Expense Category" meta={`${expenseCategories.length} categories`}>
+        <form className="grid gap-3 sm:grid-cols-[1fr_auto]" onSubmit={(event) => {
+          event.preventDefault()
+          const category = newExpenseCategory.trim()
+          if (!category) return
+          onAddExpenseCategory(category)
+          setNewExpenseCategory('')
+        }}>
+          <input className="form-input" value={newExpenseCategory} onChange={(event) => setNewExpenseCategory(event.target.value)} placeholder="Add category, e.g. Fuel" />
+          <button className="btn-primary justify-center" type="submit">Add Category</button>
+        </form>
+        <div className="mt-3 flex flex-wrap gap-2">
+          {expenseCategories.slice(-8).map((category) => <span key={category} className="rounded-full border border-white/10 bg-white/[.04] px-3 py-1 text-xs font-semibold text-[var(--muted)]">{category}</span>)}
         </div>
       </ReportPanel>
     </div>
-  )
-}
-
-function SummaryCard({ label, value, icon: Icon, tone }: { label: string; value: string; icon: LucideIcon; tone: 'positive' | 'negative' }) {
-  return (
-    <article className={cn('reports-summary-card', tone === 'negative' && 'reports-summary-negative')}>
-      <div className="flex items-start justify-between gap-3">
-        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--muted)]">{label}</p>
-        <span className="reports-summary-icon"><Icon size={18} /></span>
-      </div>
-      <h3 className="mt-4 truncate text-2xl font-semibold text-white sm:text-3xl">{value}</h3>
-    </article>
   )
 }
 
@@ -244,6 +344,79 @@ function ReportPanel({ eyebrow, title, meta, children }: { eyebrow: string; titl
       </div>
       {children}
     </section>
+  )
+}
+
+function InsightCard({ eyebrow, title, value, note, icon: Icon, tone, children }: { eyebrow: string; title: string; value: string; note: string; icon: LucideIcon; tone: 'lime' | 'orange'; children: ReactNode }) {
+  return (
+    <article className={cn('reports-insight-card', tone === 'orange' && 'reports-insight-orange')}>
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--muted)]">{eyebrow}</p>
+          <h3 className="mt-1 text-xl font-semibold text-white">{title}</h3>
+        </div>
+        <span className="reports-summary-icon"><Icon size={18} /></span>
+      </div>
+      <strong className="mt-4 block truncate text-3xl text-white">{value}</strong>
+      <p className="mt-2 min-h-10 text-sm leading-5 text-[var(--muted)]">{note}</p>
+      <div className="mt-4">{children}</div>
+    </article>
+  )
+}
+
+function DonutChart({ data, colors, empty = false }: { data: Array<{ name: string; value: number; percent?: number }>; colors: string[]; empty?: boolean }) {
+  return (
+    <div className="reports-donut-wrap">
+      <ResponsiveContainer width="100%" height="100%">
+        <PieChart>
+          <Pie data={data} dataKey="value" nameKey="name" innerRadius="58%" outerRadius="82%" paddingAngle={empty ? 0 : 4} stroke="rgba(18,19,21,.86)" strokeWidth={4} isAnimationActive={false}>
+            {data.map((entry, index) => <Cell key={entry.name} fill={empty ? 'rgba(255,255,255,.1)' : colors[index % colors.length]} />)}
+          </Pie>
+          <Tooltip formatter={(value) => empty ? 'No data yet' : formatPKR(Number(value))} contentStyle={tooltipStyle} />
+        </PieChart>
+      </ResponsiveContainer>
+      <div className="reports-donut-center">
+        <strong>{empty ? '0' : data.length}</strong>
+        <span>{empty ? 'items' : 'parts'}</span>
+      </div>
+    </div>
+  )
+}
+
+function CashflowMiniChart({ data }: { data: Array<{ label: string; income: number; expenses: number; net: number }> }) {
+  return (
+    <div className="reports-mini-chart">
+      <ResponsiveContainer width="100%" height="100%">
+        <AreaChart data={data} margin={{ top: 4, right: 0, left: 0, bottom: 0 }}>
+          <Area type="monotone" dataKey="income" stroke="#ddff45" fill="rgba(221,255,69,.14)" strokeWidth={2.2} isAnimationActive={false} />
+          <Area type="monotone" dataKey="expenses" stroke="#e98d67" fill="rgba(233,141,103,.12)" strokeWidth={2.2} isAnimationActive={false} />
+          <Tooltip formatter={(value) => formatPKR(Number(value))} contentStyle={tooltipStyle} />
+        </AreaChart>
+      </ResponsiveContainer>
+    </div>
+  )
+}
+
+function ProgressRing({ value, label, tone }: { value: number; label: string; tone: 'lime' | 'orange' }) {
+  const clamped = Math.max(0, Math.min(100, value))
+  return (
+    <div className="reports-ring-wrap">
+      <div className={cn('reports-progress-ring', tone === 'orange' && 'reports-progress-ring-orange')} style={{ background: `conic-gradient(var(--ring-color) ${clamped * 3.6}deg, rgba(255,255,255,.08) 0deg)` }}>
+        <div>
+          <strong>{clamped}%</strong>
+          <span>{label}</span>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function EmptyInsight({ title, note }: { title: string; note: string }) {
+  return (
+    <div className="reports-empty-insight">
+      <p className="font-semibold text-white">{title}</p>
+      <p className="mt-1 text-sm text-[var(--muted)]">{note}</p>
+    </div>
   )
 }
 
@@ -379,6 +552,23 @@ function spendingTrend(transactions: Transaction[], range: Range) {
     .map(([key, amount]) => ({ label: monthly ? monthLabelFromKey(key) : key, amount }))
 }
 
+function cashflowTrend(transactions: Transaction[], range: Range) {
+  const monthly = !range.start || !range.end || !sameMonth(range.start, range.end)
+  const grouped = transactions.reduce<Record<string, { income: number; expenses: number }>>((items, transaction) => {
+    const date = parseDate(transaction.date)
+    if (!date) return items
+    const key = monthly ? `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}` : String(date.getDate()).padStart(2, '0')
+    items[key] ??= { income: 0, expenses: 0 }
+    if (transaction.type === 'income') items[key].income += transaction.amount
+    if (transaction.type === 'expense') items[key].expenses += transaction.amount
+    return items
+  }, {})
+  const rows = Object.entries(grouped)
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([key, item]) => ({ label: monthly ? monthLabelFromKey(key) : key, income: item.income, expenses: item.expenses, net: item.income - item.expenses }))
+  return rows.length ? rows : [{ label: range.label, income: 0, expenses: 0, net: 0 }]
+}
+
 function upcomingReport(expenses: UpcomingExpense[]) {
   const now = new Date()
   const start = startOfDay(now)
@@ -399,8 +589,8 @@ function upcomingReport(expenses: UpcomingExpense[]) {
 function goalDebtReport(goals: Goal[], debts: Debt[]) {
   const goalTarget = goals.reduce((sum, goal) => sum + goal.target, 0)
   const goalSaved = goals.reduce((sum, goal) => sum + goal.saved, 0)
-  const debtTotal = debts.reduce((sum, debt) => sum + debt.total, 0)
-  const debtPaid = debts.reduce((sum, debt) => sum + debt.paid, 0)
+  const debtTotal = debts.reduce((sum, debt) => sum + (debt.totalAmount ?? debt.total ?? 0), 0)
+  const debtPaid = debts.reduce((sum, debt) => sum + (debt.paidAmount ?? debt.paid ?? 0), 0)
   return {
     goalTarget,
     goalSaved,
@@ -408,7 +598,35 @@ function goalDebtReport(goals: Goal[], debts: Debt[]) {
     debtTotal,
     debtPaid,
     debtRemaining: Math.max(0, debtTotal - debtPaid),
+    overdueItems: debts.filter((debt) => debtStatus(debt) === 'Overdue').length,
+    moneyOwedItems: debts.filter((debt) => debt.category === 'Money I Owe').length,
   }
+}
+
+function buildSnapshotSentence({ rangeLabel, totalIncome, totalExpenses, netSaved, debtRemaining, upcomingDue }: { rangeLabel: string; totalIncome: number; totalExpenses: number; netSaved: number; debtRemaining: number; upcomingDue: number }) {
+  if (totalIncome === 0 && totalExpenses === 0) {
+    if (debtRemaining > 0) return `No income or spending is logged for ${rangeLabel} yet. You still have ${formatPKR(debtRemaining)} debt or money owed remaining.`
+    return `No income or spending is logged for ${rangeLabel} yet. Add a few transactions and this will turn into a useful money snapshot.`
+  }
+  if (netSaved >= 0) {
+    const upcomingText = upcomingDue > 0 ? ` Watch ${formatPKR(upcomingDue)} due in the next 7 days.` : ''
+    return `You are positive by ${formatPKR(netSaved)} for ${rangeLabel}: ${formatPKR(totalIncome)} income against ${formatPKR(totalExpenses)} spending.${upcomingText}`
+  }
+  return `You spent ${formatPKR(Math.abs(netSaved))} more than income in ${rangeLabel}. Debt remaining is ${formatPKR(debtRemaining)}.`
+}
+
+function debtStatus(debt: Debt) {
+  const total = debt.totalAmount ?? debt.total ?? 0
+  const paid = debt.paidAmount ?? debt.paid ?? 0
+  if (paid >= total) return 'Paid'
+  if (debt.dueDate) {
+    const due = startOfDay(parseDate(debt.dueDate) ?? new Date())
+    const now = startOfDay(new Date())
+    const daysUntilDue = Math.ceil((due.getTime() - now.getTime()) / 86400000)
+    if (daysUntilDue < 0) return 'Overdue'
+    if (daysUntilDue <= 7) return 'Due Soon'
+  }
+  return debt.status === 'Overdue' || debt.status === 'Due Soon' ? debt.status : 'Active'
 }
 
 function getRange(period: string, customStart: string, customEnd: string): Range {

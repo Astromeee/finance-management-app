@@ -1,7 +1,9 @@
-import { ArrowDown, ArrowRightLeft, ArrowUpRight, Bell, ChevronRight, Eye, Menu, Target, TrendingUp, WalletCards } from 'lucide-react'
+import { ArrowDown, ArrowRightLeft, ArrowUpRight, Bell, CalendarClock, ChevronRight, Eye, EyeOff, Landmark, Target, WalletCards } from 'lucide-react'
 import type { ReactNode } from 'react'
+import { useMemo, useState } from 'react'
+import { InstallAppButton } from '../components/pwa/InstallAppButton'
 import { formatPKR, totalBalance } from '../utils/financeCalculations'
-import type { Account, Budget, Debt, Goal, Transaction } from '../types/finance'
+import type { Account, Budget, Debt, DebtStatus, Goal, Transaction, UpcomingExpense } from '../types/finance'
 
 type DashboardAction = 'income' | 'expense' | 'transfer' | 'goal' | 'debt' | null
 
@@ -19,6 +21,7 @@ export function Dashboard({
   goals,
   debts,
   budgets,
+  upcomingExpenses,
   onAction,
   onNavigate,
 }: {
@@ -27,13 +30,15 @@ export function Dashboard({
   goals: Goal[]
   debts: Debt[]
   budgets: Budget[]
+  upcomingExpenses: UpcomingExpense[]
   onAction: (action: DashboardAction) => void
   onNavigate: (page: string) => void
 }) {
   void transactions
   void goals
-  void debts
   void budgets
+  const [showNotifications, setShowNotifications] = useState(false)
+  const [showBalance, setShowBalance] = useState(false)
 
   const quickActions = [
     { label: 'Income', icon: ArrowDown, action: 'income' as const },
@@ -41,6 +46,10 @@ export function Dashboard({
     { label: 'Transfer', icon: ArrowRightLeft, action: 'transfer' as const },
     { label: 'Goal', icon: Target, action: 'goal' as const },
   ]
+  const notifications = useMemo(() => dashboardNotifications(upcomingExpenses, debts), [debts, upcomingExpenses])
+  const total = totalBalance(accounts)
+  const savingsBalance = accounts.find((account) => account.id === 'savings')?.balance ?? 0
+  const availableToUse = Math.max(0, total - savingsBalance)
 
   return (
     <div className="home-screen pb-6">
@@ -53,13 +62,41 @@ export function Dashboard({
           </div>
         </div>
         <div className="flex items-center gap-3">
-          <button className="home-glass-icon relative" aria-label="Notifications">
-            <Bell size={20} />
-            <span className="absolute right-3 top-3 h-2.5 w-2.5 rounded-full bg-[var(--accent)] shadow-[0_0_12px_rgba(221,255,69,.7)]" />
-          </button>
-          <button className="home-glass-icon" aria-label="Menu">
-            <Menu size={22} />
-          </button>
+          <InstallAppButton />
+          <div className="relative">
+            <button className="home-glass-icon relative" aria-label="Notifications" onClick={() => setShowNotifications((current) => !current)}>
+              <Bell size={20} />
+              {notifications.length > 0 && <span className="absolute right-3 top-3 h-2.5 w-2.5 rounded-full bg-[var(--accent)] shadow-[0_0_12px_rgba(221,255,69,.7)]" />}
+            </button>
+            {showNotifications && (
+              <div className="home-notification-panel">
+                <div className="mb-3 flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--muted)]">Notifications</p>
+                    <h3 className="text-lg font-semibold text-white">Payments to watch</h3>
+                  </div>
+                  <span className="rounded-full bg-[var(--accent)] px-2.5 py-1 text-xs font-black text-[#101214]">{notifications.length}</span>
+                </div>
+                <div className="grid max-h-80 gap-2 overflow-y-auto pr-1">
+                  {notifications.length === 0 ? (
+                    <p className="rounded-2xl bg-white/[.035] p-3 text-sm text-[var(--muted)]">No upcoming future payments or overdue debts right now.</p>
+                  ) : notifications.map((item) => {
+                    const Icon = item.kind === 'upcoming' ? CalendarClock : Landmark
+                    return (
+                      <button key={item.id} className="home-notification-item" onClick={() => { setShowNotifications(false); onNavigate('goals') }}>
+                        <span className={`home-notification-icon home-notification-${item.tone}`}><Icon size={16} /></span>
+                        <span className="min-w-0 flex-1 text-left">
+                          <span className="block truncate text-sm font-semibold text-white">{item.title}</span>
+                          <span className="mt-0.5 block text-xs text-[var(--muted)]">{item.meta}</span>
+                        </span>
+                        <strong className="text-sm text-white">{formatPKR(item.amount)}</strong>
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       </section>
 
@@ -68,16 +105,18 @@ export function Dashboard({
         <div className="relative z-10">
           <div className="mb-5 flex items-center gap-3">
             <p className="text-xs font-semibold uppercase tracking-[0.28em] text-[var(--muted)]">Total Balance</p>
-            <Eye className="text-[var(--accent)]" size={22} />
+            <button className="text-[var(--accent)]" onClick={() => setShowBalance((current) => !current)} aria-label={showBalance ? 'Hide balance' : 'Show balance'}>
+              {showBalance ? <EyeOff size={22} /> : <Eye size={22} />}
+            </button>
           </div>
-          <h2 className="text-5xl font-semibold tracking-tight text-white sm:text-6xl">{formatPKR(totalBalance(accounts))}</h2>
+          <h2 className="text-5xl font-semibold tracking-tight text-white sm:text-6xl">{showBalance ? formatPKR(total) : 'Rs •••••'}</h2>
+          <p className="mt-3 text-sm font-medium text-[var(--muted)]">
+            Available to use: <span className="text-white">{showBalance ? formatPKR(availableToUse) : 'Rs •••••'}</span>
+          </p>
           <div className="mt-6 flex items-center justify-between gap-4">
             <button className="home-overview-pill" onClick={() => onNavigate('reports')}>
               <span>Overview</span>
               <ChevronRight size={20} />
-            </button>
-            <button className="home-trend-button" aria-label="Balance trend">
-              <TrendingUp size={25} />
             </button>
           </div>
         </div>
@@ -139,4 +178,82 @@ function accountMeta(account: Account): AccountMeta {
     default:
       return { key: 'default', accent: account.color || '#ddff45', logo: account.name.slice(0, 2).toUpperCase(), typeLabel: account.type, mask: account.id.slice(0, 4).toUpperCase() }
   }
+}
+
+type DashboardNotification = {
+  id: string
+  kind: 'upcoming' | 'debt'
+  title: string
+  meta: string
+  amount: number
+  tone: 'lime' | 'orange' | 'red'
+}
+
+function dashboardNotifications(upcomingExpenses: UpcomingExpense[], debts: Debt[]): DashboardNotification[] {
+  const upcoming = upcomingExpenses
+    .filter((expense) => expense.status !== 'paid')
+    .map((expense) => {
+      const status = upcomingStatus(expense.dueDate)
+      return {
+        id: `upcoming-${expense.id}`,
+        kind: 'upcoming' as const,
+        title: expense.title,
+        meta: `${status.label} · Due ${formatDashboardDate(expense.dueDate)}`,
+        amount: expense.amount,
+        tone: status.tone,
+      }
+    })
+
+  const debtAlerts = debts
+    .map((debt) => ({ debt, status: debtDisplayStatus(debt), remaining: debtRemaining(debt) }))
+    .filter(({ status, remaining }) => remaining > 0 && (status === 'Overdue' || status === 'Due Soon'))
+    .map(({ debt, status, remaining }) => ({
+      id: `debt-${debt.id}`,
+      kind: 'debt' as const,
+      title: debt.title || debt.name || 'Debt',
+      meta: `${status} · ${debt.category ?? 'Debt'}${debt.dueDate ? ` · Due ${formatDashboardDate(debt.dueDate)}` : ''}`,
+      amount: remaining,
+      tone: status === 'Overdue' ? 'red' as const : 'orange' as const,
+    }))
+
+  return [...upcoming, ...debtAlerts].slice(0, 12)
+}
+
+function upcomingStatus(dueDate: string) {
+  const due = startOfDay(dueDate).getTime()
+  const now = startOfDay(today()).getTime()
+  const daysUntilDue = Math.ceil((due - now) / 86400000)
+  if (daysUntilDue < 0) return { label: 'Overdue future payment', tone: 'red' as const }
+  if (daysUntilDue <= 7) return { label: 'Due soon future payment', tone: 'orange' as const }
+  return { label: 'Upcoming future payment', tone: 'lime' as const }
+}
+
+function debtDisplayStatus(debt: Debt): DebtStatus {
+  if (debtRemaining(debt) <= 0) return 'Paid'
+  if (debt.dueDate) {
+    const due = startOfDay(debt.dueDate).getTime()
+    const now = startOfDay(today()).getTime()
+    const daysUntilDue = Math.ceil((due - now) / 86400000)
+    if (daysUntilDue < 0) return 'Overdue'
+    if (daysUntilDue <= 7) return 'Due Soon'
+  }
+  return debt.status === 'Overdue' || debt.status === 'Due Soon' ? debt.status : 'Active'
+}
+
+function debtRemaining(debt: Debt) {
+  return Math.max(0, (debt.totalAmount ?? debt.total ?? 0) - (debt.paidAmount ?? debt.paid ?? 0))
+}
+
+function formatDashboardDate(date: string) {
+  return new Intl.DateTimeFormat('en-PK', { month: 'short', day: 'numeric' }).format(new Date(date))
+}
+
+function today() {
+  return new Date().toISOString().slice(0, 10)
+}
+
+function startOfDay(date: string) {
+  const value = new Date(date)
+  value.setHours(0, 0, 0, 0)
+  return value
 }

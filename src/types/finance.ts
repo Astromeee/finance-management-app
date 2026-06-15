@@ -3,6 +3,8 @@ import type { LucideIcon } from 'lucide-react'
 export type AccountType = 'cash' | 'bank' | 'wallet'
 export type TransactionType = 'income' | 'expense' | 'transfer' | 'goal' | 'debt' | 'goal_saving' | 'debt_payment'
 export type Status = 'Active' | 'Completed' | 'Overdue'
+export type DebtCategory = 'Debt' | 'Overdue Payment' | 'Money I Owe' | 'Installment' | 'Other'
+export type DebtStatus = 'Active' | 'Due Soon' | 'Overdue' | 'Paid'
 export type UpcomingExpenseStatus = 'upcoming' | 'due_soon' | 'overdue' | 'paid'
 export type RecurringFrequency = 'weekly' | 'monthly' | 'quarterly' | 'semi_annual' | 'yearly'
 
@@ -55,11 +57,18 @@ export interface Goal {
 
 export interface Debt {
   id: string
-  name: string
-  total: number
-  paid: number
+  title: string
+  name?: string
+  personOrCompany?: string
+  totalAmount: number
+  total?: number
+  paidAmount: number
+  paid?: number
   dueDate?: string
-  status: Status
+  category: DebtCategory
+  status: DebtStatus
+  notes?: string
+  createdAt: string
 }
 
 export interface Budget {

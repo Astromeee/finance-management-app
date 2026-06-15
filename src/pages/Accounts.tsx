@@ -1,6 +1,6 @@
 import { ArrowRightLeft, PencilLine, Plus, X } from 'lucide-react'
 import { motion } from 'framer-motion'
-import { useMemo, useState, type Dispatch, type SetStateAction } from 'react'
+import { useMemo, useRef, useState, type Dispatch, type PointerEvent, type SetStateAction } from 'react'
 import { AccountPreviewCard } from '../components/cards/AccountPreviewCard'
 import type { Account, Transaction } from '../types/finance'
 import { formatPKR, totalBalance } from '../utils/financeCalculations'
@@ -53,13 +53,52 @@ export function Accounts({ accounts, setAccounts, setTransactions, onTransfer }:
   const [addingAccount, setAddingAccount] = useState(false)
   const [selectedAccount, setSelectedAccount] = useState<Account | null>(null)
   const [editingAccount, setEditingAccount] = useState<Account | null>(null)
+  const [draggingAccountId, setDraggingAccountId] = useState<string | null>(null)
   const [notice, setNotice] = useState('')
+  const accountCardRefs = useRef(new Map<string, HTMLDivElement>())
 
   const breakdown = useMemo(() => ({
     cash: accounts.filter((account) => account.type === 'cash').reduce((sum, account) => sum + account.balance, 0),
     banks: accounts.filter((account) => account.type === 'bank').reduce((sum, account) => sum + account.balance, 0),
     wallets: accounts.filter((account) => account.type === 'wallet').reduce((sum, account) => sum + account.balance, 0),
   }), [accounts])
+
+  const registerAccountCard = (accountId: string, node: HTMLDivElement | null) => {
+    if (node) {
+      accountCardRefs.current.set(accountId, node)
+    } else {
+      accountCardRefs.current.delete(accountId)
+    }
+  }
+
+  const scrollReorderViewport = (clientY: number) => {
+    const edgeSize = 92
+    if (clientY > window.innerHeight - edgeSize) window.scrollBy({ top: 8, behavior: 'auto' })
+    if (clientY < edgeSize) window.scrollBy({ top: -8, behavior: 'auto' })
+  }
+
+  const commitAccountReorder = (accountId: string, clientY: number) => {
+    setAccounts((current) => {
+      const currentIndex = current.findIndex((account) => account.id === accountId)
+      if (currentIndex === -1) return current
+
+      const targetIndex = current
+        .filter((account) => account.id !== accountId)
+        .reduce((index, account) => {
+          const card = accountCardRefs.current.get(account.id)
+          if (!card) return index
+          const rect = card.getBoundingClientRect()
+          return clientY > rect.top + rect.height / 2 ? index + 1 : index
+        }, 0)
+
+      if (targetIndex === currentIndex) return current
+
+      const nextAccounts = [...current]
+      const [movingAccount] = nextAccounts.splice(currentIndex, 1)
+      nextAccounts.splice(targetIndex, 0, movingAccount)
+      return nextAccounts
+    })
+  }
 
   return (
     <div className="space-y-4 sm:space-y-5">
@@ -95,8 +134,19 @@ export function Accounts({ accounts, setAccounts, setTransactions, onTransfer }:
               <h3 className="text-2xl font-semibold text-white">Your accounts</h3>
             </div>
           </div>
-          <div className="grid gap-3 md:grid-cols-2">
-            {accounts.map((account) => <AccountPreviewCard key={account.id} account={account} onEdit={setEditingAccount} />)}
+          <div className="grid gap-3">
+            {accounts.map((account) => (
+              <ReorderableAccountCard
+                key={account.id}
+                account={account}
+                draggingAccountId={draggingAccountId}
+                onCommitReorder={commitAccountReorder}
+                onEdit={setEditingAccount}
+                onReorderPosition={scrollReorderViewport}
+                onRegister={registerAccountCard}
+                setDraggingAccountId={setDraggingAccountId}
+              />
+            ))}
             {!accounts.length && (
               <button className="rounded-[1.5rem] border border-dashed border-white/15 bg-white/[.03] px-5 py-10 text-left transition hover:border-[rgba(221,255,69,.35)] hover:bg-[rgba(221,255,69,.06)]" onClick={() => setAddingAccount(true)}>
                 <span className="grid h-12 w-12 place-items-center rounded-2xl bg-[var(--accent)] text-[#171910]"><Plus size={22} /></span>
@@ -128,8 +178,119 @@ export function Accounts({ accounts, setAccounts, setTransactions, onTransfer }:
         onClose={() => setEditingAccount(null)}
         onNotice={setNotice}
         setAccounts={setAccounts}
+        setTransactions={setTransactions}
       />
     </div>
+  )
+}
+
+function ReorderableAccountCard({
+  account,
+  draggingAccountId,
+  onCommitReorder,
+  onEdit,
+  onRegister,
+  onReorderPosition,
+  setDraggingAccountId,
+}: {
+  account: Account
+  draggingAccountId: string | null
+  onCommitReorder: (accountId: string, clientY: number) => void
+  onEdit: (account: Account) => void
+  onRegister: (accountId: string, node: HTMLDivElement | null) => void
+  onReorderPosition: (clientY: number) => void
+  setDraggingAccountId: (accountId: string | null) => void
+}) {
+  const holdTimer = useRef<number | null>(null)
+  const startPoint = useRef<{ x: number; y: number } | null>(null)
+  const dragStartY = useRef(0)
+  const lastClientY = useRef(0)
+  const isDragging = useRef(false)
+  const suppressClick = useRef(false)
+  const [isUnlocked, setIsUnlocked] = useState(false)
+  const [dragOffset, setDragOffset] = useState(0)
+
+  const clearHold = () => {
+    if (holdTimer.current) {
+      window.clearTimeout(holdTimer.current)
+      holdTimer.current = null
+    }
+  }
+
+  const preventTouchScroll = (event: TouchEvent) => {
+    if (isDragging.current) event.preventDefault()
+  }
+
+  const unlockDocumentScroll = () => {
+    document.removeEventListener('touchmove', preventTouchScroll)
+    document.body.classList.remove('reorder-scroll-locked')
+  }
+
+  const finishHold = () => {
+    const wasDragging = isDragging.current
+    clearHold()
+    isDragging.current = false
+    if (wasDragging) onCommitReorder(account.id, lastClientY.current)
+    setIsUnlocked(false)
+    setDraggingAccountId(null)
+    setDragOffset(0)
+    unlockDocumentScroll()
+    window.setTimeout(() => {
+      suppressClick.current = false
+    }, 0)
+  }
+
+  const startHold = (event: PointerEvent<HTMLElement>) => {
+    if ((event.target as HTMLElement).closest('button, input, select, textarea, a')) return
+    clearHold()
+    startPoint.current = { x: event.clientX, y: event.clientY }
+    dragStartY.current = event.clientY
+    lastClientY.current = event.clientY
+    holdTimer.current = window.setTimeout(() => {
+      setIsUnlocked(true)
+      setDraggingAccountId(account.id)
+      isDragging.current = true
+      suppressClick.current = true
+      document.body.classList.add('reorder-scroll-locked')
+      document.addEventListener('touchmove', preventTouchScroll, { passive: false })
+      if ('vibrate' in navigator) navigator.vibrate?.(12)
+    }, 360)
+  }
+
+  const cancelIfScrolling = (event: PointerEvent<HTMLElement>) => {
+    if (isDragging.current) {
+      event.preventDefault()
+      lastClientY.current = event.clientY
+      const offset = event.clientY - dragStartY.current
+      setDragOffset(offset)
+      onReorderPosition(event.clientY)
+      return
+    }
+    if (!holdTimer.current || !startPoint.current) return
+    const distance = Math.hypot(event.clientX - startPoint.current.x, event.clientY - startPoint.current.y)
+    if (distance > 8) clearHold()
+  }
+
+  return (
+    <motion.div
+      ref={(node) => onRegister(account.id, node)}
+      layout
+      animate={{ y: isUnlocked ? dragOffset : 0, scale: isUnlocked ? 1.018 : 1, opacity: draggingAccountId && draggingAccountId !== account.id ? 0.82 : 1 }}
+      transition={{ layout: { type: 'spring', stiffness: 260, damping: 28 }, y: { type: 'spring', stiffness: 1100, damping: 54, mass: 0.45 }, default: { duration: 0.14, ease: 'easeOut' } }}
+      className={cn('account-reorder-item', isUnlocked && 'account-reorder-item-unlocked')}
+      onPointerDown={startHold}
+      onPointerMove={cancelIfScrolling}
+      onPointerUp={finishHold}
+      onPointerCancel={finishHold}
+      onLostPointerCapture={finishHold}
+      onClickCapture={(event) => {
+        if (!suppressClick.current) return
+        event.preventDefault()
+        event.stopPropagation()
+      }}
+    >
+      <AccountPreviewCard account={account} onEdit={onEdit} />
+    </motion.div>
   )
 }
 
@@ -247,11 +408,13 @@ function EditAccountModal({
   onClose,
   onNotice,
   setAccounts,
+  setTransactions,
 }: {
   account: Account | null
   onClose: () => void
   onNotice: (message: string) => void
   setAccounts: Dispatch<SetStateAction<Account[]>>
+  setTransactions: Dispatch<SetStateAction<Transaction[]>>
 }) {
   const [name, setName] = useState(account?.name ?? '')
   const [type, setType] = useState<Account['type']>(account?.type ?? 'bank')
@@ -284,15 +447,47 @@ function EditAccountModal({
   const saveAccount = () => {
     const parsedBalance = Number(balance)
     if (!name.trim() || !Number.isFinite(parsedBalance) || !isValidHex(color)) return
+    const balanceDifference = parsedBalance - account.balance
+    const absoluteDifference = Math.abs(balanceDifference)
+    const adjustmentLabel = balanceDifference > 0 ? 'Unexplained Income' : 'Unexplained Expense'
+    const updatedName = name.trim()
 
     setAccounts((current) =>
       current.map((item) =>
         item.id === account.id
-          ? { ...item, name: name.trim(), type, balance: parsedBalance, color, cardLabel: cardLabel.trim().toUpperCase() || item.cardLabel }
+          ? {
+              ...item,
+              name: updatedName,
+              type,
+              balance: parsedBalance,
+              color,
+              cardLabel: cardLabel.trim().toUpperCase() || item.cardLabel,
+              activity: balanceDifference === 0 ? item.activity : `${adjustmentLabel}: ${formatPKR(absoluteDifference)}`,
+            }
           : item,
       ),
     )
-    onNotice(`${name.trim()} updated. Home card stack is synced.`)
+
+    if (balanceDifference !== 0) {
+      setTransactions((current) => [
+        {
+          id: `edit-adj-${account.id}-${Date.now().toString(36)}`,
+          title: adjustmentLabel,
+          amount: absoluteDifference,
+          type: balanceDifference > 0 ? 'income' : 'expense',
+          category: adjustmentLabel,
+          source: balanceDifference > 0 ? adjustmentLabel : undefined,
+          account: updatedName,
+          accountId: account.id,
+          date: new Date().toISOString().slice(0, 10),
+          notes: `Balance edited from ${formatPKR(account.balance)} to ${formatPKR(parsedBalance)}`,
+          createdAt: new Date().toISOString(),
+        },
+        ...current,
+      ])
+    }
+
+    onNotice(balanceDifference === 0 ? `${updatedName} updated. Home card stack is synced.` : `${adjustmentLabel} recorded for ${updatedName}.`)
     onClose()
   }
 
@@ -446,8 +641,10 @@ function AdjustBalanceModal({
         type: isIncrease ? 'income' : 'expense',
         category: adjustmentLabel,
         account: account.name,
+        accountId: account.id,
         date,
         notes: note || 'Balance adjusted manually',
+        createdAt: new Date().toISOString(),
       },
       ...current,
     ])

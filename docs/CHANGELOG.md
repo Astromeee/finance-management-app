@@ -1,5 +1,13 @@
 # Changelog
 
+## Version 0.7.0
+
+- Renamed the debt section to Debts & Money Owed so it covers formal debts, overdue payments, installments, and personal money owed to someone.
+- Added richer debt fields: title, optional person/company, type, total amount, paid amount, due date, status, notes, and created date.
+- Updated debt cards with type/status badges, paid versus total, remaining amount, due date, progress, notes, edit/delete, and Add Payment controls.
+- Updated debt payment logic to create `Payment toward [title]` debt payment transactions, reduce the paid-from account, and mark items Paid when fully paid.
+- Updated Reports Goals & Debts metrics for total debt / money owed, total paid, total remaining, overdue items, and money-I-owe item count.
+
 ## Version 0.6.0
 
 - Added Upcoming Expenses section with recurring planned expenses, due-date tracking, and mark-as-paid conversion into real expense transactions.

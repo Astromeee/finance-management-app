@@ -20,13 +20,13 @@ Open Accounts, choose Adjust on an account card, enter the actual balance, date,
 
 Tap the Goal quick action or Add goal on Goals & Debts. Enter goal name, target amount, initial saved amount, optional linked account, deadline, and notes. Track progress on Goals & Debts and Reports.
 
-## Add Debt
+## Add Debt / Money Owed
 
-Create a debt with name, total amount, paid amount, due date, and status. Overdue items use warning styling.
+Open Goals & Debts, tap Add debt, then enter title, type, optional person/company, total amount, already-paid amount, optional due date, status, and notes. Choose Money I Owe for personal borrowed amounts such as Borrowed from Ali or Owe friend for dinner. The item appears in Debts & Money Owed with type and status badges.
 
-## Pay Debt
+## Add Payment
 
-Tap Pay debt on Goals & Debts, select the debt, enter amount paid, choose paid-from account, add date and notes, and save. The account balance decreases, debt progress increases, and a debt payment transaction is added.
+Tap Add Payment on a debt or money owed card, enter amount paid, choose paid-from account, add date and notes, and save. The selected account balance decreases, paid amount increases, remaining amount decreases, and a `debt_payment` transaction titled `Payment toward [item title]` is added. When paid amount reaches total amount, the item becomes Paid.
 
 ## Add Upcoming Expense
 
@@ -55,6 +55,8 @@ Open Reports, choose a period from the top selector, and review the structured a
 Changing the period recalculates income, actual expenses, net saved, savings rate, category totals, income sources, spending trend, account usage, and budget performance. All Time includes every transaction. Custom Range uses the selected start and end dates.
 
 Upcoming Expenses stay in their own planned section and do not count as actual expenses until marked paid elsewhere.
+
+Debt payments stay separate as `debt_payment` transactions. They reduce the selected account balance but do not mix into normal spending categories.
 
 ## Mobile Navigation
 

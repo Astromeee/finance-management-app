@@ -8,6 +8,7 @@ export type FinanceState = {
   debts: Debt[]
   budgets: Budget[]
   upcomingExpenses: UpcomingExpense[]
+  expenseCategories?: string[]
 }
 
 type FinanceStateRow = {

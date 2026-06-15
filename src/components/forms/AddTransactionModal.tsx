@@ -47,7 +47,7 @@ export function AddTransactionModal({ open, onClose, onSubmit }: AddTransactionM
           {active === 'transfer' && <Select label="From account" options={accounts.map((account) => account.name)} />}
           {active === 'transfer' && <Select label="To account" options={accounts.map((account) => account.name)} />}
           {active === 'goal' && <Select label="Goal" options={goals.map((goal) => goal.name)} />}
-          {active === 'debt' && <Select label="Debt" options={debts.map((debt) => debt.name)} />}
+          {active === 'debt' && <Select label="Debt" options={debts.map((debt) => debt.title || debt.name || 'Debt')} />}
           {active === 'goal' && <Select label="From account" options={accounts.map((account) => account.name)} />}
           {(active === 'income' || active === 'expense' || active === 'debt') && <Select label={active === 'income' ? 'Received in account' : 'Paid from account'} options={accounts.map((account) => account.name)} />}
           {active === 'expense' && <Select label="Payment method" options={['Cash', 'Debit card', 'Wallet', 'Bank transfer']} />}

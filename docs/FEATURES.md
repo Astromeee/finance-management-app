@@ -7,7 +7,7 @@ Pocket Ledger is a personal finance tracking frontend prototype for daily PKR mo
 - Dashboard / Home with a refined balance hero, quick action row, stacked account preview cards, and icon-only bottom navigation.
 - Transactions with search, type/category/month filters, transaction chips, icons, type badges, and styled income, expense, transfer, goal, and debt rows.
 - Accounts with total balance, cash/bank/wallet breakdown, premium wallet-card account cards, compact account actions, editable card labels/colors, and manual balance adjustment.
-- Goals & Debts with savings goals, debt progress cards, and Upcoming Expenses for future planned payments.
+- Goals & Debts with savings goals, Debts & Money Owed cards, and Upcoming Expenses for future planned payments.
 - Budgets with monthly category limits, used amounts, remaining balance, progress bars, near-limit warnings, and over-budget states.
 - Reports / Analytics with period filtering, structured financial summaries, spending and income breakdowns, spending trends, needs vs wants, account usage, budget performance, upcoming expenses preview, and goals/debts progress.
 - Settings with currency, theme, categories, accounts, export/import placeholders, Supabase placeholder, and documentation reference.
@@ -20,7 +20,7 @@ Pocket Ledger now uses separate animated bottom-sheet modals for the main action
 - Add Expense decreases the selected account balance, creates an expense transaction, updates category budget usage, and warns if the account will go negative.
 - Transfer Money moves balance between two accounts, creates a transfer transaction, and does not affect income or expense totals.
 - Add Goal creates a savings goal in local state and shows it on Goals & Debts.
-- Debt Payment records a payment, decreases the selected account, updates debt progress, and adds a transaction.
+- Debt / Money Owed payment records an Add Payment entry, decreases the selected account, updates paid and remaining amounts, and adds a `debt_payment` transaction.
 - Add Upcoming Expense creates a planned payment with due date, optional linked account, notes, and recurring settings. It does not affect balances, actual expense totals, budgets, or reports spending until marked paid.
 - Mark Upcoming Expense as Paid asks for a paid-from account and payment date, then creates a real expense transaction, decreases the selected account, updates matching budget usage, and marks the planned item paid.
 - Recurring upcoming expenses automatically create the next future planned item after the current item is marked paid.
@@ -39,7 +39,15 @@ All action results update the Dashboard, Home account cards, Accounts, Transacti
 - Spending by Account ranks expense usage by amount, percentage, and transaction count.
 - Budget Performance compares selected-period actual spending against each budget and labels rows Under Budget, Near Limit, or Over Budget.
 - Upcoming Expenses are shown separately as planned items and are not counted in actual spending until marked paid.
-- Goals & Debts shows aggregate target/saved/debt progress plus compact active goal and debt progress rows.
+- Goals & Debts shows aggregate target/saved/debt progress, total paid, total remaining, overdue item count, money-I-owe item count, and compact progress rows.
+
+## Debts & Money Owed
+
+- The Debt / Overdue Payments section is now Debts & Money Owed and can track formal debts, overdue payments, installments, and personal amounts owed to friends or family.
+- Each item stores title, optional person/company, type, total amount, paid amount, calculated remaining amount, optional due date, status, notes, and created date.
+- Supported types are Debt, Overdue Payment, Money I Owe, Installment, and Other.
+- Supported statuses are Active, Due Soon, Overdue, and Paid. Status is recalculated from paid amount and due date when cards and reports render.
+- Each card shows type/status badges, paid versus total, amount left, due date when present, progress, notes, edit/delete controls, and an Add Payment button.
 
 ## Responsive Behavior
 
