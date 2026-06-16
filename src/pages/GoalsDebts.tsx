@@ -96,7 +96,7 @@ export function GoalsDebts({
 
   return (
     <div className="space-y-6 pb-32">
-      <section className="goals-overview-strip">
+      <section className="goals-overview-grid">
         <OverviewStatCard label="Total savings" value={formatPKR(totalSavings)} icon={WalletCards} tone="lime" />
         <OverviewStatCard label="Debt to pay" value={formatPKR(totalDebtToPay)} icon={Landmark} tone="orange" />
         <OverviewStatCard label="Upcoming this month" value={formatPKR(summary.thisMonth)} icon={CalendarClock} tone="cyan" />
