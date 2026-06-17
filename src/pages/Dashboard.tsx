@@ -1,4 +1,4 @@
-import { ArrowDown, ArrowUpRight, Bell, CalendarClock, ChevronRight, Clock, Eye, EyeOff, Landmark, WalletCards, Zap } from 'lucide-react'
+import { ArrowDown, ArrowUpRight, Bell, CalendarClock, ChevronRight, Eye, EyeOff, Landmark, WalletCards } from 'lucide-react'
 import { motion } from 'framer-motion'
 import type { ReactNode } from 'react'
 import { useMemo, useState } from 'react'
@@ -42,16 +42,11 @@ export function Dashboard({
   const [showBalance, setShowBalance] = useState(false)
 
   const notifications = useMemo(() => dashboardNotifications(upcomingExpenses, debts), [debts, upcomingExpenses])
-  const timeText = useMemo(() => {
-    const now = new Date()
-    const hours = now.getHours()
-    const minutes = now.getMinutes().toString().padStart(2, '0')
-    const hour12 = ((hours + 11) % 12) + 1
-    return `${hour12}:${minutes}${hours >= 12 ? 'PM' : 'AM'}`
-  }, [])
   const total = totalBalance(accounts)
   const savingsBalance = accounts.find((account) => account.id === 'savings')?.balance ?? 0
   const availableToUse = Math.max(0, total - savingsBalance)
+  const watchAmount = notifications.reduce((sum, item) => sum + item.amount, 0)
+  const heroStat = notifications.length > 0 ? `${formatPKR(watchAmount)} needs attention` : `${accounts.length} accounts connected`
 
   return (
     <div className="home-screen pb-6">
@@ -63,21 +58,19 @@ export function Dashboard({
       >
         <div className="home-ledger-glow" />
         <div className="home-ledger-status-strip">
-          <Zap size={16} />
-          <span>Money view is ready</span>
+          <span>{heroStat}</span>
         </div>
 
         <div className="home-ledger-card">
           <div className="home-ledger-topbar">
-            <div className="home-ledger-status">
-              <span />
-              <strong>Synced ledger</strong>
+            <div className="home-ledger-identity">
+              <div className="home-avatar">A</div>
+              <div className="min-w-0">
+                <h1 className="truncate text-2xl font-semibold tracking-tight text-white">Abdul Moeed</h1>
+                <p className="mt-0.5 text-sm font-semibold text-[var(--muted)]">Web Developer</p>
+              </div>
             </div>
             <div className="flex items-center gap-2">
-              <div className="home-ledger-time">
-                <Clock size={16} />
-                <span>{timeText}</span>
-              </div>
               <InstallAppButton />
               <div className="relative">
                 <button className="home-glass-icon relative" aria-label="Notifications" onClick={() => setShowNotifications((current) => !current)}>
@@ -113,14 +106,6 @@ export function Dashboard({
                   </div>
                 )}
               </div>
-            </div>
-          </div>
-
-          <div className="home-ledger-identity">
-            <div className="home-avatar">M</div>
-            <div className="min-w-0">
-              <p className="text-sm font-semibold text-[var(--muted)]">Good Morning, Moeed</p>
-              <h1 className="truncate text-2xl font-semibold tracking-tight text-white">Pocket Ledger</h1>
             </div>
           </div>
 
