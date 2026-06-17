@@ -1,4 +1,5 @@
-import { ArrowDown, ArrowRightLeft, ArrowUpRight, Bell, CalendarClock, ChevronRight, Eye, EyeOff, Landmark, Target, WalletCards } from 'lucide-react'
+import { ArrowDown, ArrowUpRight, Bell, CalendarClock, ChevronRight, Clock, Eye, EyeOff, Landmark, WalletCards, Zap } from 'lucide-react'
+import { motion } from 'framer-motion'
 import type { ReactNode } from 'react'
 import { useMemo, useState } from 'react'
 import { InstallAppButton } from '../components/pwa/InstallAppButton'
@@ -40,97 +41,117 @@ export function Dashboard({
   const [showNotifications, setShowNotifications] = useState(false)
   const [showBalance, setShowBalance] = useState(false)
 
-  const quickActions = [
-    { label: 'Income', icon: ArrowDown, action: 'income' as const },
-    { label: 'Expense', icon: ArrowUpRight, action: 'expense' as const },
-    { label: 'Transfer', icon: ArrowRightLeft, action: 'transfer' as const },
-    { label: 'Goal', icon: Target, action: 'goal' as const },
-  ]
   const notifications = useMemo(() => dashboardNotifications(upcomingExpenses, debts), [debts, upcomingExpenses])
+  const timeText = useMemo(() => {
+    const now = new Date()
+    const hours = now.getHours()
+    const minutes = now.getMinutes().toString().padStart(2, '0')
+    const hour12 = ((hours + 11) % 12) + 1
+    return `${hour12}:${minutes}${hours >= 12 ? 'PM' : 'AM'}`
+  }, [])
   const total = totalBalance(accounts)
   const savingsBalance = accounts.find((account) => account.id === 'savings')?.balance ?? 0
   const availableToUse = Math.max(0, total - savingsBalance)
 
   return (
     <div className="home-screen pb-6">
-      <section className="home-profile-row">
-        <div className="flex min-w-0 items-center gap-4">
-          <div className="home-avatar">M</div>
-          <div className="min-w-0">
-            <p className="text-lg leading-tight text-[var(--muted)]">Good Morning,</p>
-            <h1 className="text-2xl font-semibold leading-tight text-white">Moeed</h1>
-          </div>
+      <motion.section
+        className="home-ledger-hero"
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.36, ease: 'easeOut' }}
+      >
+        <div className="home-ledger-glow" />
+        <div className="home-ledger-status-strip">
+          <Zap size={16} />
+          <span>Money view is ready</span>
         </div>
-        <div className="flex items-center gap-3">
-          <InstallAppButton />
-          <div className="relative">
-            <button className="home-glass-icon relative" aria-label="Notifications" onClick={() => setShowNotifications((current) => !current)}>
-              <Bell size={20} />
-              {notifications.length > 0 && <span className="absolute right-3 top-3 h-2.5 w-2.5 rounded-full bg-[var(--accent)] shadow-[0_0_12px_rgba(221,255,69,.7)]" />}
-            </button>
-            {showNotifications && (
-              <div className="home-notification-panel">
-                <div className="mb-3 flex items-start justify-between gap-3">
-                  <div>
-                    <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--muted)]">Notifications</p>
-                    <h3 className="text-lg font-semibold text-white">Payments to watch</h3>
-                  </div>
-                  <span className="rounded-full bg-[var(--accent)] px-2.5 py-1 text-xs font-black text-[#101214]">{notifications.length}</span>
-                </div>
-                <div className="grid max-h-80 gap-2 overflow-y-auto pr-1">
-                  {notifications.length === 0 ? (
-                    <p className="rounded-2xl bg-white/[.035] p-3 text-sm text-[var(--muted)]">No upcoming future payments or overdue debts right now.</p>
-                  ) : notifications.map((item) => {
-                    const Icon = item.kind === 'upcoming' ? CalendarClock : Landmark
-                    return (
-                      <button key={item.id} className="home-notification-item" onClick={() => { setShowNotifications(false); onNavigate('goals') }}>
-                        <span className={`home-notification-icon home-notification-${item.tone}`}><Icon size={16} /></span>
-                        <span className="min-w-0 flex-1 text-left">
-                          <span className="block truncate text-sm font-semibold text-white">{item.title}</span>
-                          <span className="mt-0.5 block text-xs text-[var(--muted)]">{item.meta}</span>
-                        </span>
-                        <strong className="text-sm text-white">{formatPKR(item.amount)}</strong>
-                      </button>
-                    )
-                  })}
-                </div>
+
+        <div className="home-ledger-card">
+          <div className="home-ledger-topbar">
+            <div className="home-ledger-status">
+              <span />
+              <strong>Synced ledger</strong>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="home-ledger-time">
+                <Clock size={16} />
+                <span>{timeText}</span>
               </div>
-            )}
+              <InstallAppButton />
+              <div className="relative">
+                <button className="home-glass-icon relative" aria-label="Notifications" onClick={() => setShowNotifications((current) => !current)}>
+                  <Bell size={20} />
+                  {notifications.length > 0 && <span className="absolute right-3 top-3 h-2.5 w-2.5 rounded-full bg-[var(--accent)] shadow-[0_0_12px_rgba(221,255,69,.7)]" />}
+                </button>
+                {showNotifications && (
+                  <div className="home-notification-panel">
+                    <div className="mb-3 flex items-start justify-between gap-3">
+                      <div>
+                        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--muted)]">Notifications</p>
+                        <h3 className="text-lg font-semibold text-white">Payments to watch</h3>
+                      </div>
+                      <span className="rounded-full bg-[var(--accent)] px-2.5 py-1 text-xs font-black text-[#101214]">{notifications.length}</span>
+                    </div>
+                    <div className="grid max-h-80 gap-2 overflow-y-auto pr-1">
+                      {notifications.length === 0 ? (
+                        <p className="rounded-2xl bg-white/[.035] p-3 text-sm text-[var(--muted)]">No upcoming future payments or overdue debts right now.</p>
+                      ) : notifications.map((item) => {
+                        const Icon = item.kind === 'upcoming' ? CalendarClock : Landmark
+                        return (
+                          <button key={item.id} className="home-notification-item" onClick={() => { setShowNotifications(false); onNavigate('goals') }}>
+                            <span className={`home-notification-icon home-notification-${item.tone}`}><Icon size={16} /></span>
+                            <span className="min-w-0 flex-1 text-left">
+                              <span className="block truncate text-sm font-semibold text-white">{item.title}</span>
+                              <span className="mt-0.5 block text-xs text-[var(--muted)]">{item.meta}</span>
+                            </span>
+                            <strong className="text-sm text-white">{formatPKR(item.amount)}</strong>
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
-        </div>
-      </section>
 
-      <section className="home-balance-card">
-        <div className="home-wire-globe" />
-        <div className="relative z-10">
-          <div className="mb-5 flex items-center gap-3">
-            <p className="text-xs font-semibold uppercase tracking-[0.28em] text-[var(--muted)]">Total Balance</p>
-            <button className="text-[var(--accent)]" onClick={() => setShowBalance((current) => !current)} aria-label={showBalance ? 'Hide balance' : 'Show balance'}>
-              {showBalance ? <EyeOff size={22} /> : <Eye size={22} />}
+          <div className="home-ledger-identity">
+            <div className="home-avatar">M</div>
+            <div className="min-w-0">
+              <p className="text-sm font-semibold text-[var(--muted)]">Good Morning, Moeed</p>
+              <h1 className="truncate text-2xl font-semibold tracking-tight text-white">Pocket Ledger</h1>
+            </div>
+          </div>
+
+          <div className="home-ledger-balance">
+            <div className="flex items-center gap-3">
+              <p>Total Balance</p>
+              <button onClick={() => setShowBalance((current) => !current)} aria-label={showBalance ? 'Hide balance' : 'Show balance'}>
+                {showBalance ? <EyeOff size={21} /> : <Eye size={21} />}
+              </button>
+            </div>
+            <h2>{showBalance ? formatPKR(total) : 'Rs •••••'}</h2>
+            <span>Available to use: <strong>{showBalance ? formatPKR(availableToUse) : 'Rs •••••'}</strong></span>
+          </div>
+
+          <div className="home-ledger-actions" aria-label="Quick money actions">
+            <button onClick={() => onAction('income')}>
+              <ArrowDown size={18} />
+              <span>Add Income</span>
+            </button>
+            <button onClick={() => onAction('expense')}>
+              <ArrowUpRight size={18} />
+              <span>Add Expense</span>
             </button>
           </div>
-          <h2 className="text-5xl font-semibold tracking-tight text-white sm:text-6xl">{showBalance ? formatPKR(total) : 'Rs •••••'}</h2>
-          <p className="mt-3 text-sm font-medium text-[var(--muted)]">
-            Available to use: <span className="text-white">{showBalance ? formatPKR(availableToUse) : 'Rs •••••'}</span>
-          </p>
-          <div className="mt-6 flex items-center justify-between gap-4">
-            <button className="home-overview-pill" onClick={() => onNavigate('reports')}>
-              <span>Overview</span>
-              <ChevronRight size={20} />
-            </button>
-          </div>
-        </div>
-      </section>
 
-      <section className="home-action-pill" aria-label="Quick actions">
-        {quickActions.map(({ label, icon: Icon, action }, index) => (
-          <button key={label} className="home-action-button" onClick={() => onAction(action)}>
-            <span className="home-action-icon"><Icon size={22} /></span>
-            <span>{label}</span>
-            {index < quickActions.length - 1 && <i />}
+          <button className="home-ledger-overview" onClick={() => onNavigate('reports')}>
+            <span>Open analytics</span>
+            <ChevronRight size={18} />
           </button>
-        ))}
-      </section>
+        </div>
+      </motion.section>
 
       <section className="home-accounts-section">
         <div className="mb-4 flex items-center justify-between gap-4">
