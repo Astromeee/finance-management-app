@@ -16,7 +16,7 @@ import {
 } from 'recharts'
 import { ChevronDown, Landmark, PieChart as PieChartIcon, WalletCards, type LucideIcon } from 'lucide-react'
 import { formatPKR, percent } from '../utils/financeCalculations'
-import type { Account, Budget, Debt, Goal, Transaction, UpcomingExpense } from '../types/finance'
+import type { Account, Debt, Goal, Transaction, UpcomingExpense } from '../types/finance'
 import { cn } from '../utils/ui'
 
 type PeriodKey = 'this-month' | 'last-month' | 'last-3-months' | 'last-6-months' | 'this-year' | 'all-time' | 'custom'
@@ -38,29 +38,6 @@ const periodOptions: Array<{ value: PeriodKey; label: string }> = [
   { value: 'custom', label: 'Custom Range' },
 ]
 
-const needsCategories = new Set([
-  'Rent',
-  'Apartment Rent',
-  'Bills',
-  'Electricity Bill',
-  'University Fee',
-  'Transport',
-  'Food and Groceries',
-  'Mobile Package',
-  'Course Fee',
-  'Health',
-])
-
-const wantsCategories = new Set([
-  'Dining Out',
-  'Clothes',
-  'Subscriptions',
-  'Canva Subscription',
-  'Entertainment',
-  'Shopping',
-  'Miscellaneous',
-])
-
 const tooltipStyle = {
   background: '#1a1c20',
   border: '1px solid rgba(255,255,255,.1)',
@@ -73,7 +50,6 @@ export function Reports({
   transactions,
   goals,
   debts,
-  budgets,
   upcomingExpenses,
   expenseCategories,
   onAddExpenseCategory,
@@ -82,7 +58,6 @@ export function Reports({
   transactions: Transaction[]
   goals: Goal[]
   debts: Debt[]
-  budgets: Budget[]
   upcomingExpenses: UpcomingExpense[]
   expenseCategories: string[]
   onAddExpenseCategory: (category: string) => void
@@ -114,28 +89,12 @@ export function Reports({
     count: expenseTransactions.filter((transaction) => transaction.account === item.name).length,
   }))
   const trendData = spendingTrend(expenseTransactions, range)
-  const needsWants = calculateNeedsWants(expenseTransactions)
-  const budgetRows = budgets.map((budget) => {
-    const actual = expenseTransactions.filter((transaction) => transaction.category === budget.category).reduce((sum, transaction) => sum + transaction.amount, 0)
-    const usage = percent(actual, budget.amount)
-    return {
-      ...budget,
-      actual,
-      remaining: budget.amount - actual,
-      usage,
-      status: usage > 100 ? 'Over Budget' : usage >= 80 ? 'Near Limit' : 'Under Budget',
-    }
-  })
   const upcoming = upcomingReport(upcomingExpenses)
   const goalDebt = goalDebtReport(goals, debts)
   const hasMoneyMovement = periodTransactions.length > 0 || totalIncome > 0 || totalExpenses > 0
   const snapshotSentence = buildSnapshotSentence({ rangeLabel: range.label, totalIncome, totalExpenses, netSaved, debtRemaining: goalDebt.debtRemaining, upcomingDue: upcoming.nextSevenDays })
   const cashflowData = cashflowTrend(periodTransactions, range)
   const spendingMix = spendingByCategory.length ? spendingByCategory.slice(0, 5) : [{ name: 'No spending', value: 1, percent: 100 }]
-  const needsWantsMix = [
-    { name: 'Needs', value: needsWants.needs, color: '#ddff45' },
-    { name: 'Wants', value: needsWants.wants, color: '#e98d67' },
-  ].filter((item) => item.value > 0)
   const debtProgress = goalDebt.debtTotal > 0 ? Math.round((goalDebt.debtPaid / goalDebt.debtTotal) * 100) : 0
   const advancedOpen = showMoreAnalytics || hasMoneyMovement
 
@@ -208,24 +167,12 @@ export function Reports({
         </InsightCard>
       </section>
 
-      <section className="grid gap-5 xl:grid-cols-[1.1fr_.9fr]">
+      <section>
         <ReportPanel eyebrow="Where your money went" title="Spending Mix" meta={`${spendingByCategory.length} categories`}>
           <div className="reports-chart-two-col">
             <DonutChart data={spendingMix} colors={['#e98d67', '#ddff45', '#39dced', '#b46cff', '#aeb7c5']} empty={!spendingByCategory.length} />
             <RankedBars items={spendingByCategory.slice(0, 5)} empty="No actual expenses in this period." />
           </div>
-        </ReportPanel>
-
-        <ReportPanel eyebrow="Necessary vs lifestyle spending" title="Needs vs Wants">
-          {needsWantsMix.length ? (
-            <div className="reports-chart-two-col reports-chart-two-col-tight">
-              <DonutChart data={needsWantsMix.map((item) => ({ name: item.name, value: item.value, percent: percent(item.value, needsWants.needs + needsWants.wants) }))} colors={needsWantsMix.map((item) => item.color)} />
-              <div className="grid gap-3">
-                <SplitCard label="Needs" amount={needsWants.needs} percent={needsWants.needsPercent} />
-                <SplitCard label="Wants" amount={needsWants.wants} percent={needsWants.wantsPercent} tone="orange" />
-              </div>
-            </div>
-          ) : <EmptyInsight title="No spending mix yet" note="Add expenses and this will separate needs from lifestyle spending." />}
         </ReportPanel>
       </section>
 
@@ -275,14 +222,6 @@ export function Reports({
 
         <ReportPanel eyebrow="Expense transactions only" title="Spending by Account" meta={`${expenseTransactions.length} transactions · ${accounts.length} accounts`}>
           <RankedBars items={accountUsage} empty="No account spending in this period." showCount />
-        </ReportPanel>
-
-        <ReportPanel eyebrow="Budget vs actual spending" title="Budget Performance">
-          {budgetRows.length ? (
-            <div className="grid gap-3 md:grid-cols-2">
-              {budgetRows.map((budget) => <BudgetRow key={budget.id} budget={budget} />)}
-            </div>
-          ) : <EmptyInsight title="No budgets yet" note="Create budgets to compare actual spending against your monthly limits." />}
         </ReportPanel>
 
         <ReportPanel eyebrow="Planned, not yet paid" title="Upcoming Expenses">
@@ -365,20 +304,67 @@ function InsightCard({ eyebrow, title, value, note, icon: Icon, tone, children }
 }
 
 function DonutChart({ data, colors, empty = false }: { data: Array<{ name: string; value: number; percent?: number }>; colors: string[]; empty?: boolean }) {
+  const [selectedIndex, setSelectedIndex] = useState(0)
+  const total = data.reduce((sum, item) => sum + item.value, 0)
+  const safeSelectedIndex = Math.min(selectedIndex, Math.max(0, data.length - 1))
+  const selected = empty ? undefined : data[safeSelectedIndex]
+  const selectedPercent = selected ? selected.percent ?? percent(selected.value, total) : 0
+
   return (
     <div className="reports-donut-wrap">
-      <ResponsiveContainer width="100%" height="100%">
-        <PieChart>
-          <Pie data={data} dataKey="value" nameKey="name" innerRadius="58%" outerRadius="82%" paddingAngle={empty ? 0 : 4} stroke="rgba(18,19,21,.86)" strokeWidth={4} isAnimationActive={false}>
-            {data.map((entry, index) => <Cell key={entry.name} fill={empty ? 'rgba(255,255,255,.1)' : colors[index % colors.length]} />)}
-          </Pie>
-          <Tooltip formatter={(value) => empty ? 'No data yet' : formatPKR(Number(value))} contentStyle={tooltipStyle} />
-        </PieChart>
-      </ResponsiveContainer>
-      <div className="reports-donut-center">
-        <strong>{empty ? '0' : data.length}</strong>
-        <span>{empty ? 'items' : 'parts'}</span>
+      <div className="reports-donut-visual">
+        <ResponsiveContainer width="100%" height="100%">
+          <PieChart margin={{ top: 6, right: 6, bottom: 6, left: 6 }}>
+            <Pie
+              data={data}
+              dataKey="value"
+              nameKey="name"
+              innerRadius="62%"
+              outerRadius="90%"
+              paddingAngle={empty ? 0 : 5}
+              cornerRadius={10}
+              minAngle={empty ? 0 : 7}
+              stroke="rgba(18,19,21,.92)"
+              strokeWidth={5}
+              isAnimationActive={false}
+              onClick={(_, index) => setSelectedIndex(index)}
+            >
+              {data.map((entry, index) => (
+                <Cell
+                  key={entry.name}
+                  fill={empty ? 'rgba(255,255,255,.1)' : colors[index % colors.length]}
+                  opacity={!empty && index !== safeSelectedIndex ? 0.48 : 1}
+                />
+              ))}
+            </Pie>
+            <Tooltip formatter={(value, name) => empty ? ['No data yet', name] : [formatPKR(Number(value)), name]} contentStyle={tooltipStyle} cursor={false} />
+          </PieChart>
+        </ResponsiveContainer>
+        <div className="reports-donut-center">
+          <strong>{empty ? '0%' : `${selectedPercent}%`}</strong>
+          <span>{empty ? 'No data' : selected?.name}</span>
+        </div>
       </div>
+      {!empty && (
+        <div className="reports-donut-legend" aria-label="Spending categories">
+          {data.map((item, index) => {
+            const itemPercent = item.percent ?? percent(item.value, total)
+            const active = index === safeSelectedIndex
+            return (
+              <button
+                key={item.name}
+                className={cn(active && 'reports-donut-legend-active')}
+                type="button"
+                onClick={() => setSelectedIndex(index)}
+              >
+                <span style={{ backgroundColor: colors[index % colors.length] }} />
+                <strong>{item.name}</strong>
+                <em>{itemPercent}%</em>
+              </button>
+            )
+          })}
+        </div>
+      )}
     </div>
   )
 }
@@ -445,43 +431,6 @@ function RankedBars({ items, empty, accent = 'orange', showCount }: { items: Arr
   )
 }
 
-function SplitCard({ label, amount, percent: value, tone = 'lime' }: { label: string; amount: number; percent: number; tone?: 'lime' | 'orange' }) {
-  return (
-    <article className="reports-ranked-row">
-      <div className="flex justify-between gap-3">
-        <div>
-          <p className="font-semibold text-white">{label}</p>
-          <p className="text-sm text-[var(--muted)]">{value}% of spending</p>
-        </div>
-        <strong className="text-xl text-white">{formatPKR(amount)}</strong>
-      </div>
-      <div className="mt-3 h-2.5 overflow-hidden rounded-full bg-[var(--surface-3)]">
-        <div className={cn('h-full rounded-full', tone === 'lime' ? 'bg-[var(--accent)]' : 'bg-[var(--negative)]')} style={{ width: `${value}%` }} />
-      </div>
-    </article>
-  )
-}
-
-function BudgetRow({ budget }: { budget: Budget & { actual: number; remaining: number; usage: number; status: string } }) {
-  const over = budget.status === 'Over Budget'
-  const near = budget.status === 'Near Limit'
-  return (
-    <article className="reports-ranked-row">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <p className="font-semibold text-white">{budget.category}</p>
-          <p className="mt-1 text-xs text-[var(--muted)]">Budget {formatPKR(budget.amount)} · Actual {formatPKR(budget.actual)}</p>
-        </div>
-        <span className={cn('rounded-full px-2.5 py-1 text-xs font-semibold', over ? 'bg-[rgba(233,141,103,.12)] text-[var(--negative)]' : near ? 'bg-[rgba(221,255,69,.12)] text-[var(--accent)]' : 'bg-[rgba(139,226,143,.12)] text-[var(--positive)]')}>{budget.status}</span>
-      </div>
-      <div className="mt-3 h-2 overflow-hidden rounded-full bg-[var(--surface-3)]">
-        <div className={cn('h-full rounded-full', over ? 'bg-[var(--negative)]' : near ? 'bg-[#ffc857]' : 'bg-[var(--accent)]')} style={{ width: `${Math.min(100, budget.usage)}%` }} />
-      </div>
-      <p className="mt-2 text-sm text-[var(--muted)]">{budget.remaining >= 0 ? `${formatPKR(budget.remaining)} remaining` : `${formatPKR(Math.abs(budget.remaining))} exceeded`} · {budget.usage}% used</p>
-    </article>
-  )
-}
-
 function MiniMetric({ label, value, tone = 'neutral' }: { label: string; value: string; tone?: 'neutral' | 'lime' | 'orange' }) {
   return (
     <article className="reports-mini-metric">
@@ -524,18 +473,6 @@ function groupTransactions(transactions: Transaction[], label: (transaction: Tra
   return Object.entries(grouped)
     .map(([name, value]) => ({ name, value, percent: total > 0 ? Math.round((value / total) * 100) : 0 }))
     .sort((a, b) => b.value - a.value)
-}
-
-function calculateNeedsWants(transactions: Transaction[]) {
-  const needs = transactions.filter((transaction) => needsCategories.has(transaction.category ?? '')).reduce((sum, transaction) => sum + transaction.amount, 0)
-  const wants = transactions.filter((transaction) => wantsCategories.has(transaction.category ?? '') || !needsCategories.has(transaction.category ?? '')).reduce((sum, transaction) => sum + transaction.amount, 0)
-  const total = needs + wants
-  return {
-    needs,
-    wants,
-    needsPercent: total > 0 ? Math.round((needs / total) * 100) : 0,
-    wantsPercent: total > 0 ? Math.round((wants / total) * 100) : 0,
-  }
 }
 
 function spendingTrend(transactions: Transaction[], range: Range) {

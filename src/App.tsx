@@ -415,7 +415,7 @@ function App() {
       ),
     },
     budgets: { title: 'Budgets', subtitle: 'Monthly limits and usage', component: <Budgets budgets={budgets} /> },
-    reports: { title: 'Analytics', subtitle: 'Spending trends and insights', component: <Reports accounts={accounts} transactions={transactions} goals={goals} debts={debts} budgets={budgets} upcomingExpenses={upcomingExpenses} expenseCategories={expenseCategoryNames} onAddExpenseCategory={(category) => setExpenseCategoryNames((current) => current.some((item) => item.toLowerCase() === category.toLowerCase()) ? current : [...current, category])} /> },
+    reports: { title: 'Analytics', subtitle: 'Spending trends and insights', component: <Reports accounts={accounts} transactions={transactions} goals={goals} debts={debts} upcomingExpenses={upcomingExpenses} expenseCategories={expenseCategoryNames} onAddExpenseCategory={(category) => setExpenseCategoryNames((current) => current.some((item) => item.toLowerCase() === category.toLowerCase()) ? current : [...current, category])} /> },
     settings: { title: 'Settings', subtitle: 'Preferences and data tools', component: <Settings /> },
   }
 
