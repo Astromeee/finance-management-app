@@ -46,7 +46,9 @@ export function Dashboard({
   const savingsBalance = accounts.find((account) => account.id === 'savings')?.balance ?? 0
   const availableToUse = Math.max(0, total - savingsBalance)
   const watchAmount = notifications.reduce((sum, item) => sum + item.amount, 0)
-  const heroStat = notifications.length > 0 ? `${formatPKR(watchAmount)} needs attention` : `${accounts.length} accounts connected`
+  const heroStat = notifications.length > 0
+    ? `${formatPKR(watchAmount)} needs attention`
+    : `${accounts.length} ${accounts.length === 1 ? 'account' : 'accounts'} connected`
 
   return (
     <div className="home-screen pb-6">
@@ -70,7 +72,7 @@ export function Dashboard({
                 <p className="mt-0.5 text-sm font-semibold text-[var(--muted)]">Web Developer</p>
               </div>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="home-ledger-tools">
               <InstallAppButton />
               <div className="relative">
                 <button className="home-glass-icon relative" aria-label="Notifications" onClick={() => setShowNotifications((current) => !current)}>

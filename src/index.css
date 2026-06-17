@@ -210,24 +210,24 @@ select option {
 
 .home-avatar {
   display: grid;
-  width: 4.25rem;
-  height: 4.25rem;
+  width: 3.35rem;
+  height: 3.35rem;
   place-items: center;
   border-radius: 999px;
   background: var(--accent);
   color: #101214;
-  font-size: 2rem;
+  font-size: 1.45rem;
   font-weight: 850;
-  box-shadow: 0 0 0 1px rgba(221, 255, 69, 0.45), 0 0 28px rgba(221, 255, 69, 0.34);
+  box-shadow: 0 0 0 1px rgba(221, 255, 69, 0.42), 0 0 20px rgba(221, 255, 69, 0.24);
 }
 
 .home-glass-icon {
   display: grid;
-  width: 3.8rem;
-  height: 3.8rem;
+  width: 3.05rem;
+  height: 3.05rem;
   place-items: center;
   border: 1px solid rgba(255, 255, 255, 0.14);
-  border-radius: 1.45rem;
+  border-radius: 1.05rem;
   background: rgba(255, 255, 255, 0.045);
   color: white;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 16px 36px rgba(0, 0, 0, 0.32);
@@ -236,11 +236,11 @@ select option {
 
 .home-install-button {
   display: grid;
-  width: 3.8rem;
-  height: 3.8rem;
+  width: 3.05rem;
+  height: 3.05rem;
   place-items: center;
   border: 1px solid rgba(221, 255, 69, 0.24);
-  border-radius: 1.45rem;
+  border-radius: 1.05rem;
   background:
     radial-gradient(circle at 50% 18%, rgba(221, 255, 69, 0.2), transparent 64%),
     rgba(255, 255, 255, 0.055);
@@ -340,31 +340,31 @@ select option {
 .home-ledger-hero {
   position: relative;
   isolation: isolate;
-  margin-bottom: 2.25rem;
-  padding-bottom: 2.65rem;
+  margin-bottom: 1.45rem;
+  padding-bottom: 1.72rem;
 }
 
 .home-ledger-glow {
   position: absolute;
   inset: auto 0 0;
   z-index: -1;
-  height: 7.25rem;
-  border-radius: 1.75rem;
-  background: rgba(221, 255, 69, 0.92);
-  box-shadow: 0 42px 82px -18px rgba(221, 255, 69, 0.72);
+  height: 3.35rem;
+  border-radius: 0 0 1.6rem 1.6rem;
+  background: linear-gradient(180deg, rgba(221, 255, 69, 0.78), rgba(184, 232, 47, 0.84));
+  box-shadow: 0 16px 34px -20px rgba(221, 255, 69, 0.48);
 }
 
 .home-ledger-status-strip {
   position: absolute;
   inset-inline: 0;
-  bottom: 0.6rem;
+  bottom: 0.22rem;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 0.45rem;
-  min-height: 2.5rem;
+  min-height: 1.75rem;
   color: #101214;
-  font-size: 0.9rem;
+  font-size: 0.78rem;
   font-weight: 800;
   text-align: center;
 }
@@ -374,13 +374,13 @@ select option {
   z-index: 1;
   overflow: visible;
   border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 1.75rem;
+  border-radius: 1.45rem;
   background:
     radial-gradient(120% 120% at 28% 8%, rgba(43, 48, 45, 0.88) 0%, rgba(15, 16, 17, 0.98) 56%, rgba(8, 9, 10, 1) 100%),
     #0c0d0e;
-  padding: 1.25rem;
+  padding: 1rem;
   color: white;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07), 0 24px 62px rgba(0, 0, 0, 0.42);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07), 0 18px 42px rgba(0, 0, 0, 0.36);
 }
 
 .home-ledger-topbar {
@@ -391,15 +391,32 @@ select option {
   color: var(--muted);
 }
 
+.home-ledger-tools {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 0.5rem;
+}
+
 .home-ledger-identity {
   display: flex;
   align-items: center;
-  gap: 1rem;
+  gap: 0.75rem;
   min-width: 0;
 }
 
+.home-ledger-identity h1 {
+  font-size: 1.22rem;
+  line-height: 1.12;
+}
+
+.home-ledger-identity p {
+  font-size: 0.78rem;
+  line-height: 1.2;
+}
+
 .home-ledger-balance {
-  margin-top: 1.65rem;
+  margin-top: 1.35rem;
 }
 
 .home-ledger-balance p {
@@ -412,8 +429,8 @@ select option {
 
 .home-ledger-balance button {
   display: grid;
-  width: 2.75rem;
-  height: 2.75rem;
+  width: 2.55rem;
+  height: 2.55rem;
   place-items: center;
   border: 1px solid rgba(221, 255, 69, 0.18);
   border-radius: 999px;
@@ -423,11 +440,11 @@ select option {
 }
 
 .home-ledger-balance h2 {
-  margin-top: 0.62rem;
+  margin-top: 0.5rem;
   max-width: 100%;
   overflow-wrap: anywhere;
   color: white;
-  font-size: clamp(2.75rem, 11vw, 4.9rem);
+  font-size: clamp(2.45rem, 10vw, 4.25rem);
   font-weight: 780;
   letter-spacing: 0;
   line-height: 0.96;
@@ -435,7 +452,7 @@ select option {
 
 .home-ledger-balance > span {
   display: block;
-  margin-top: 0.85rem;
+  margin-top: 0.7rem;
   color: var(--muted);
   font-size: 0.95rem;
   font-weight: 650;
@@ -449,21 +466,21 @@ select option {
 .home-ledger-actions {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.8rem;
-  margin-top: 1.45rem;
+  gap: 0.7rem;
+  margin-top: 1.2rem;
 }
 
 .home-ledger-actions button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-height: 3.45rem;
+  min-height: 3.25rem;
   gap: 0.65rem;
   border: 1px solid rgba(255, 255, 255, 0.09);
-  border-radius: 1.05rem;
+  border-radius: 0.95rem;
   background: rgba(255, 255, 255, 0.08);
   color: white;
-  font-size: 0.96rem;
+  font-size: 0.9rem;
   font-weight: 800;
   touch-action: manipulation;
   transition: transform 0.16s ease, background 0.16s ease, border-color 0.16s ease;
@@ -485,11 +502,11 @@ select option {
   align-items: center;
   justify-content: center;
   gap: 0.35rem;
-  min-height: 2.85rem;
-  margin-top: 0.9rem;
+  min-height: 2.5rem;
+  margin-top: 0.65rem;
   border-radius: 999px;
   color: var(--accent);
-  font-size: 0.88rem;
+  font-size: 0.82rem;
   font-weight: 850;
   touch-action: manipulation;
 }
@@ -950,24 +967,24 @@ select option {
 
   .home-ledger-hero {
     margin-inline: -1rem;
-    margin-bottom: 1.85rem;
-    padding-bottom: 2.35rem;
+    margin-bottom: 1.25rem;
+    padding-bottom: 1.65rem;
   }
 
   .home-ledger-card {
-    border-radius: 0 0 1.55rem 1.55rem;
-    padding: 1rem;
+    border-radius: 0 0 1.35rem 1.35rem;
+    padding: 0.95rem 1rem 1rem;
   }
 
   .home-ledger-glow {
-    height: 6.35rem;
-    border-radius: 1.45rem;
+    height: 3.2rem;
+    border-radius: 0 0 1.35rem 1.35rem;
   }
 
   .home-ledger-status-strip {
-    bottom: 0.45rem;
-    min-height: 2.25rem;
-    font-size: 0.82rem;
+    bottom: 0.18rem;
+    min-height: 1.7rem;
+    font-size: 0.74rem;
   }
 
   .home-ledger-topbar {
@@ -976,15 +993,23 @@ select option {
   }
 
   .home-ledger-identity {
-    gap: 0.75rem;
+    gap: 0.65rem;
+  }
+
+  .home-ledger-identity h1 {
+    font-size: 1.08rem;
+  }
+
+  .home-ledger-identity p {
+    font-size: 0.74rem;
   }
 
   .home-ledger-balance {
-    margin-top: 1.35rem;
+    margin-top: 1.15rem;
   }
 
   .home-ledger-balance h2 {
-    font-size: clamp(2.45rem, 12vw, 3.5rem);
+    font-size: clamp(2.22rem, 10.6vw, 3.15rem);
   }
 
   .home-ledger-actions {
@@ -992,27 +1017,27 @@ select option {
   }
 
   .home-ledger-actions button {
-    min-height: 3.2rem;
-    border-radius: 0.95rem;
-    font-size: 0.88rem;
+    min-height: 3.05rem;
+    border-radius: 0.88rem;
+    font-size: 0.84rem;
   }
 
   .home-avatar {
-    width: 3.75rem;
-    height: 3.75rem;
-    font-size: 1.75rem;
+    width: 2.9rem;
+    height: 2.9rem;
+    font-size: 1.25rem;
   }
 
   .home-glass-icon {
-    width: 3.35rem;
-    height: 3.35rem;
-    border-radius: 1.25rem;
+    width: 2.85rem;
+    height: 2.85rem;
+    border-radius: 1rem;
   }
 
   .home-install-button {
-    width: 3.35rem;
-    height: 3.35rem;
-    border-radius: 1.25rem;
+    width: 2.85rem;
+    height: 2.85rem;
+    border-radius: 1rem;
   }
 
   .home-balance-card {
