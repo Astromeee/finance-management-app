@@ -9,6 +9,7 @@ export type FinanceState = {
   budgets: Budget[]
   upcomingExpenses: UpcomingExpense[]
   expenseCategories?: string[]
+  incomeCategories?: string[]
 }
 
 type FinanceStateRow = {

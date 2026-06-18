@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import type { FormEvent, ReactNode } from 'react'
 import { AddExpenseModal, AddGoalModal, AddIncomeModal, DebtPaymentModal, TransferModal } from './components/forms/FinanceActionModals'
 import { AppShell } from './components/layout/AppShell'
-import { accounts as initialAccounts, budgets as initialBudgets, debts as initialDebts, expenseCategories as initialExpenseCategories, goals as initialGoals, transactions as initialTransactions, upcomingExpenses as initialUpcomingExpenses } from './data/mockData'
+import { accounts as initialAccounts, budgets as initialBudgets, debts as initialDebts, expenseCategories as initialExpenseCategories, goals as initialGoals, incomeSources as initialIncomeSources, transactions as initialTransactions, upcomingExpenses as initialUpcomingExpenses } from './data/mockData'
 import { loadFinanceState, saveFinanceState, type FinanceState } from './lib/financeStateStore'
 import { isSupabaseConfigured, supabase } from './lib/supabase'
 import { Accounts } from './pages/Accounts'
@@ -51,6 +51,7 @@ const initialFinanceState: FinanceState = {
   budgets: initialBudgets,
   upcomingExpenses: initialUpcomingExpenses,
   expenseCategories: initialExpenseCategories.map((category) => category.name),
+  incomeCategories: initialIncomeSources.map((category) => category.name),
 }
 
 function nextRecurringDate(dueDate: string, frequency: RecurringFrequency) {
@@ -132,6 +133,7 @@ function App() {
   const [budgets, setBudgets] = useState<Budget[]>(initialBudgets)
   const [upcomingExpenses, setUpcomingExpenses] = useState<UpcomingExpense[]>(initialUpcomingExpenses)
   const [expenseCategoryNames, setExpenseCategoryNames] = useState(() => initialExpenseCategories.map((category) => category.name))
+  const [incomeCategoryNames, setIncomeCategoryNames] = useState(() => initialIncomeSources.map((category) => category.name))
   const remoteStateLoaded = useRef(!isSupabaseConfigured)
   const saveTimer = useRef<number | undefined>(undefined)
 
@@ -181,6 +183,7 @@ function App() {
         setBudgets(remoteState.budgets)
         setUpcomingExpenses(remoteState.upcomingExpenses)
         setExpenseCategoryNames(remoteState.expenseCategories?.length ? remoteState.expenseCategories : initialExpenseCategories.map((category) => category.name))
+        setIncomeCategoryNames(remoteState.incomeCategories?.length ? remoteState.incomeCategories : initialIncomeSources.map((category) => category.name))
         remoteStateLoaded.current = true
         showToast('Supabase connected')
       } catch (error) {
@@ -207,6 +210,7 @@ function App() {
       budgets,
       upcomingExpenses,
       expenseCategories: expenseCategoryNames,
+      incomeCategories: incomeCategoryNames,
     }
 
     window.clearTimeout(saveTimer.current)
@@ -218,7 +222,7 @@ function App() {
     }, 500)
 
     return () => window.clearTimeout(saveTimer.current)
-  }, [accounts, budgets, debts, expenseCategoryNames, financeUserId, goals, showToast, transactions, upcomingExpenses])
+  }, [accounts, budgets, debts, expenseCategoryNames, financeUserId, goals, incomeCategoryNames, showToast, transactions, upcomingExpenses])
 
   const handlePasswordLogin = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -309,7 +313,7 @@ function App() {
 
   const pages: Record<string, { title: string; subtitle: string; component: ReactNode }> = {
     dashboard: { title: 'Dashboard', subtitle: 'Your financial overview', component: <Dashboard accounts={accountsWithSavings} transactions={transactions} goals={goals} debts={debts} budgets={budgets} upcomingExpenses={upcomingExpenses} onAction={setActiveModal} onNavigate={setActivePage} /> },
-    transactions: { title: 'Transactions', subtitle: 'Track income, spending, and transfers', component: <Transactions transactions={transactions} accounts={accountsWithSavings} expenseCategories={expenseCategoryNames} onUpdateTransaction={updateTransaction} onDeleteTransaction={deleteTransaction} /> },
+    transactions: { title: 'Transactions', subtitle: 'Track income, spending, and transfers', component: <Transactions transactions={transactions} accounts={accountsWithSavings} expenseCategories={expenseCategoryNames} incomeCategories={incomeCategoryNames} onUpdateTransaction={updateTransaction} onDeleteTransaction={deleteTransaction} /> },
     accounts: {
       title: 'Accounts',
       subtitle: 'Manage cash, banks, and wallets',
@@ -415,7 +419,7 @@ function App() {
       ),
     },
     budgets: { title: 'Budgets', subtitle: 'Monthly limits and usage', component: <Budgets budgets={budgets} /> },
-    reports: { title: 'Analytics', subtitle: 'Spending trends and insights', component: <Reports accounts={accounts} transactions={transactions} goals={goals} debts={debts} upcomingExpenses={upcomingExpenses} expenseCategories={expenseCategoryNames} onAddExpenseCategory={(category) => setExpenseCategoryNames((current) => current.some((item) => item.toLowerCase() === category.toLowerCase()) ? current : [...current, category])} /> },
+    reports: { title: 'Analytics', subtitle: 'Spending trends and insights', component: <Reports accounts={accounts} transactions={transactions} goals={goals} debts={debts} upcomingExpenses={upcomingExpenses} expenseCategories={expenseCategoryNames} incomeCategories={incomeCategoryNames} onAddExpenseCategory={(category) => setExpenseCategoryNames((current) => current.some((item) => item.toLowerCase() === category.toLowerCase()) ? current : [...current, category])} onAddIncomeCategory={(category) => setIncomeCategoryNames((current) => current.some((item) => item.toLowerCase() === category.toLowerCase()) ? current : [...current, category])} /> },
     settings: { title: 'Settings', subtitle: 'Preferences and data tools', component: <Settings /> },
   }
 
@@ -447,6 +451,7 @@ function App() {
       <AddIncomeModal
         open={activeModal === 'income'}
         accounts={accountsWithSavings}
+        incomeCategories={incomeCategoryNames}
         onClose={() => setActiveModal(null)}
         onSubmit={({ amount, source, accountId, date, notes }) => {
           const account = accountsWithSavings.find((item) => item.id === accountId)

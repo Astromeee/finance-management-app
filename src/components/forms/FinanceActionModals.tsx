@@ -2,7 +2,6 @@ import { X } from 'lucide-react'
 import { motion, useDragControls } from 'framer-motion'
 import { useState, type ReactNode } from 'react'
 import type { PanInfo } from 'framer-motion'
-import { incomeSources } from '../../data/mockData'
 import type { Account, Debt } from '../../types/finance'
 import { formatPKR } from '../../utils/financeCalculations'
 
@@ -78,16 +77,18 @@ function ErrorText({ children }: { children?: ReactNode }) {
 export function AddIncomeModal({
   open,
   accounts,
+  incomeCategories,
   onClose,
   onSubmit,
 }: {
   open: boolean
   accounts: Account[]
+  incomeCategories: string[]
   onClose: () => void
   onSubmit: (payload: { amount: number; source: string; accountId: string; date: string; notes?: string }) => void
 }) {
   const [amount, setAmount] = useState('')
-  const [source, setSource] = useState('Other Income')
+  const [source, setSource] = useState(incomeCategories[0] ?? 'Other Income')
   const [sibling, setSibling] = useState(siblings[0])
   const [accountId, setAccountId] = useState('')
   const [date, setDate] = useState(today())
@@ -106,7 +107,7 @@ export function AddIncomeModal({
         }
       }}>
         <Field label="Amount" type="number" value={amount} onChange={setAmount} placeholder="Rs. 5,000" />
-        <Select label="Source" value={source} onChange={setSource} options={incomeSources.map((item) => item.name)} />
+        <Select label="Source" value={source} onChange={setSource} options={incomeCategories} />
         {source === 'Siblings Support' && <Select label="Sibling" value={sibling} onChange={setSibling} options={siblings} />}
         <Select label="Account received in" value={selectedAccountId} onChange={setAccountId} options={accounts.map((account) => ({ value: account.id, label: account.name }))} />
         <Field label="Date" type="date" value={date} onChange={setDate} />

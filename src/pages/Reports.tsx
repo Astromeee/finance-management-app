@@ -52,7 +52,9 @@ export function Reports({
   debts,
   upcomingExpenses,
   expenseCategories,
+  incomeCategories,
   onAddExpenseCategory,
+  onAddIncomeCategory,
 }: {
   accounts: Account[]
   transactions: Transaction[]
@@ -60,12 +62,15 @@ export function Reports({
   debts: Debt[]
   upcomingExpenses: UpcomingExpense[]
   expenseCategories: string[]
+  incomeCategories: string[]
   onAddExpenseCategory: (category: string) => void
+  onAddIncomeCategory: (category: string) => void
 }) {
   const [period, setPeriod] = useState<PeriodSelection>('this-month')
   const [customStart, setCustomStart] = useState(monthStart(new Date()).toISOString().slice(0, 10))
   const [customEnd, setCustomEnd] = useState(new Date().toISOString().slice(0, 10))
   const [newExpenseCategory, setNewExpenseCategory] = useState('')
+  const [newIncomeCategory, setNewIncomeCategory] = useState('')
   const [showMoreAnalytics, setShowMoreAnalytics] = useState(false)
 
   const range = useMemo(() => getRange(period, customStart, customEnd), [period, customEnd, customStart])
@@ -252,21 +257,39 @@ export function Reports({
         </>
       )}
 
-      <ReportPanel eyebrow="Expense category setup" title="Add Expense Category" meta={`${expenseCategories.length} categories`}>
-        <form className="grid gap-3 sm:grid-cols-[1fr_auto]" onSubmit={(event) => {
-          event.preventDefault()
-          const category = newExpenseCategory.trim()
-          if (!category) return
-          onAddExpenseCategory(category)
-          setNewExpenseCategory('')
-        }}>
-          <input className="form-input" value={newExpenseCategory} onChange={(event) => setNewExpenseCategory(event.target.value)} placeholder="Add category, e.g. Fuel" />
-          <button className="btn-primary justify-center" type="submit">Add Category</button>
-        </form>
-        <div className="mt-3 flex flex-wrap gap-2">
-          {expenseCategories.slice(-8).map((category) => <span key={category} className="rounded-full border border-white/10 bg-white/[.04] px-3 py-1 text-xs font-semibold text-[var(--muted)]">{category}</span>)}
-        </div>
-      </ReportPanel>
+      <section className="grid gap-5 xl:grid-cols-2">
+        <ReportPanel eyebrow="Expense category setup" title="Add Expense Category" meta={`${expenseCategories.length} categories`}>
+          <form className="grid gap-3 sm:grid-cols-[1fr_auto]" onSubmit={(event) => {
+            event.preventDefault()
+            const category = newExpenseCategory.trim()
+            if (!category) return
+            onAddExpenseCategory(category)
+            setNewExpenseCategory('')
+          }}>
+            <input className="form-input" value={newExpenseCategory} onChange={(event) => setNewExpenseCategory(event.target.value)} placeholder="Add category, e.g. Fuel" />
+            <button className="btn-primary justify-center" type="submit">Add Category</button>
+          </form>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {expenseCategories.slice(-8).map((category) => <span key={category} className="rounded-full border border-white/10 bg-white/[.04] px-3 py-1 text-xs font-semibold text-[var(--muted)]">{category}</span>)}
+          </div>
+        </ReportPanel>
+
+        <ReportPanel eyebrow="Income source setup" title="Add Income Category" meta={`${incomeCategories.length} categories`}>
+          <form className="grid gap-3 sm:grid-cols-[1fr_auto]" onSubmit={(event) => {
+            event.preventDefault()
+            const category = newIncomeCategory.trim()
+            if (!category) return
+            onAddIncomeCategory(category)
+            setNewIncomeCategory('')
+          }}>
+            <input className="form-input" value={newIncomeCategory} onChange={(event) => setNewIncomeCategory(event.target.value)} placeholder="Add income source, e.g. Client Work" />
+            <button className="btn-primary justify-center" type="submit">Add Source</button>
+          </form>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {incomeCategories.slice(-8).map((category) => <span key={category} className="rounded-full border border-white/10 bg-white/[.04] px-3 py-1 text-xs font-semibold text-[var(--muted)]">{category}</span>)}
+          </div>
+        </ReportPanel>
+      </section>
     </div>
   )
 }

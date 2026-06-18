@@ -1,7 +1,6 @@
 import { ArrowDownLeft, ArrowRightLeft, ArrowUpRight, BadgeDollarSign, Eye, Filter, Landmark, PencilLine, Search, Target, Trash2, X } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { useState } from 'react'
-import { incomeSources } from '../data/mockData'
 import { formatPKR } from '../utils/financeCalculations'
 import { cn } from '../utils/ui'
 import type { Account, Transaction, TransactionType } from '../types/finance'
@@ -14,10 +13,12 @@ export function Transactions({
   onUpdateTransaction,
   onDeleteTransaction,
   expenseCategories,
+  incomeCategories,
 }: {
   transactions: Transaction[]
   accounts: Account[]
   expenseCategories: string[]
+  incomeCategories: string[]
   onUpdateTransaction: (transaction: Transaction) => void
   onDeleteTransaction: (transactionId: string) => void
 }) {
@@ -94,6 +95,7 @@ export function Transactions({
         transaction={editing}
         accounts={accounts}
         expenseCategories={expenseCategories}
+        incomeCategories={incomeCategories}
         onClose={() => setEditing(null)}
         onSave={(transaction) => {
           onUpdateTransaction(transaction)
@@ -156,7 +158,7 @@ function TransactionDetailsModal({ transaction, onClose }: { transaction: Transa
   )
 }
 
-function EditTransactionModal({ transaction, accounts, expenseCategories, onClose, onSave }: { transaction: Transaction | null; accounts: Account[]; expenseCategories: string[]; onClose: () => void; onSave: (transaction: Transaction) => void }) {
+function EditTransactionModal({ transaction, accounts, expenseCategories, incomeCategories, onClose, onSave }: { transaction: Transaction | null; accounts: Account[]; expenseCategories: string[]; incomeCategories: string[]; onClose: () => void; onSave: (transaction: Transaction) => void }) {
   const [type, setType] = useState<TransactionType>(transaction?.type ?? 'expense')
   const [title, setTitle] = useState(transaction?.title ?? '')
   const [amount, setAmount] = useState(transaction?.amount.toString() ?? '')
@@ -176,7 +178,7 @@ function EditTransactionModal({ transaction, accounts, expenseCategories, onClos
   const from = accounts.find((item) => item.id === fromAccountId)
   const to = accounts.find((item) => item.id === toAccountId)
   const categoryOptions = type === 'income'
-    ? incomeSources.map((item) => item.name)
+    ? Array.from(new Set([...(category ? [category] : []), ...incomeCategories]))
     : type === 'expense'
       ? Array.from(new Set([...(category ? [category] : []), ...expenseCategories]))
       : [category || title]
