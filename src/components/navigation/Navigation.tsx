@@ -35,6 +35,13 @@ export function Sidebar({ activePage, setActivePage }: { activePage: string; set
 
 export function BottomNav({ activePage, setActivePage }: { activePage: string; setActivePage: (page: string) => void }) {
   const mobileItems = navItems.filter((item) => ['dashboard', 'transactions', 'accounts', 'goals', 'reports'].includes(item.id))
+  const activeWidths: Record<string, number> = {
+    dashboard: 134,
+    transactions: 174,
+    accounts: 132,
+    goals: 128,
+    reports: 162,
+  }
   return (
     <nav className="mobile-nav-dock" aria-label="Primary navigation">
       {mobileItems.map(({ id, label, icon: Icon }) => {
@@ -46,13 +53,14 @@ export function BottomNav({ activePage, setActivePage }: { activePage: string; s
             aria-label={label}
             className={cn('mobile-nav-item', active && 'mobile-nav-item-active')}
             initial={false}
+            animate={{ width: active ? activeWidths[id] : 62 }}
             transition={{ type: 'spring', stiffness: 760, damping: 42, mass: 0.42 }}
             onClick={() => navigate(setActivePage, id)}
           >
+            {active && <motion.span className="mobile-nav-label" initial={{ opacity: 0, x: -4 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.1 }}>{label}</motion.span>}
             <span className="mobile-nav-icon">
               <Icon size={21} />
             </span>
-            {active && <motion.span className="mobile-nav-label" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.1 }}>{label}</motion.span>}
           </motion.button>
         )
       })}
