@@ -1,11 +1,38 @@
 import { ArrowDownLeft, ArrowRightLeft, ArrowUpRight, BadgeDollarSign, Eye, Filter, Landmark, PencilLine, Search, Target, Trash2, X } from 'lucide-react'
 import { motion } from 'framer-motion'
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { formatPKR } from '../utils/financeCalculations'
 import { cn } from '../utils/ui'
 import type { Account, Transaction, TransactionType } from '../types/finance'
 
 const editableTypes: TransactionType[] = ['income', 'expense', 'transfer', 'goal_saving', 'debt_payment']
+type TransactionFilterChip = 'All' | 'Income' | 'Expense' | 'Transfer' | 'Goal' | 'Debt'
+type TransactionTypeFilter = 'all' | TransactionType
+
+function categoryLabel(transaction: Transaction) {
+  return transaction.category ?? transaction.source ?? transaction.title
+}
+
+function monthKey(date: string) {
+  const value = new Date(date)
+  if (Number.isNaN(value.getTime())) return ''
+  return `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, '0')}`
+}
+
+function monthLabel(key: string) {
+  const [year, month] = key.split('-').map(Number)
+  if (!year || !month) return key
+  return new Intl.DateTimeFormat('en-US', { month: 'long', year: 'numeric' }).format(new Date(year, month - 1, 1))
+}
+
+function matchesChip(transaction: Transaction, chip: TransactionFilterChip) {
+  if (chip === 'All') return true
+  if (chip === 'Income') return transaction.type === 'income'
+  if (chip === 'Expense') return transaction.type === 'expense'
+  if (chip === 'Transfer') return transaction.type === 'transfer'
+  if (chip === 'Goal') return transaction.type === 'goal' || transaction.type === 'goal_saving'
+  return transaction.type === 'debt' || transaction.type === 'debt_payment'
+}
 
 export function Transactions({
   transactions,
@@ -25,7 +52,12 @@ export function Transactions({
   const [editing, setEditing] = useState<Transaction | null>(null)
   const [deleting, setDeleting] = useState<Transaction | null>(null)
   const [viewing, setViewing] = useState<Transaction | null>(null)
-  const chips = ['All', 'Income', 'Expense', 'Transfer', 'Goal', 'Debt']
+  const [query, setQuery] = useState('')
+  const [typeFilter, setTypeFilter] = useState<TransactionTypeFilter>('all')
+  const [categoryFilter, setCategoryFilter] = useState('all')
+  const [monthFilter, setMonthFilter] = useState('all')
+  const [activeChip, setActiveChip] = useState<TransactionFilterChip>('All')
+  const chips: TransactionFilterChip[] = ['All', 'Income', 'Expense', 'Transfer', 'Goal', 'Debt']
   const iconMap = {
     income: ArrowDownLeft,
     expense: ArrowUpRight,
@@ -35,6 +67,42 @@ export function Transactions({
     goal_saving: Target,
     debt_payment: Landmark,
   }
+  const categoryOptions = useMemo(() => {
+    const labels = transactions.map((transaction) => categoryLabel(transaction)).filter(Boolean)
+    return Array.from(new Set([...labels, ...expenseCategories, ...incomeCategories])).sort((a, b) => a.localeCompare(b))
+  }, [expenseCategories, incomeCategories, transactions])
+  const monthOptions = useMemo(() => {
+    const monthKeys = Array.from(new Set(transactions.map((transaction) => monthKey(transaction.date)).filter(Boolean)))
+    return monthKeys.sort((a, b) => b.localeCompare(a)).map((value) => ({ value, label: monthLabel(value) }))
+  }, [transactions])
+  const filteredTransactions = useMemo(() => {
+    const search = query.trim().toLowerCase()
+    return transactions.filter((transaction) => {
+      if (!matchesChip(transaction, activeChip)) return false
+      if (typeFilter !== 'all' && transaction.type !== typeFilter) return false
+      if (categoryFilter !== 'all' && categoryLabel(transaction) !== categoryFilter) return false
+      if (monthFilter !== 'all' && monthKey(transaction.date) !== monthFilter) return false
+      if (!search) return true
+      return [
+        transaction.title,
+        transaction.category,
+        transaction.source,
+        transaction.account,
+        transaction.date,
+        transaction.notes,
+        transaction.type.replace('_', ' '),
+        formatPKR(transaction.amount),
+      ].some((value) => value?.toLowerCase().includes(search))
+    })
+  }, [activeChip, categoryFilter, monthFilter, query, transactions, typeFilter])
+  const hasActiveFilters = query.trim() || typeFilter !== 'all' || categoryFilter !== 'all' || monthFilter !== 'all' || activeChip !== 'All'
+  const clearFilters = () => {
+    setQuery('')
+    setTypeFilter('all')
+    setCategoryFilter('all')
+    setMonthFilter('all')
+    setActiveChip('All')
+  }
 
   return (
     <div className="space-y-4 sm:space-y-5">
@@ -42,25 +110,38 @@ export function Transactions({
         <div className="transaction-filter-grid">
           <label className="transaction-search-field">
             <Search className="transaction-search-icon" size={20} />
-            <input className="transaction-search-input" placeholder="Search transactions" />
+            <input className="transaction-search-input" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search transactions" />
           </label>
           <label className="transaction-select-wrap" aria-label="Transaction type">
-            <select><option>All types</option><option>Income</option><option>Expense</option><option>Transfer</option></select>
+            <select value={typeFilter} onChange={(event) => setTypeFilter(event.target.value as TransactionTypeFilter)}>
+              <option value="all">All types</option>
+              <option value="income">Income</option>
+              <option value="expense">Expense</option>
+              <option value="transfer">Transfer</option>
+              <option value="goal_saving">Goal savings</option>
+              <option value="debt_payment">Debt payments</option>
+            </select>
           </label>
           <label className="transaction-select-wrap" aria-label="Transaction category">
-            <select><option>All categories</option><option>Food and Groceries</option><option>Clothes</option><option>Parents Support</option><option>Freelancing Payment</option></select>
+            <select value={categoryFilter} onChange={(event) => setCategoryFilter(event.target.value)}>
+              <option value="all">All categories</option>
+              {categoryOptions.map((category) => <option key={category} value={category}>{category}</option>)}
+            </select>
           </label>
           <label className="transaction-select-wrap" aria-label="Transaction month">
-            <select><option>June 2026</option><option>May 2026</option></select>
+            <select value={monthFilter} onChange={(event) => setMonthFilter(event.target.value)}>
+              <option value="all">All months</option>
+              {monthOptions.map((month) => <option key={month.value} value={month.value}>{month.label}</option>)}
+            </select>
           </label>
-          <button className="transaction-filter-button" aria-label="Filter transactions"><Filter size={19} /></button>
+          <button className="transaction-filter-button" aria-label="Clear transaction filters" disabled={!hasActiveFilters} onClick={clearFilters}><Filter size={19} /></button>
         </div>
         <div className="transaction-chip-row">
-          {chips.map((chip, index) => <button key={chip} className={cn('transaction-chip', index === 0 && 'transaction-chip-active')}>{chip}</button>)}
+          {chips.map((chip) => <button key={chip} className={cn('transaction-chip', activeChip === chip && 'transaction-chip-active')} onClick={() => setActiveChip(chip)}>{chip}</button>)}
         </div>
       </div>
       <section className="grid gap-3">
-        {transactions.map((transaction) => (
+        {filteredTransactions.length ? filteredTransactions.map((transaction) => (
           <article key={transaction.id} className="card transaction-row">
             <span className="action-orb shrink-0">
               {(() => {
@@ -87,7 +168,13 @@ export function Transactions({
               </div>
             </div>
           </article>
-        ))}
+        )) : (
+          <div className="card p-5 text-center">
+            <p className="font-semibold text-white">No transactions match these filters.</p>
+            <p className="mt-2 text-sm text-[var(--muted)]">Try a different search, type, category, or month.</p>
+            {hasActiveFilters && <button className="btn-primary mx-auto mt-4 justify-center" onClick={clearFilters}>Clear filters</button>}
+          </div>
+        )}
       </section>
       <TransactionDetailsModal transaction={viewing} onClose={() => setViewing(null)} />
       <EditTransactionModal
