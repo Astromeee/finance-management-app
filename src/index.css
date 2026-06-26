@@ -1756,6 +1756,12 @@ select option {
   min-width: 1px;
   height: 18rem;
   min-height: 18rem;
+  border: 1px solid rgba(255, 255, 255, 0.075);
+  border-radius: 24px;
+  background:
+    radial-gradient(circle at 86% 6%, rgba(221, 255, 69, 0.08), transparent 12rem),
+    rgba(255, 255, 255, 0.018);
+  padding: 0.65rem;
 }
 
 .reports-snapshot-card,
@@ -1784,6 +1790,84 @@ select option {
   gap: 0.65rem;
 }
 
+.reports-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.reports-stat-card {
+  --stat-accent: var(--muted);
+  position: relative;
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 0.75rem;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--stat-accent) 22%, rgba(255, 255, 255, 0.08));
+  border-radius: 22px;
+  background:
+    radial-gradient(circle at 96% 0%, color-mix(in srgb, var(--stat-accent) 16%, transparent), transparent 8.5rem),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.012)),
+    rgba(24, 26, 30, 0.94);
+  padding: 14px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 16px 34px rgba(0, 0, 0, 0.18);
+}
+
+.reports-stat-lime {
+  --stat-accent: var(--accent);
+}
+
+.reports-stat-orange {
+  --stat-accent: var(--negative);
+}
+
+.reports-stat-neutral {
+  --stat-accent: var(--info);
+}
+
+.reports-stat-icon {
+  display: grid;
+  width: 2.65rem;
+  height: 2.65rem;
+  flex: 0 0 auto;
+  place-items: center;
+  border: 1px solid color-mix(in srgb, var(--stat-accent) 34%, rgba(255, 255, 255, 0.1));
+  border-radius: 1rem;
+  background: color-mix(in srgb, var(--stat-accent) 10%, rgba(255, 255, 255, 0.035));
+  color: var(--stat-accent);
+  box-shadow: 0 0 20px color-mix(in srgb, var(--stat-accent) 14%, transparent);
+}
+
+.reports-stat-card p {
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 800;
+  line-height: 1;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+}
+
+.reports-stat-card strong {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  margin-top: 0.35rem;
+  color: white;
+  font-size: 1.25rem;
+  line-height: 1.05;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.reports-stat-card span:not(.reports-stat-icon) {
+  display: block;
+  margin-top: 0.35rem;
+  color: var(--muted-2);
+  font-size: 0.78rem;
+  font-weight: 650;
+}
+
 .reports-insight-card {
   --reports-accent: var(--accent);
   min-height: 24rem;
@@ -1807,7 +1891,16 @@ select option {
   height: 14rem;
   min-height: 14rem;
   border-radius: 999px;
+  background:
+    radial-gradient(circle at 50% 50%, rgba(221, 255, 69, 0.055), transparent 48%),
+    rgba(255, 255, 255, 0.018);
   touch-action: manipulation;
+}
+
+.reports-donut-slice {
+  cursor: pointer;
+  filter: drop-shadow(0 0 10px rgba(221, 255, 69, 0.05));
+  transition: opacity 0.16s ease, filter 0.16s ease;
 }
 
 .reports-donut-center {
@@ -1843,6 +1936,18 @@ select option {
   white-space: nowrap;
 }
 
+.reports-donut-center em {
+  margin-top: 0.35rem;
+  max-width: 6.6rem;
+  overflow: hidden;
+  color: var(--accent);
+  font-size: 0.8rem;
+  font-style: normal;
+  font-weight: 850;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .reports-donut-legend {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1862,6 +1967,7 @@ select option {
   color: var(--muted);
   text-align: left;
   transition: border-color 0.16s ease, background 0.16s ease, color 0.16s ease;
+  touch-action: manipulation;
 }
 
 .reports-donut-legend button span {
@@ -1889,9 +1995,12 @@ select option {
 
 .reports-donut-legend button:active,
 .reports-donut-legend-active {
-  border-color: rgba(221, 255, 69, 0.26) !important;
-  background: rgba(221, 255, 69, 0.08) !important;
+  border-color: rgba(221, 255, 69, 0.42) !important;
+  background:
+    linear-gradient(180deg, rgba(221, 255, 69, 0.12), rgba(221, 255, 69, 0.04)),
+    rgba(221, 255, 69, 0.06) !important;
   color: white !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 0 0 3px rgba(221, 255, 69, 0.05);
 }
 
 .reports-mini-chart,
@@ -1900,6 +2009,12 @@ select option {
   min-width: 1px;
   height: 12rem;
   min-height: 12rem;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 22px;
+  background:
+    radial-gradient(circle at 80% 6%, rgba(221, 255, 69, 0.07), transparent 12rem),
+    rgba(255, 255, 255, 0.018);
+  padding: 0.55rem;
 }
 
 .reports-ring-wrap {
@@ -1909,12 +2024,15 @@ select option {
 
 .reports-progress-ring {
   --ring-color: var(--accent);
+  --ring-degrees: 0deg;
   display: grid;
   width: 10rem;
   height: 10rem;
   place-items: center;
   border-radius: 999px;
+  background: conic-gradient(var(--ring-color) var(--ring-degrees), rgba(255, 255, 255, 0.08) 0deg);
   box-shadow: 0 0 28px color-mix(in srgb, var(--ring-color) 16%, transparent);
+  animation: reports-ring-pop 0.72s ease both;
 }
 
 .reports-progress-ring-orange {
@@ -1948,6 +2066,47 @@ select option {
 .reports-chart-two-col {
   display: grid;
   gap: 1rem;
+}
+
+.reports-ranked-fill {
+  height: 100%;
+  border-radius: 999px;
+  transform-origin: left center;
+  animation: reports-fill-slide 0.72s ease both;
+}
+
+.reports-ranked-fill-lime {
+  background: linear-gradient(90deg, rgba(221, 255, 69, 0.72), var(--accent));
+  box-shadow: 0 0 18px rgba(221, 255, 69, 0.24);
+}
+
+.reports-ranked-fill-orange {
+  background: linear-gradient(90deg, rgba(233, 141, 103, 0.6), var(--negative));
+  box-shadow: 0 0 18px rgba(233, 141, 103, 0.18);
+}
+
+@keyframes reports-fill-slide {
+  from {
+    transform: scaleX(0);
+    opacity: 0.5;
+  }
+
+  to {
+    transform: scaleX(1);
+    opacity: 1;
+  }
+}
+
+@keyframes reports-ring-pop {
+  from {
+    transform: scale(0.94);
+    filter: saturate(0.8);
+  }
+
+  to {
+    transform: scale(1);
+    filter: saturate(1);
+  }
 }
 
 .reports-empty-insight {

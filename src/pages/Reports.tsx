@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import type { ReactNode } from 'react'
+import type { CSSProperties, ReactNode } from 'react'
 import {
   Area,
   AreaChart,
@@ -14,7 +14,7 @@ import {
   XAxis,
   YAxis,
 } from 'recharts'
-import { ChevronDown, Landmark, PieChart as PieChartIcon, WalletCards, type LucideIcon } from 'lucide-react'
+import { ArrowDownLeft, ArrowUpRight, ChevronDown, Landmark, PercentCircle, PieChart as PieChartIcon, TrendingUp, WalletCards, type LucideIcon } from 'lucide-react'
 import { formatPKR, percent } from '../utils/financeCalculations'
 import type { Account, Debt, Goal, Transaction, UpcomingExpense } from '../types/finance'
 import { cn } from '../utils/ui'
@@ -39,11 +39,14 @@ const periodOptions: Array<{ value: PeriodKey; label: string }> = [
 ]
 
 const tooltipStyle = {
-  background: '#1a1c20',
-  border: '1px solid rgba(255,255,255,.1)',
-  borderRadius: 14,
+  background: 'rgba(18,20,23,.96)',
+  border: '1px solid rgba(221,255,69,.18)',
+  borderRadius: 18,
+  boxShadow: '0 18px 38px rgba(0,0,0,.36)',
   color: '#f6f3ea',
 }
+
+const chartColors = ['#ddff45', '#e98d67', '#aeb7c5', '#5d654f', '#2f3428']
 
 export function Reports({
   accounts,
@@ -139,6 +142,13 @@ export function Reports({
         </div>
       </section>
 
+      <section className="reports-stat-grid" aria-label="Analytics summary">
+        <StatCard label="Income" value={formatPKR(totalIncome)} detail={`${incomeTransactions.length} entries`} icon={ArrowDownLeft} tone="lime" />
+        <StatCard label="Spending" value={formatPKR(totalExpenses)} detail={`${expenseTransactions.length} entries`} icon={ArrowUpRight} tone="orange" />
+        <StatCard label="Net saved" value={netSaved >= 0 ? formatPKR(netSaved) : `-${formatPKR(Math.abs(netSaved))}`} detail={netSaved >= 0 ? 'Positive cashflow' : 'Over budget'} icon={TrendingUp} tone={netSaved >= 0 ? 'lime' : 'orange'} />
+        <StatCard label="Save rate" value={`${savingsRate.toFixed(1)}%`} detail={totalIncome > 0 ? 'Income kept' : 'No income yet'} icon={PercentCircle} tone="neutral" />
+      </section>
+
       <section className="grid gap-4 xl:grid-cols-3">
         <InsightCard
           title="Spending"
@@ -148,7 +158,7 @@ export function Reports({
           icon={PieChartIcon}
           tone="orange"
         >
-          <DonutChart data={spendingMix} colors={['#e98d67', '#ddff45', '#39dced', '#b46cff', '#aeb7c5']} empty={!spendingByCategory.length} />
+          <DonutChart data={spendingMix} colors={chartColors} empty={!spendingByCategory.length} />
         </InsightCard>
         <InsightCard
           title="Cashflow"
@@ -175,7 +185,7 @@ export function Reports({
       <section>
         <ReportPanel eyebrow="Where your money went" title="Spending Mix" meta={`${spendingByCategory.length} categories`}>
           <div className="reports-chart-two-col">
-            <DonutChart data={spendingMix} colors={['#e98d67', '#ddff45', '#39dced', '#b46cff', '#aeb7c5']} empty={!spendingByCategory.length} />
+            <DonutChart data={spendingMix} colors={chartColors} empty={!spendingByCategory.length} />
             <RankedBars items={spendingByCategory.slice(0, 5)} empty="No actual expenses in this period." />
           </div>
         </ReportPanel>
@@ -183,14 +193,24 @@ export function Reports({
 
       <ReportPanel eyebrow="Money in and out" title="Cashflow Trend">
         {hasMoneyMovement ? <div className="reports-chart-frame">
-          <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={cashflowData} margin={{ top: 8, right: 8, left: -20, bottom: 0 }}>
-              <CartesianGrid stroke="rgba(255,255,255,.08)" vertical={false} />
+          <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
+            <AreaChart data={cashflowData} margin={{ top: 10, right: 8, left: -18, bottom: 0 }}>
+              <defs>
+                <linearGradient id="incomeGlow" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#ddff45" stopOpacity={0.34} />
+                  <stop offset="100%" stopColor="#ddff45" stopOpacity={0.03} />
+                </linearGradient>
+                <linearGradient id="expenseGlow" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#e98d67" stopOpacity={0.28} />
+                  <stop offset="100%" stopColor="#e98d67" stopOpacity={0.02} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid stroke="rgba(255,255,255,.07)" vertical={false} />
               <XAxis dataKey="label" stroke="#a7a8ac" tickLine={false} axisLine={false} />
               <YAxis stroke="#a7a8ac" tickLine={false} axisLine={false} tickFormatter={(value) => `${Number(value) / 1000}k`} />
-              <Tooltip formatter={(value) => formatPKR(Number(value))} contentStyle={tooltipStyle} cursor={{ stroke: 'rgba(221,255,69,.18)' }} />
-              <Area type="monotone" dataKey="income" stroke="#ddff45" fill="rgba(221,255,69,.12)" strokeWidth={2.5} isAnimationActive={false} />
-              <Area type="monotone" dataKey="expenses" stroke="#e98d67" fill="rgba(233,141,103,.12)" strokeWidth={2.5} isAnimationActive={false} />
+              <Tooltip formatter={(value) => formatPKR(Number(value))} contentStyle={tooltipStyle} cursor={{ stroke: 'rgba(221,255,69,.22)', strokeWidth: 2 }} />
+              <Area type="monotone" dataKey="income" stroke="#ddff45" fill="url(#incomeGlow)" strokeWidth={3} activeDot={{ r: 7, strokeWidth: 3, stroke: '#111315', fill: '#ddff45' }} animationDuration={950} animationEasing="ease-out" />
+              <Area type="monotone" dataKey="expenses" stroke="#e98d67" fill="url(#expenseGlow)" strokeWidth={3} activeDot={{ r: 7, strokeWidth: 3, stroke: '#111315', fill: '#e98d67' }} animationDuration={950} animationEasing="ease-out" />
             </AreaChart>
           </ResponsiveContainer>
         </div> : <EmptyInsight title="No trend to show yet" note="Once you record transactions, this chart will compare income and spending over the selected period." />}
@@ -210,13 +230,19 @@ export function Reports({
 
           <ReportPanel eyebrow={range.start && range.end && sameMonth(range.start, range.end) ? 'Daily spending' : 'Monthly spending'} title="Spending Trend">
           <div className="reports-chart-frame">
-            <ResponsiveContainer width="100%" height="100%">
+            <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
               <BarChart data={trendData} margin={{ top: 8, right: 8, left: -20, bottom: 0 }}>
-                <CartesianGrid stroke="rgba(255,255,255,.08)" vertical={false} />
+                <defs>
+                  <linearGradient id="spendBar" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#e98d67" stopOpacity={1} />
+                    <stop offset="100%" stopColor="#e98d67" stopOpacity={0.42} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid stroke="rgba(255,255,255,.07)" vertical={false} />
                 <XAxis dataKey="label" stroke="#a7a8ac" tickLine={false} axisLine={false} />
                 <YAxis stroke="#a7a8ac" tickLine={false} axisLine={false} tickFormatter={(value) => `${Number(value) / 1000}k`} />
-                <Tooltip formatter={(value) => formatPKR(Number(value))} contentStyle={tooltipStyle} cursor={{ fill: 'rgba(221,255,69,.045)' }} />
-                <Bar dataKey="amount" fill="#e98d67" radius={[10, 10, 4, 4]} isAnimationActive={false} />
+                <Tooltip formatter={(value) => formatPKR(Number(value))} contentStyle={tooltipStyle} cursor={{ fill: 'rgba(221,255,69,.055)' }} />
+                <Bar dataKey="amount" fill="url(#spendBar)" radius={[12, 12, 5, 5]} animationDuration={850} animationEasing="ease-out" />
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -324,6 +350,19 @@ function InsightCard({ eyebrow, title, value, note, icon: Icon, tone, children }
   )
 }
 
+function StatCard({ label, value, detail, icon: Icon, tone }: { label: string; value: string; detail: string; icon: LucideIcon; tone: 'lime' | 'orange' | 'neutral' }) {
+  return (
+    <article className={cn('reports-stat-card', `reports-stat-${tone}`)}>
+      <span className="reports-stat-icon"><Icon size={20} /></span>
+      <div className="min-w-0">
+        <p>{label}</p>
+        <strong>{value}</strong>
+        <span>{detail}</span>
+      </div>
+    </article>
+  )
+}
+
 function DonutChart({ data, colors, empty = false }: { data: Array<{ name: string; value: number; percent?: number }>; colors: string[]; empty?: boolean }) {
   const [selectedIndex, setSelectedIndex] = useState(0)
   const total = data.reduce((sum, item) => sum + item.value, 0)
@@ -334,27 +373,31 @@ function DonutChart({ data, colors, empty = false }: { data: Array<{ name: strin
   return (
     <div className="reports-donut-wrap">
       <div className="reports-donut-visual">
-        <ResponsiveContainer width="100%" height="100%">
+        <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
           <PieChart margin={{ top: 6, right: 6, bottom: 6, left: 6 }}>
             <Pie
               data={data}
               dataKey="value"
               nameKey="name"
-              innerRadius="62%"
-              outerRadius="90%"
-              paddingAngle={empty ? 0 : 5}
-              cornerRadius={10}
+              innerRadius="64%"
+              outerRadius="88%"
+              paddingAngle={empty ? 0 : 4}
+              cornerRadius={14}
               minAngle={empty ? 0 : 7}
-              stroke="rgba(18,19,21,.92)"
-              strokeWidth={5}
-              isAnimationActive={false}
+              stroke="rgba(13,15,17,.94)"
+              strokeWidth={6}
+              isAnimationActive
+              animationBegin={80}
+              animationDuration={900}
+              animationEasing="ease-out"
               onClick={(_, index) => setSelectedIndex(index)}
             >
               {data.map((entry, index) => (
                 <Cell
                   key={entry.name}
                   fill={empty ? 'rgba(255,255,255,.1)' : colors[index % colors.length]}
-                  opacity={!empty && index !== safeSelectedIndex ? 0.48 : 1}
+                  opacity={!empty && index !== safeSelectedIndex ? 0.42 : 1}
+                  className="reports-donut-slice"
                 />
               ))}
             </Pie>
@@ -364,6 +407,7 @@ function DonutChart({ data, colors, empty = false }: { data: Array<{ name: strin
         <div className="reports-donut-center">
           <strong>{empty ? '0%' : `${selectedPercent}%`}</strong>
           <span>{empty ? 'No data' : selected?.name}</span>
+          {!empty && selected && <em>{formatPKR(selected.value)}</em>}
         </div>
       </div>
       {!empty && (
@@ -377,6 +421,7 @@ function DonutChart({ data, colors, empty = false }: { data: Array<{ name: strin
                 className={cn(active && 'reports-donut-legend-active')}
                 type="button"
                 onClick={() => setSelectedIndex(index)}
+                aria-pressed={active}
               >
                 <span style={{ backgroundColor: colors[index % colors.length] }} />
                 <strong>{item.name}</strong>
@@ -393,10 +438,20 @@ function DonutChart({ data, colors, empty = false }: { data: Array<{ name: strin
 function CashflowMiniChart({ data }: { data: Array<{ label: string; income: number; expenses: number; net: number }> }) {
   return (
     <div className="reports-mini-chart">
-      <ResponsiveContainer width="100%" height="100%">
+      <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
         <AreaChart data={data} margin={{ top: 4, right: 0, left: 0, bottom: 0 }}>
-          <Area type="monotone" dataKey="income" stroke="#ddff45" fill="rgba(221,255,69,.14)" strokeWidth={2.2} isAnimationActive={false} />
-          <Area type="monotone" dataKey="expenses" stroke="#e98d67" fill="rgba(233,141,103,.12)" strokeWidth={2.2} isAnimationActive={false} />
+          <defs>
+            <linearGradient id="miniIncomeGlow" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="#ddff45" stopOpacity={0.32} />
+              <stop offset="100%" stopColor="#ddff45" stopOpacity={0.03} />
+            </linearGradient>
+            <linearGradient id="miniExpenseGlow" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="#e98d67" stopOpacity={0.24} />
+              <stop offset="100%" stopColor="#e98d67" stopOpacity={0.02} />
+            </linearGradient>
+          </defs>
+          <Area type="monotone" dataKey="income" stroke="#ddff45" fill="url(#miniIncomeGlow)" strokeWidth={2.6} activeDot={{ r: 6, strokeWidth: 2, stroke: '#111315' }} animationDuration={850} animationEasing="ease-out" />
+          <Area type="monotone" dataKey="expenses" stroke="#e98d67" fill="url(#miniExpenseGlow)" strokeWidth={2.6} activeDot={{ r: 6, strokeWidth: 2, stroke: '#111315' }} animationDuration={850} animationEasing="ease-out" />
           <Tooltip formatter={(value) => formatPKR(Number(value))} contentStyle={tooltipStyle} />
         </AreaChart>
       </ResponsiveContainer>
@@ -408,7 +463,7 @@ function ProgressRing({ value, label, tone }: { value: number; label: string; to
   const clamped = Math.max(0, Math.min(100, value))
   return (
     <div className="reports-ring-wrap">
-      <div className={cn('reports-progress-ring', tone === 'orange' && 'reports-progress-ring-orange')} style={{ background: `conic-gradient(var(--ring-color) ${clamped * 3.6}deg, rgba(255,255,255,.08) 0deg)` }}>
+      <div className={cn('reports-progress-ring', tone === 'orange' && 'reports-progress-ring-orange')} style={{ '--ring-degrees': `${clamped * 3.6}deg` } as CSSProperties}>
         <div>
           <strong>{clamped}%</strong>
           <span>{label}</span>
@@ -444,7 +499,7 @@ function RankedBars({ items, empty, accent = 'orange', showCount }: { items: Arr
             </div>
           </div>
           <div className="mt-3 h-2 overflow-hidden rounded-full bg-[var(--surface-3)]">
-            <div className={cn('h-full rounded-full', accent === 'lime' ? 'bg-[var(--accent)]' : 'bg-[var(--negative)]')} style={{ width: `${item.percent}%` }} />
+            <div className={cn('reports-ranked-fill', accent === 'lime' ? 'reports-ranked-fill-lime' : 'reports-ranked-fill-orange')} style={{ width: `${item.percent}%` }} />
           </div>
         </div>
       ))}
