@@ -101,7 +101,7 @@ export function Reports({
   const cashflowData = cashflowTrend(periodTransactions, range)
   const spendingMix = spendingByCategory.length ? spendingByCategory.slice(0, 5) : [{ name: 'No spending', value: 1, percent: 100 }]
   const debtProgress = goalDebt.debtTotal > 0 ? Math.round((goalDebt.debtPaid / goalDebt.debtTotal) * 100) : 0
-  const advancedOpen = showMoreAnalytics || hasMoneyMovement
+  const advancedOpen = showMoreAnalytics
 
   return (
     <div className="reports-page space-y-5 pb-28">
@@ -196,12 +196,10 @@ export function Reports({
         </div> : <EmptyInsight title="No trend to show yet" note="Once you record transactions, this chart will compare income and spending over the selected period." />}
       </ReportPanel>
 
-      {!hasMoneyMovement && (
-        <button className="reports-more-toggle" onClick={() => setShowMoreAnalytics((current) => !current)}>
-          <span>{showMoreAnalytics ? 'Hide deeper analytics' : 'Show deeper analytics'}</span>
-          <ChevronDown className={cn(showMoreAnalytics && 'rotate-180')} size={18} />
-        </button>
-      )}
+      <button className="reports-more-toggle" onClick={() => setShowMoreAnalytics((current) => !current)}>
+        <span>{showMoreAnalytics ? 'Hide more analytics' : 'Show more analytics'}</span>
+        <ChevronDown className={cn(showMoreAnalytics && 'rotate-180')} size={18} />
+      </button>
 
       {advancedOpen && (
         <>
