@@ -1,4 +1,4 @@
-import { ArrowDownLeft, ArrowRightLeft, ArrowUpRight, BadgeDollarSign, Eye, Filter, Landmark, PencilLine, Search, Target, Trash2, X } from 'lucide-react'
+import { ArrowDownLeft, ArrowRightLeft, ArrowUpRight, BadgeDollarSign, Eye, Landmark, PencilLine, Search, Target, Trash2, X } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { useMemo, useState } from 'react'
 import { formatPKR } from '../utils/financeCalculations'
@@ -133,7 +133,6 @@ export function Transactions({
               {monthOptions.map((month) => <option key={month.value} value={month.value}>{month.label}</option>)}
             </select>
           </label>
-          <button className="transaction-filter-button" aria-label="Clear transaction filters" disabled={!hasActiveFilters} onClick={clearFilters}><Filter size={19} /></button>
         </div>
         <div className="transaction-chip-row">
           {chips.map((chip) => (
