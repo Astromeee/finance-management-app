@@ -1172,7 +1172,7 @@ select option {
 
 .transaction-filter-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 54px;
+  grid-template-columns: minmax(0, 1fr);
   gap: 13px;
   align-items: center;
 }
@@ -1298,13 +1298,26 @@ select option {
   color: #151719;
 }
 
+.transaction-filter-summary {
+  margin-top: 12px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.45;
+}
+
+.transaction-filter-summary strong {
+  color: var(--text);
+  font-weight: 750;
+}
+
 @media (min-width: 768px) {
   .transaction-filter-card {
     padding: 22px;
   }
 
   .transaction-filter-grid {
-    grid-template-columns: minmax(15rem, 1.55fr) minmax(8.5rem, 0.9fr) minmax(10rem, 1fr) minmax(8.5rem, 0.9fr) 54px;
+    grid-template-columns: minmax(15rem, 1.55fr) minmax(8.5rem, 0.9fr) minmax(10rem, 1fr);
   }
 
   .transaction-search-field,

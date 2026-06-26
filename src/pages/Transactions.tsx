@@ -105,6 +105,10 @@ export function Transactions({
       ].some((value) => value?.toLowerCase().includes(search))
     })
   }, [activeChip, categoryFilter, monthFilter, query, transactions])
+  const filteredTotal = useMemo(
+    () => filteredTransactions.reduce((total, transaction) => total + transaction.amount, 0),
+    [filteredTransactions],
+  )
   const hasActiveFilters = query.trim() || categoryFilter !== 'all' || monthFilter !== 'all' || activeChip !== 'All'
   const clearFilters = () => {
     setQuery('')
@@ -148,6 +152,9 @@ export function Transactions({
             </button>
           ))}
         </div>
+        <p className="transaction-filter-summary">
+          Total shown: <strong>{formatPKR(filteredTotal)}</strong> across {filteredTransactions.length} {filteredTransactions.length === 1 ? 'transaction' : 'transactions'}
+        </p>
       </div>
       <section className="grid gap-3">
         {filteredTransactions.length ? filteredTransactions.map((transaction) => (
