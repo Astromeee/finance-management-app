@@ -88,7 +88,6 @@ export function Reports({
   const totalExpenses = expenseTransactions.reduce((sum, transaction) => sum + transaction.amount, 0)
   const netSaved = totalIncome - totalExpenses
   const savingsRate = totalIncome > 0 ? (netSaved / totalIncome) * 100 : 0
-  const totalBalance = accounts.reduce((sum, account) => sum + account.balance, 0)
 
   const spendingByCategory = groupTransactions(expenseTransactions, (transaction) => transaction.category ?? transaction.title, totalExpenses)
   const incomeBySource = groupTransactions(incomeTransactions, (transaction) => transaction.source ?? transaction.category ?? transaction.title, totalIncome)
@@ -100,7 +99,6 @@ export function Reports({
   const upcoming = upcomingReport(upcomingExpenses)
   const goalDebt = goalDebtReport(goals, debts)
   const hasMoneyMovement = periodTransactions.length > 0 || totalIncome > 0 || totalExpenses > 0
-  const snapshotSentence = buildSnapshotSentence({ rangeLabel: range.label, totalIncome, totalExpenses, netSaved, debtRemaining: goalDebt.debtRemaining, upcomingDue: upcoming.nextSevenDays })
   const cashflowData = cashflowTrend(periodTransactions, range)
   const spendingMix = spendingByCategory.length ? spendingByCategory.slice(0, 5) : [{ name: 'No spending', value: 1, percent: 100 }]
   const debtProgress = goalDebt.debtTotal > 0 ? Math.round((goalDebt.debtPaid / goalDebt.debtTotal) * 100) : 0
@@ -126,19 +124,6 @@ export function Reports({
               <input className="form-input" type="date" value={customEnd} onChange={(event) => setCustomEnd(event.target.value)} />
             </div>
           )}
-        </div>
-      </section>
-
-      <section className="reports-snapshot-card">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--muted)]">{range.label} snapshot</p>
-          <h2 className="mt-2 text-3xl font-semibold text-white">{netSaved >= 0 ? formatPKR(netSaved) : `-${formatPKR(Math.abs(netSaved))}`}</h2>
-          <p className="mt-2 text-sm leading-6 text-[var(--muted)]">{snapshotSentence}</p>
-        </div>
-        <div className="reports-snapshot-grid">
-          <MiniMetric label="Cash now" value={formatPKR(totalBalance)} tone="lime" />
-          <MiniMetric label="Upcoming 7 days" value={formatPKR(upcoming.nextSevenDays)} tone={upcoming.nextSevenDays > 0 ? 'orange' : 'neutral'} />
-          <MiniMetric label="Debt left" value={formatPKR(goalDebt.debtRemaining)} tone={goalDebt.debtRemaining > 0 ? 'orange' : 'lime'} />
         </div>
       </section>
 
@@ -614,18 +599,6 @@ function goalDebtReport(goals: Goal[], debts: Debt[]) {
     overdueItems: debts.filter((debt) => debtStatus(debt) === 'Overdue').length,
     moneyOwedItems: debts.filter((debt) => debt.category === 'Money I Owe').length,
   }
-}
-
-function buildSnapshotSentence({ rangeLabel, totalIncome, totalExpenses, netSaved, debtRemaining, upcomingDue }: { rangeLabel: string; totalIncome: number; totalExpenses: number; netSaved: number; debtRemaining: number; upcomingDue: number }) {
-  if (totalIncome === 0 && totalExpenses === 0) {
-    if (debtRemaining > 0) return `No income or spending is logged for ${rangeLabel} yet. You still have ${formatPKR(debtRemaining)} debt or money owed remaining.`
-    return `No income or spending is logged for ${rangeLabel} yet. Add a few transactions and this will turn into a useful money snapshot.`
-  }
-  if (netSaved >= 0) {
-    const upcomingText = upcomingDue > 0 ? ` Watch ${formatPKR(upcomingDue)} due in the next 7 days.` : ''
-    return `You are positive by ${formatPKR(netSaved)} for ${rangeLabel}: ${formatPKR(totalIncome)} income against ${formatPKR(totalExpenses)} spending.${upcomingText}`
-  }
-  return `You spent ${formatPKR(Math.abs(netSaved))} more than income in ${rangeLabel}. Debt remaining is ${formatPKR(debtRemaining)}.`
 }
 
 function debtStatus(debt: Debt) {
