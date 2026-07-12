@@ -224,23 +224,26 @@ body,
    ============================================================ */
 
 :root[data-theme='light'] {
-  --bg: #fffdfb;
-  --bg-deep: #f6f3ef;
+  /* warm-grey canvas so the white "frosted glass" cards separate from the
+     page (mirrors dark mode, where cards sit lighter than the background) */
+  --bg: #f0ece4;
+  --bg-deep: #e7e1d7;
   --surface: #ffffff;
-  --surface-2: #f6f3ef;
-  --surface-3: #ece8e2;
-  --border: rgba(25, 23, 20, 0.10);
-  --border-strong: rgba(25, 23, 20, 0.16);
+  --surface-2: #f6f2ec;
+  --surface-3: #e5dfd5;
+  --border: rgba(25, 23, 20, 0.12);
+  --border-strong: rgba(25, 23, 20, 0.18);
   --text: #191714;
-  --muted: #7a756e;
-  --muted-2: #a39e97;
+  --muted: #6f6a61;
+  --muted-2: #8a847a;
   --accent: #ff5c00;
   --accent-soft: rgba(255, 92, 0, 0.10);
   --positive: #3e9b5c;
   --negative: #d8502f;
-  --info: #71798a;
-  --glass-bg: rgba(255, 255, 255, 0.60);
-  --glass-border: rgba(255, 255, 255, 0.80);
+  --info: #6b7382;
+  /* opaque white glass + ink hairline so cards read as real surfaces */
+  --glass-bg: rgba(255, 255, 255, 0.92);
+  --glass-border: rgba(25, 23, 20, 0.10);
   color-scheme: light;
   background: var(--bg);
   color: var(--text);
@@ -249,9 +252,9 @@ body,
 :root[data-theme='light'] body,
 :root[data-theme='light'] #root {
   background:
-    radial-gradient(95% 30rem at 92% -4rem, rgba(242, 100, 25, 0.30) 0%, rgba(255, 138, 71, 0.14) 38%, transparent 68%),
-    radial-gradient(70% 22rem at -8% 110%, rgba(255, 178, 122, 0.20), transparent 64%),
-    linear-gradient(180deg, #fffdfb 0%, #fbf8f4 55%, #f6f3ef 100%);
+    radial-gradient(95% 30rem at 92% -4rem, rgba(242, 100, 25, 0.24) 0%, rgba(255, 138, 71, 0.12) 38%, transparent 68%),
+    radial-gradient(70% 22rem at -8% 110%, rgba(255, 178, 122, 0.16), transparent 64%),
+    linear-gradient(180deg, #f3efe8 0%, #efe9e1 55%, #e9e2d8 100%);
 }
 
 /* frosted glass surfaces on light */
@@ -310,7 +313,7 @@ body,
 :root[data-theme='light'] .form-input,
 :root[data-theme='light'] .transaction-chip {
   border-color: rgba(25, 23, 20, 0.12);
-  background: rgba(255, 255, 255, 0.85);
+  background: rgba(25, 23, 20, 0.035);
   color: var(--text);
 }
 
@@ -326,8 +329,15 @@ body,
 }
 
 :root[data-theme='light'] .reports-period-select select {
-  background: rgba(255, 255, 255, 0.85);
+  background: rgba(25, 23, 20, 0.035);
   color: var(--text);
+}
+
+/* Donut segment separator is a near-black "gap" tuned for the dark card;
+   on the white card it must match the surface so it reads as a clean gap.
+   (CSS stroke beats the SVG stroke attribute.) */
+:root[data-theme='light'] .recharts-sector {
+  stroke: #ffffff;
 }
 
 :root[data-theme='light'] .balance-card {
@@ -400,7 +410,8 @@ body,
 :root[data-theme='light'] .text-white { color: var(--text) !important; }
 :root[data-theme='light'] [class*='text-white/'] { color: var(--muted) !important; }
 :root[data-theme='light'] [class*='border-white/'] { border-color: rgba(25, 23, 20, 0.12) !important; }
-:root[data-theme='light'] [class*='bg-white/'] { background-color: rgba(255, 255, 255, 0.65) !important; }
+/* white glass fills → solid white so cards/buttons read on the grey canvas */
+:root[data-theme='light'] [class*='bg-white/'] { background-color: rgba(255, 255, 255, 0.92) !important; }
 :root[data-theme='light'] [class*='bg-black/'] { background-color: rgba(25, 23, 20, 0.35) !important; }
 
 /* dark charcoal accents that must stay dark on light (dock icon, gradients) keep their inline styles */
