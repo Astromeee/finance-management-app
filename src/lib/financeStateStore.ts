@@ -1,4 +1,5 @@
 import { supabase } from './supabase'
+import type { Profile } from './profile'
 import type { Account, Budget, Debt, Goal, Transaction, UpcomingExpense } from '../types/finance'
 
 export type FinanceState = {
@@ -10,6 +11,8 @@ export type FinanceState = {
   upcomingExpenses: UpcomingExpense[]
   expenseCategories?: string[]
   incomeCategories?: string[]
+  /** display name + avatar data URL — synced so the profile follows the account across devices */
+  profile?: Profile
 }
 
 type FinanceStateRow = {

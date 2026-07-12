@@ -1,6 +1,7 @@
-import { ArrowDownLeft, ArrowRightLeft, ArrowUpRight, BadgeDollarSign, Eye, Landmark, PencilLine, Search, Target, Trash2, X } from 'lucide-react'
+import { Eye, PencilLine, Search, Trash2, X } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { useMemo, useState } from 'react'
+import { CategoryIcon } from '../components/icons/CategoryIcon'
 import { formatPKR } from '../utils/financeCalculations'
 import { cn } from '../utils/ui'
 import type { Account, Transaction, TransactionType } from '../types/finance'
@@ -56,15 +57,6 @@ export function Transactions({
   const [monthFilter, setMonthFilter] = useState('all')
   const [activeChip, setActiveChip] = useState<TransactionFilterChip>('All')
   const chips: TransactionFilterChip[] = ['All', 'Income', 'Expense', 'Transfer', 'Goal', 'Debt']
-  const iconMap = {
-    income: ArrowDownLeft,
-    expense: ArrowUpRight,
-    transfer: ArrowRightLeft,
-    goal: Target,
-    debt: Landmark,
-    goal_saving: Target,
-    debt_payment: Landmark,
-  }
   const categoryOptions = useMemo(() => {
     const matchingTransactionLabels = transactions
       .filter((transaction) => matchesChip(transaction, activeChip))
@@ -118,7 +110,13 @@ export function Transactions({
   }
 
   return (
-    <div className="space-y-4 sm:space-y-5">
+    <div className="space-y-4 pt-[max(0.5rem,env(safe-area-inset-top))] sm:space-y-5 sm:pt-0">
+      {/* ---- Header (matches Accounts / Analytics / Goals) ---- */}
+      <section>
+        <p className="text-sm text-[var(--muted)]">Activity</p>
+        <h2 className="mt-0.5 text-[32px] font-semibold leading-tight text-white">Transactions</h2>
+      </section>
+
       <div className="transaction-filter-card">
         <div className="transaction-filter-grid">
           <label className="transaction-search-field">
@@ -160,10 +158,7 @@ export function Transactions({
         {filteredTransactions.length ? filteredTransactions.map((transaction) => (
           <article key={transaction.id} className="card transaction-row">
             <span className="action-orb shrink-0">
-              {(() => {
-                const Icon = iconMap[transaction.type] ?? BadgeDollarSign
-                return <Icon size={19} />
-              })()}
+              <CategoryIcon label={categoryLabel(transaction)} type={transaction.type} size={19} />
             </span>
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-center gap-2">

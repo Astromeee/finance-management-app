@@ -1,5 +1,5 @@
-import { motion } from 'framer-motion'
 import { navItems } from '../../data/navigation'
+import type { NavItem } from '../../types/finance'
 import { cn } from '../../utils/ui'
 
 function navigate(setActivePage: (page: string) => void, page: string) {
@@ -27,41 +27,36 @@ export function Sidebar({ activePage, setActivePage }: { activePage: string; set
       </nav>
       <div className="mt-8 rounded-3xl border border-white/8 bg-[var(--surface)] p-4 text-sm text-[var(--muted)]">
         <p className="font-medium text-white">Moeed</p>
-        <p>Dark mode · PKR · Local data</p>
+        <p>PKR · Local data</p>
       </div>
     </aside>
   )
 }
 
+/* Floating pill dock (home mock): active item = label + light circle icon,
+   inactive items = plain circular icon buttons. */
 export function BottomNav({ activePage, setActivePage }: { activePage: string; setActivePage: (page: string) => void }) {
-  const mobileItems = navItems.filter((item) => ['dashboard', 'transactions', 'accounts', 'goals', 'reports'].includes(item.id))
-  const activeWidths: Record<string, number> = {
-    dashboard: 134,
-    transactions: 174,
-    accounts: 132,
-    goals: 128,
-    reports: 162,
-  }
+  const order = ['dashboard', 'accounts', 'transactions', 'goals', 'reports']
+  const mobileItems = order
+    .map((id) => navItems.find((item) => item.id === id))
+    .filter((item): item is NavItem => Boolean(item))
+
   return (
-    <nav className="mobile-nav-dock" aria-label="Primary navigation">
+    <nav className="dock-v3" aria-label="Primary navigation">
       {mobileItems.map(({ id, label, icon: Icon }) => {
         const active = activePage === id
+        if (active) {
+          return (
+            <button key={id} className="dock-v3-active" onClick={() => navigate(setActivePage, id)}>
+              <span>{label}</span>
+              <span className="dock-v3-circle"><Icon size={19} /></span>
+            </button>
+          )
+        }
         return (
-          <motion.button
-            key={id}
-            layout
-            aria-label={label}
-            className={cn('mobile-nav-item', active && 'mobile-nav-item-active')}
-            initial={false}
-            animate={{ width: active ? activeWidths[id] : 62 }}
-            transition={{ type: 'spring', stiffness: 760, damping: 42, mass: 0.42 }}
-            onClick={() => navigate(setActivePage, id)}
-          >
-            {active && <motion.span className="mobile-nav-label" initial={{ opacity: 0, x: -4 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.1 }}>{label}</motion.span>}
-            <span className="mobile-nav-icon">
-              <Icon size={21} />
-            </span>
-          </motion.button>
+          <button key={id} aria-label={label} className="dock-v3-icon" onClick={() => navigate(setActivePage, id)}>
+            <Icon size={20} />
+          </button>
         )
       })}
     </nav>

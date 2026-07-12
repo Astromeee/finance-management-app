@@ -1,0 +1,508 @@
+/* ============================================================
+   Pocket Ledger — V3 Redesign Theme Layer
+   Import AFTER index.css (see main.tsx):  import './theme.css'
+   Overrides tokens + key surfaces. Zero logic touched.
+
+   Fonts (Sora / Outfit) are self-hosted via @fontsource in main.tsx
+   — same typefaces as the design, but bundled so offline/PWA still work
+   (no render-blocking Google Fonts CDN fetch).
+   ============================================================ */
+
+:root {
+  --bg: #171716;
+  --bg-deep: #101010;
+  --surface: #1d1d1c;
+  --surface-2: #262624;
+  --surface-3: #31312e;
+  --border: rgba(255, 255, 255, 0.10);
+  --border-strong: rgba(255, 255, 255, 0.16);
+  --text: #f2efea;
+  --muted: #b4b0aa;
+  --muted-2: #8d8a85;
+  --accent: #ff5c00;
+  --accent-soft: rgba(255, 92, 0, 0.14);
+  --positive: #7dc98f;
+  --negative: #e8694a;
+  --info: #9aa3b2;
+  /* glass recipe used across the app */
+  --glass-bg: rgba(255, 255, 255, 0.055);
+  --glass-border: rgba(255, 255, 255, 0.10);
+  font-family: Outfit, ui-sans-serif, system-ui, -apple-system, sans-serif;
+  background: var(--bg);
+}
+
+h1, h2, h3, h4,
+.font-display,
+.home-balance-card strong,
+.text-4xl, .text-5xl, .text-3xl, .text-2xl {
+  font-family: Sora, Outfit, ui-sans-serif, system-ui, sans-serif;
+  letter-spacing: -0.02em;
+}
+
+html { background: var(--bg-deep); }
+
+/* The single orange bloom (splash's little sibling) */
+body,
+#root {
+  background:
+    radial-gradient(95% 30rem at 92% -4rem, rgba(242, 100, 25, 0.42) 0%, rgba(209, 78, 12, 0.20) 38%, transparent 68%),
+    radial-gradient(70% 22rem at -8% 110%, rgba(242, 100, 25, 0.10), transparent 64%),
+    linear-gradient(180deg, #1b1a19 0%, #171716 55%, #121211 100%);
+}
+
+/* ---------- Glass surfaces ---------- */
+.card,
+.content-panel,
+.insight-strip {
+  border: 1px solid var(--glass-border);
+  border-radius: 26px;
+  background: var(--glass-bg);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 18px 44px rgba(0, 0, 0, 0.30);
+}
+
+.balance-card {
+  border: 1px solid rgba(255, 92, 0, 0.22);
+  border-radius: 28px;
+  background:
+    radial-gradient(circle at 88% 6%, rgba(255, 92, 0, 0.24), transparent 40%),
+    linear-gradient(150deg, #2a2a2e, #141416);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 18px 40px rgba(0, 0, 0, 0.40);
+}
+
+.dashboard-hero {
+  border: 1px solid rgba(255, 92, 0, 0.20);
+  background:
+    radial-gradient(circle at 84% 6%, rgba(242, 100, 25, 0.30), transparent 20rem),
+    linear-gradient(155deg, #232322 0%, #171716 58%, #121211 100%);
+}
+
+@media (hover: hover) {
+  .card:hover,
+  .balance-card:hover {
+    border-color: rgba(255, 92, 0, 0.28);
+    background-color: rgba(255, 255, 255, 0.075);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07), 0 20px 48px rgba(0, 0, 0, 0.36);
+  }
+}
+
+/* ---------- Dock (labeled pill) ---------- */
+.mobile-nav-item {
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(22, 22, 24, 0.92);
+  color: var(--muted-2);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
+
+.mobile-nav-item-active {
+  border-color: rgba(255, 255, 255, 0.20);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.10), rgba(255, 255, 255, 0.04)),
+    rgba(22, 22, 24, 0.94);
+  color: var(--text);
+}
+
+.mobile-nav-item-active .mobile-nav-icon {
+  background: var(--text);
+  color: #0b0b0c;
+  box-shadow: 0 0 22px rgba(255, 92, 0, 0.45);
+}
+
+/* ---------- Buttons & inputs ---------- */
+.btn-primary {
+  background: linear-gradient(160deg, #ff5c00, #d14e0c);
+  color: #16130f;
+  font-family: Outfit, sans-serif;
+  font-weight: 650;
+  box-shadow: 0 12px 28px rgba(255, 92, 0, 0.22);
+}
+
+.quick-action,
+.icon-button,
+.home-glass-icon {
+  border: 1px solid var(--glass-border);
+  background: var(--glass-bg);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-radius: 20px;
+}
+
+.quick-action-primary {
+  border-color: rgba(255, 92, 0, 0.35);
+  background: linear-gradient(160deg, #ff5c00, #d14e0c);
+  color: #16130f;
+}
+
+/* ---------- Old chartreuse accents → orange ---------- */
+[class*='rgba(221,255,69'],
+.text-\[var\(--accent\)\] { color: var(--accent); }
+
+/* ---------- Charts ---------- */
+.chart-frame { border-radius: 22px; }
+
+/* ---------- Account identity colors (warm set) ---------- */
+.home-account-cash      { --home-accent: #e8e0d2; }
+.home-account-hbl       { --home-accent: #b9c0cc; }
+.home-account-meezan    { --home-accent: #7dc98f; }
+.home-account-jazzcash  { --home-accent: #ff5c00; }
+.home-account-easypaisa { --home-accent: #5fb8bc; }
+.home-account-default   { --home-accent: var(--accent); }
+
+/* ============================================================
+   V3 skin for the newer home-v2 / goals / reports component
+   families (added after the handoff package was authored). These
+   carried hardcoded charcoal-blue backgrounds; retint them onto the
+   warm charcoal + glass system so the whole app reads as one design.
+   ============================================================ */
+
+.home-v2-icon-button,
+.home-v2-header .home-install-button,
+.home-v2-quick-actions button,
+.home-v2-month-stats > div,
+.home-v2-section-heading-compact button {
+  border: 1px solid var(--glass-border);
+  background: var(--glass-bg);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+}
+
+.home-v2-month-card,
+.home-v2-activity,
+.home-v2-notification-panel,
+.transaction-filter-card,
+.goals-overview-card,
+.reports-filter-card,
+.reports-panel,
+.reports-summary-card,
+.reports-insight-card,
+.reports-stat-card,
+.reports-ranked-row,
+.reports-mini-metric {
+  border: 1px solid var(--glass-border);
+  background: var(--glass-bg);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 18px 44px rgba(0, 0, 0, 0.30);
+}
+
+.home-v2-bank-card {
+  background:
+    radial-gradient(circle at 88% 6%, rgba(255, 92, 0, 0.18), transparent 44%),
+    linear-gradient(150deg, #2a2a2e, #141416);
+}
+
+.home-v2-bank-card-2 {
+  background:
+    radial-gradient(circle at 88% 6%, rgba(255, 92, 0, 0.14), transparent 44%),
+    linear-gradient(150deg, #262629, #131315);
+}
+
+.home-v2-bank-card-3 {
+  background:
+    radial-gradient(circle at 88% 6%, rgba(255, 92, 0, 0.1), transparent 44%),
+    linear-gradient(150deg, #232326, #101012);
+}
+
+/* ============================================================
+   LIGHT THEME — orange on white with frosted glass
+   Activated by <html data-theme="light"> (see src/lib/theme.ts)
+   ============================================================ */
+
+:root[data-theme='light'] {
+  --bg: #fffdfb;
+  --bg-deep: #f6f3ef;
+  --surface: #ffffff;
+  --surface-2: #f6f3ef;
+  --surface-3: #ece8e2;
+  --border: rgba(25, 23, 20, 0.10);
+  --border-strong: rgba(25, 23, 20, 0.16);
+  --text: #191714;
+  --muted: #7a756e;
+  --muted-2: #a39e97;
+  --accent: #ff5c00;
+  --accent-soft: rgba(255, 92, 0, 0.10);
+  --positive: #3e9b5c;
+  --negative: #d8502f;
+  --info: #71798a;
+  --glass-bg: rgba(255, 255, 255, 0.60);
+  --glass-border: rgba(255, 255, 255, 0.80);
+  color-scheme: light;
+  background: var(--bg);
+  color: var(--text);
+}
+
+:root[data-theme='light'] body,
+:root[data-theme='light'] #root {
+  background:
+    radial-gradient(95% 30rem at 92% -4rem, rgba(242, 100, 25, 0.30) 0%, rgba(255, 138, 71, 0.14) 38%, transparent 68%),
+    radial-gradient(70% 22rem at -8% 110%, rgba(255, 178, 122, 0.20), transparent 64%),
+    linear-gradient(180deg, #fffdfb 0%, #fbf8f4 55%, #f6f3ef 100%);
+}
+
+/* frosted glass surfaces on light */
+:root[data-theme='light'] .card,
+:root[data-theme='light'] .content-panel,
+:root[data-theme='light'] .insight-strip,
+:root[data-theme='light'] .quick-action,
+:root[data-theme='light'] .icon-button,
+:root[data-theme='light'] .home-glass-icon,
+:root[data-theme='light'] .home-v2-icon-button,
+:root[data-theme='light'] .home-v2-header .home-install-button,
+:root[data-theme='light'] .home-v2-quick-actions button,
+:root[data-theme='light'] .home-v2-month-stats > div,
+:root[data-theme='light'] .home-v2-section-heading-compact button,
+:root[data-theme='light'] .home-v2-month-card,
+:root[data-theme='light'] .home-v2-activity,
+:root[data-theme='light'] .transaction-filter-card,
+:root[data-theme='light'] .goals-overview-card,
+:root[data-theme='light'] .reports-filter-card,
+:root[data-theme='light'] .reports-panel,
+:root[data-theme='light'] .reports-summary-card,
+:root[data-theme='light'] .reports-insight-card,
+:root[data-theme='light'] .reports-stat-card,
+:root[data-theme='light'] .reports-ranked-row,
+:root[data-theme='light'] .reports-mini-metric {
+  border-color: var(--glass-border);
+  background: var(--glass-bg);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9), 0 14px 36px rgba(122, 46, 12, 0.10);
+}
+
+:root[data-theme='light'] .home-v2-notification-panel {
+  border-color: var(--glass-border);
+  background: rgba(255, 253, 251, 0.96);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9), 0 24px 60px rgba(122, 46, 12, 0.16);
+}
+
+:root[data-theme='light'] .home-v2-notification-dot {
+  border-color: #ffffff;
+}
+
+:root[data-theme='light'] .home-v2-activity-row,
+:root[data-theme='light'] .home-v2-notification-list > button {
+  border-top-color: rgba(25, 23, 20, 0.08);
+}
+
+:root[data-theme='light'] .transaction-row-action {
+  border-color: rgba(25, 23, 20, 0.10);
+  background: rgba(25, 23, 20, 0.035);
+}
+
+/* Form inputs — a mobile rule in index.css hardcodes a dark (#17191d)
+   fill; retint to a light surface with ink text (higher specificity so it
+   wins inside the mobile media query too). */
+:root[data-theme='light'] .transaction-search-input,
+:root[data-theme='light'] .transaction-select-wrap select,
+:root[data-theme='light'] .form-input,
+:root[data-theme='light'] .transaction-chip {
+  border-color: rgba(25, 23, 20, 0.12);
+  background: rgba(255, 255, 255, 0.85);
+  color: var(--text);
+}
+
+:root[data-theme='light'] .transaction-search-input::placeholder,
+:root[data-theme='light'] .form-input::placeholder {
+  color: var(--muted-2);
+}
+
+:root[data-theme='light'] .transaction-chip-active {
+  border-color: rgba(255, 92, 0, 0.46);
+  background: var(--accent);
+  color: #fffdfb;
+}
+
+:root[data-theme='light'] .reports-period-select select {
+  background: rgba(255, 255, 255, 0.85);
+  color: var(--text);
+}
+
+:root[data-theme='light'] .balance-card {
+  border-color: rgba(255, 92, 0, 0.24);
+  background:
+    radial-gradient(circle at 88% 6%, rgba(255, 92, 0, 0.16), transparent 40%),
+    linear-gradient(150deg, #ffffff, #f3efe9);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9), 0 16px 38px rgba(122, 46, 12, 0.12);
+}
+
+:root[data-theme='light'] .dashboard-hero {
+  border-color: rgba(255, 92, 0, 0.20);
+  background:
+    radial-gradient(circle at 84% 6%, rgba(242, 100, 25, 0.22), transparent 20rem),
+    linear-gradient(155deg, #ffffff 0%, #faf6f1 58%, #f4f0ea 100%);
+}
+
+/* The bank-card rail keeps a physical dark-card face in both themes;
+   pin its text light since it doesn't share --text on the light page. */
+:root[data-theme='light'] .home-v2-bank-card,
+:root[data-theme='light'] .home-v2-card-balance strong,
+:root[data-theme='light'] .home-v2-card-footer strong {
+  color: #f2efea;
+}
+
+:root[data-theme='light'] .home-v2-card-type {
+  color: rgba(242, 239, 234, 0.7);
+}
+
+/* Literal `color: white` rules that assumed a permanently-dark surface. */
+:root[data-theme='light'] .home-glass-icon {
+  color: var(--accent);
+}
+
+:root[data-theme='light'] .goal-secondary-action,
+:root[data-theme='light'] .reports-donut-center strong,
+:root[data-theme='light'] .reports-donut-legend button em,
+:root[data-theme='light'] .reports-progress-ring strong,
+:root[data-theme='light'] .reports-stat-card strong,
+:root[data-theme='light'] .type-badge {
+  color: var(--text);
+}
+
+:root[data-theme='light'] .mobile-nav-dock {
+  border-top-color: rgba(25, 23, 20, 0.10);
+  background: rgba(255, 253, 251, 0.92);
+  box-shadow: 0 -12px 32px rgba(122, 46, 12, 0.10);
+}
+
+:root[data-theme='light'] .mobile-nav-item {
+  border-color: rgba(25, 23, 20, 0.10);
+  background: rgba(255, 255, 255, 0.88);
+  color: var(--muted-2);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9), 0 16px 38px rgba(25, 23, 20, 0.14);
+}
+
+:root[data-theme='light'] .mobile-nav-item-active {
+  border-color: rgba(25, 23, 20, 0.12);
+  background: rgba(255, 255, 255, 0.94);
+  color: var(--text);
+}
+
+:root[data-theme='light'] .mobile-nav-item-active .mobile-nav-icon {
+  background: #191714;
+  color: #fffdfb;
+  box-shadow: 0 0 22px rgba(255, 92, 0, 0.35);
+}
+
+/* Tailwind text-white utilities — remap to ink on light */
+:root[data-theme='light'] .text-white { color: var(--text) !important; }
+:root[data-theme='light'] [class*='text-white/'] { color: var(--muted) !important; }
+:root[data-theme='light'] [class*='border-white/'] { border-color: rgba(25, 23, 20, 0.12) !important; }
+:root[data-theme='light'] [class*='bg-white/'] { background-color: rgba(255, 255, 255, 0.65) !important; }
+:root[data-theme='light'] [class*='bg-black/'] { background-color: rgba(25, 23, 20, 0.35) !important; }
+
+/* dark charcoal accents that must stay dark on light (dock icon, gradients) keep their inline styles */
+
+/* ============================================================
+   Home mock components — floating pill dock, segmented control,
+   dark account-card face inside the Home card block.
+   ============================================================ */
+
+.dock-v3 {
+  position: fixed;
+  bottom: max(0.9rem, env(safe-area-inset-bottom));
+  left: 50%;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.5rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 999px;
+  background: rgba(19, 19, 20, 0.9);
+  transform: translateX(-50%);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.5);
+}
+
+.dock-v3-icon {
+  display: grid;
+  width: 3.1rem;
+  height: 3.1rem;
+  place-items: center;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.045);
+  color: var(--muted-2);
+  transition: color 0.18s ease, border-color 0.18s ease;
+}
+
+.dock-v3-active {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.3rem 0.3rem 0.3rem 1.05rem;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text);
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+.dock-v3-circle {
+  display: grid;
+  width: 2.6rem;
+  height: 2.6rem;
+  place-items: center;
+  border-radius: 50%;
+  background: #f4f1ec;
+  color: #141414;
+}
+
+@media (min-width: 1024px) {
+  .dock-v3 {
+    display: none;
+  }
+}
+
+.seg-active {
+  background: #f4f1ec;
+  color: #141414;
+}
+
+.dash-account-card {
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  background: #141416;
+}
+
+:root[data-theme='light'] .dock-v3 {
+  border-color: rgba(25, 23, 20, 0.1);
+  background: rgba(255, 253, 251, 0.92);
+  box-shadow: 0 18px 44px rgba(122, 46, 12, 0.18);
+}
+
+:root[data-theme='light'] .dock-v3-icon {
+  border-color: rgba(25, 23, 20, 0.08);
+  background: rgba(25, 23, 20, 0.045);
+  color: var(--muted-2);
+}
+
+:root[data-theme='light'] .dock-v3-active {
+  border-color: rgba(25, 23, 20, 0.12);
+  background: rgba(25, 23, 20, 0.05);
+}
+
+:root[data-theme='light'] .dock-v3-circle,
+:root[data-theme='light'] .seg-active {
+  background: #191714;
+  color: #fffdfb;
+}
+
+/* the account card keeps a physical dark face in light mode — pin its ink */
+:root[data-theme='light'] .dash-account-card .text-white {
+  color: #f2efea !important;
+}
+
+/* Lightweight per-page enter fade (replaces the framer page wrapper) */
+@keyframes pl-page-enter {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.pl-page-enter { animation: pl-page-enter 0.24s ease-out both; }
+
+/* Motion hygiene */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.001s !important; transition-duration: 0.001s !important; }
+  .pl-page-enter { animation: none !important; opacity: 1 !important; transform: none !important; }
+}

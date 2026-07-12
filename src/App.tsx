@@ -4,11 +4,13 @@ import { AddExpenseModal, AddGoalModal, AddIncomeModal, DebtPaymentModal, Transf
 import { AppShell } from './components/layout/AppShell'
 import { accounts as initialAccounts, budgets as initialBudgets, debts as initialDebts, expenseCategories as initialExpenseCategories, goals as initialGoals, incomeSources as initialIncomeSources, transactions as initialTransactions, upcomingExpenses as initialUpcomingExpenses } from './data/mockData'
 import { loadFinanceState, saveFinanceState, type FinanceState } from './lib/financeStateStore'
+import { getProfile, onProfileChange, setProfile, type Profile } from './lib/profile'
 import { isSupabaseConfigured, supabase } from './lib/supabase'
 import { Accounts } from './pages/Accounts'
 import { Budgets } from './pages/Budgets'
 import { Dashboard } from './pages/Dashboard'
 import { GoalsDebts } from './pages/GoalsDebts'
+import { ProfilePage } from './pages/Profile'
 import { Reports } from './pages/Reports'
 import { Settings } from './pages/Settings'
 import { Transactions } from './pages/Transactions'
@@ -134,6 +136,7 @@ function App() {
   const [upcomingExpenses, setUpcomingExpenses] = useState<UpcomingExpense[]>(initialUpcomingExpenses)
   const [expenseCategoryNames, setExpenseCategoryNames] = useState(() => initialExpenseCategories.map((category) => category.name))
   const [incomeCategoryNames, setIncomeCategoryNames] = useState(() => initialIncomeSources.map((category) => category.name))
+  const [profile, setProfileState] = useState<Profile>(getProfile)
   const remoteStateLoaded = useRef(!isSupabaseConfigured)
   const saveTimer = useRef<number | undefined>(undefined)
 
@@ -141,6 +144,8 @@ function App() {
     setToast(message)
     window.setTimeout(() => setToast(''), 2600)
   }, [])
+
+  useEffect(() => onProfileChange(setProfileState), [])
 
   useEffect(() => {
     if (!supabase) return
@@ -184,6 +189,9 @@ function App() {
         setUpcomingExpenses(remoteState.upcomingExpenses)
         setExpenseCategoryNames(remoteState.expenseCategories?.length ? remoteState.expenseCategories : initialExpenseCategories.map((category) => category.name))
         setIncomeCategoryNames(remoteState.incomeCategories?.length ? remoteState.incomeCategories : initialIncomeSources.map((category) => category.name))
+        if (remoteState.profile && JSON.stringify(remoteState.profile) !== JSON.stringify(getProfile())) {
+          setProfile(remoteState.profile)
+        }
         remoteStateLoaded.current = true
         showToast('Supabase connected')
       } catch (error) {
@@ -211,6 +219,7 @@ function App() {
       upcomingExpenses,
       expenseCategories: expenseCategoryNames,
       incomeCategories: incomeCategoryNames,
+      profile,
     }
 
     window.clearTimeout(saveTimer.current)
@@ -222,7 +231,7 @@ function App() {
     }, 500)
 
     return () => window.clearTimeout(saveTimer.current)
-  }, [accounts, budgets, debts, expenseCategoryNames, financeUserId, goals, incomeCategoryNames, showToast, transactions, upcomingExpenses])
+  }, [accounts, budgets, debts, expenseCategoryNames, financeUserId, goals, incomeCategoryNames, profile, showToast, transactions, upcomingExpenses])
 
   const handlePasswordLogin = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -317,7 +326,7 @@ function App() {
     accounts: {
       title: 'Accounts',
       subtitle: 'Manage cash, banks, and wallets',
-      component: <Accounts accounts={accounts} setAccounts={setAccounts} setTransactions={setTransactions} onTransfer={() => setActiveModal('transfer')} />,
+      component: <Accounts accounts={accounts} transactions={transactions} setAccounts={setAccounts} setTransactions={setTransactions} onTransfer={() => setActiveModal('transfer')} onOpenTransactions={() => setActivePage('transactions')} />,
     },
     goals: {
       title: 'Goals & Debts',
@@ -421,6 +430,7 @@ function App() {
     budgets: { title: 'Budgets', subtitle: 'Monthly limits and usage', component: <Budgets budgets={budgets} /> },
     reports: { title: 'Analytics', subtitle: 'Spending trends and insights', component: <Reports accounts={accounts} transactions={transactions} goals={goals} debts={debts} upcomingExpenses={upcomingExpenses} expenseCategories={expenseCategoryNames} incomeCategories={incomeCategoryNames} onAddExpenseCategory={(category) => setExpenseCategoryNames((current) => current.some((item) => item.toLowerCase() === category.toLowerCase()) ? current : [...current, category])} onAddIncomeCategory={(category) => setIncomeCategoryNames((current) => current.some((item) => item.toLowerCase() === category.toLowerCase()) ? current : [...current, category])} /> },
     settings: { title: 'Settings', subtitle: 'Preferences and data tools', component: <Settings /> },
+    profile: { title: 'Profile', subtitle: 'Your name and photo', component: <ProfilePage onBack={() => setActivePage('dashboard')} /> },
   }
 
   if (isSupabaseConfigured && !authReady) return <SupabaseAuthShell title="Connecting to Supabase" />

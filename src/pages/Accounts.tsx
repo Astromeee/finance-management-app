@@ -1,10 +1,18 @@
-import { ArrowRightLeft, PencilLine, Plus, X } from 'lucide-react'
+import { ArrowRightLeft, ChevronDown, MoreVertical, PencilLine, Plus, ShoppingCart, WalletCards, X } from 'lucide-react'
 import { motion } from 'framer-motion'
-import { useMemo, useRef, useState, type Dispatch, type PointerEvent, type SetStateAction } from 'react'
-import { AccountPreviewCard } from '../components/cards/AccountPreviewCard'
+import { useMemo, useRef, useState, type Dispatch, type SetStateAction, type UIEvent } from 'react'
 import type { Account, Transaction } from '../types/finance'
 import { formatPKR, totalBalance } from '../utils/financeCalculations'
 import { cn } from '../utils/ui'
+
+/* ============================================================
+   Accounts — V3 redesign (mock 5a)
+   Carousel of full-size identity cards + per-card spending trends.
+   All modals, the color picker, and account CRUD are preserved.
+
+   ONE integration change in App.tsx (non-breaking, prop is optional):
+     <Accounts accounts={accounts} transactions={transactions} ... />
+   ============================================================ */
 
 const cardColorOptions = [
   { name: 'Red', value: '#c2413d' },
@@ -40,123 +48,389 @@ function adjustHexLightness(hex: string, amount: number) {
   return `#${adjusted.map((channel) => channel.toString(16).padStart(2, '0')).join('')}`
 }
 
+/* Card text should be dark on light card colors, light on dark ones */
+function isLightColor(hex: string) {
+  if (!isValidHex(hex)) return false
+  const clean = hex.slice(1)
+  const [r, g, b] = [0, 2, 4].map((start) => Number.parseInt(clean.slice(start, start + 2), 16))
+  return (r * 299 + g * 587 + b * 114) / 1000 > 150
+}
+
 interface AccountsProps {
   accounts: Account[]
   setAccounts: Dispatch<SetStateAction<Account[]>>
   setTransactions: Dispatch<SetStateAction<Transaction[]>>
   onTransfer: () => void
+  /** optional — pass transactions={transactions} from App.tsx to light up per-card trends */
+  transactions?: Transaction[]
+  /** optional — "Details →" on the top-category row opens the Transactions page */
+  onOpenTransactions?: () => void
 }
 
 const makeAccountId = (name: string) => `${name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'account'}-${Date.now().toString(36)}`
 
-export function Accounts({ accounts, setAccounts, setTransactions, onTransfer }: AccountsProps) {
-  const [addingAccount, setAddingAccount] = useState(false)
-  const [selectedAccount, setSelectedAccount] = useState<Account | null>(null)
-  const [editingAccount, setEditingAccount] = useState<Account | null>(null)
-  const [draggingAccountId, setDraggingAccountId] = useState<string | null>(null)
-  const [notice, setNotice] = useState('')
-  const accountCardRefs = useRef(new Map<string, HTMLDivElement>())
+/* ---------- per-card trend helpers ---------- */
 
-  const breakdown = useMemo(() => ({
-    cash: accounts.filter((account) => account.type === 'cash').reduce((sum, account) => sum + account.balance, 0),
-    banks: accounts.filter((account) => account.type === 'bank').reduce((sum, account) => sum + account.balance, 0),
-    wallets: accounts.filter((account) => account.type === 'wallet').reduce((sum, account) => sum + account.balance, 0),
-  }), [accounts])
+function monthKey(date: string) {
+  return date.slice(0, 7)
+}
 
-  const registerAccountCard = (accountId: string, node: HTMLDivElement | null) => {
-    if (node) {
-      accountCardRefs.current.set(accountId, node)
-    } else {
-      accountCardRefs.current.delete(accountId)
+function labelForMonthKey(key: string) {
+  const [year, month] = key.split('-').map(Number)
+  const date = new Date(year, (month || 1) - 1, 1)
+  return date.toLocaleDateString('en-US', year === new Date().getFullYear() ? { month: 'long' } : { month: 'short', year: 'numeric' })
+}
+
+/** Plain amounts (no "Rs") for the In / Out / Kept pills and top-category line, per mock 5a */
+function formatPlain(amount: number) {
+  return Math.round(Math.abs(amount)).toLocaleString('en-US')
+}
+
+function accountMonthStats(account: Account, transactions: Transaction[], key: string) {
+  let moneyIn = 0
+  let moneyOut = 0
+  const categoryTotals = new Map<string, number>()
+  const weeklySpend = [0, 0, 0, 0, 0]
+
+  for (const transaction of transactions) {
+    if (monthKey(transaction.date) !== key) continue
+    const isSource = transaction.accountId === account.id || transaction.fromAccountId === account.id
+    const isTarget = transaction.toAccountId === account.id
+    if (!isSource && !isTarget) continue
+
+    const outflow =
+      (transaction.type === 'expense' || transaction.type === 'goal_saving' || transaction.type === 'debt_payment') && transaction.accountId === account.id
+        ? transaction.amount
+        : transaction.type === 'transfer' && transaction.fromAccountId === account.id
+          ? transaction.amount
+          : 0
+    const inflow =
+      transaction.type === 'income' && transaction.accountId === account.id
+        ? transaction.amount
+        : transaction.type === 'transfer' && transaction.toAccountId === account.id
+          ? transaction.amount
+          : 0
+
+    moneyIn += inflow
+    moneyOut += outflow
+
+    if (outflow > 0 && transaction.type === 'expense' && transaction.category) {
+      categoryTotals.set(transaction.category, (categoryTotals.get(transaction.category) ?? 0) + outflow)
+    }
+    if (outflow > 0) {
+      const day = Number(transaction.date.slice(8, 10))
+      const week = Math.min(4, Math.floor((day - 1) / 7))
+      weeklySpend[week] += outflow
     }
   }
 
-  const scrollReorderViewport = (clientY: number) => {
-    const edgeSize = 92
-    if (clientY > window.innerHeight - edgeSize) window.scrollBy({ top: 8, behavior: 'auto' })
-    if (clientY < edgeSize) window.scrollBy({ top: -8, behavior: 'auto' })
+  let topCategory: { name: string; amount: number } | null = null
+  for (const [name, amount] of categoryTotals) {
+    if (!topCategory || amount > topCategory.amount) topCategory = { name, amount }
   }
 
-  const commitAccountReorder = (accountId: string, clientY: number) => {
-    setAccounts((current) => {
-      const currentIndex = current.findIndex((account) => account.id === accountId)
-      if (currentIndex === -1) return current
+  return { moneyIn, moneyOut, kept: moneyIn - moneyOut, weeklySpend, topCategory }
+}
 
-      const targetIndex = current
-        .filter((account) => account.id !== accountId)
-        .reduce((index, account) => {
-          const card = accountCardRefs.current.get(account.id)
-          if (!card) return index
-          const rect = card.getBoundingClientRect()
-          return clientY > rect.top + rect.height / 2 ? index + 1 : index
-        }, 0)
+/* ============================================================ */
 
-      if (targetIndex === currentIndex) return current
+export function Accounts({ accounts, setAccounts, setTransactions, onTransfer, onOpenTransactions, transactions = [] }: AccountsProps) {
+  const [addingAccount, setAddingAccount] = useState(false)
+  const [selectedAccount, setSelectedAccount] = useState<Account | null>(null)
+  const [editingAccount, setEditingAccount] = useState<Account | null>(null)
+  const [menuAccount, setMenuAccount] = useState<Account | null>(null)
+  const [notice, setNotice] = useState('')
+  const [activeIndex, setActiveIndex] = useState(0)
+  const carouselRef = useRef<HTMLDivElement>(null)
 
-      const nextAccounts = [...current]
-      const [movingAccount] = nextAccounts.splice(currentIndex, 1)
-      nextAccounts.splice(targetIndex, 0, movingAccount)
-      return nextAccounts
-    })
+  const total = totalBalance(accounts)
+  const activeAccount = accounts[Math.min(activeIndex, Math.max(0, accounts.length - 1))] ?? null
+
+  const now = new Date()
+  const thisMonthKey = now.toISOString().slice(0, 7)
+  const [selectedMonthKey, setSelectedMonthKey] = useState(thisMonthKey)
+
+  const monthOptions = useMemo(() => {
+    const keys = new Set<string>([thisMonthKey])
+    for (const transaction of transactions) if (transaction.date) keys.add(monthKey(transaction.date))
+    return [...keys].sort().reverse()
+  }, [transactions, thisMonthKey])
+
+  const previousMonthKey = useMemo(() => {
+    const [year, month] = selectedMonthKey.split('-').map(Number)
+    const previous = new Date(year, (month || 1) - 2, 1)
+    return `${previous.getFullYear()}-${String(previous.getMonth() + 1).padStart(2, '0')}`
+  }, [selectedMonthKey])
+
+  const monthLabel = labelForMonthKey(selectedMonthKey)
+  const previousMonthLabel = labelForMonthKey(previousMonthKey)
+  const viewingCurrentMonth = selectedMonthKey === thisMonthKey
+
+  const stats = useMemo(
+    () => (activeAccount ? accountMonthStats(activeAccount, transactions, selectedMonthKey) : null),
+    [activeAccount, transactions, selectedMonthKey],
+  )
+  const lastStats = useMemo(
+    () => (activeAccount ? accountMonthStats(activeAccount, transactions, previousMonthKey) : null),
+    [activeAccount, transactions, previousMonthKey],
+  )
+
+  const spendDelta = stats && lastStats && lastStats.moneyOut > 0
+    ? Math.round(((stats.moneyOut - lastStats.moneyOut) / lastStats.moneyOut) * 100)
+    : null
+
+  const onCarouselScroll = (event: UIEvent<HTMLDivElement>) => {
+    const node = event.currentTarget
+    const cardWidth = node.firstElementChild instanceof HTMLElement ? node.firstElementChild.offsetWidth + 14 : 1
+    const index = Math.round(node.scrollLeft / cardWidth)
+    if (index !== activeIndex) setActiveIndex(Math.max(0, Math.min(accounts.length - 1, index)))
   }
+
+  const scrollToIndex = (index: number) => {
+    const node = carouselRef.current
+    if (!node) return
+    const cardWidth = node.firstElementChild instanceof HTMLElement ? node.firstElementChild.offsetWidth + 14 : 0
+    node.scrollTo({ left: index * cardWidth, behavior: 'smooth' })
+  }
+
+  const maxWeeklySpend = stats ? Math.max(...stats.weeklySpend, 1) : 1
+  const highlightWeek = viewingCurrentMonth
+    ? Math.min(4, Math.floor((now.getDate() - 1) / 7))
+    : stats
+      ? Math.max(0, stats.weeklySpend.indexOf(Math.max(...stats.weeklySpend)))
+      : 0
+  const weeksToShow = viewingCurrentMonth
+    ? (now.getDate() > 28 ? 5 : 4)
+    : (stats && stats.weeklySpend[4] > 0 ? 5 : 4)
 
   return (
-    <div className="space-y-4 sm:space-y-5">
-      {notice && <div className="rounded-2xl border border-[rgba(221,255,69,.2)] bg-[var(--accent-soft)] px-4 py-3 text-sm text-[var(--accent)]">{notice}</div>}
+    <div className="space-y-5">
+      {notice && <div className="rounded-2xl border border-[rgba(255,92,0,.25)] bg-[var(--accent-soft)] px-4 py-3 text-sm text-[var(--accent)]">{notice}</div>}
 
-      <section className="grid gap-4 xl:grid-cols-[.85fr_1.15fr]">
-        <article className="balance-card">
-          <p className="text-sm font-semibold uppercase text-[var(--muted)]">Total Balance</p>
-          <h3 className="mt-2 text-4xl font-semibold tracking-tight text-white sm:text-5xl">{formatPKR(totalBalance(accounts))}</h3>
-          <div className="mt-5 grid gap-2 text-sm text-[var(--muted)]">
-            <div className="premium-row flex justify-between px-3 py-2.5"><span>Cash</span><strong className="text-white">{formatPKR(breakdown.cash)}</strong></div>
-            <div className="premium-row flex justify-between px-3 py-2.5"><span>Banks</span><strong className="text-white">{formatPKR(breakdown.banks)}</strong></div>
-            <div className="premium-row flex justify-between px-3 py-2.5"><span>Wallets</span><strong className="text-white">{formatPKR(breakdown.wallets)}</strong></div>
-          </div>
-        </article>
-
-        <article className="card">
-          <div className="section-title"><div><p>Account actions</p><h3>Wallet tools</h3></div></div>
-          <div className="grid grid-cols-3 gap-3">
-            <button className="quick-action" onClick={() => setAddingAccount(true)}><Plus className="mx-auto" size={18} /><span className="mt-2 block text-xs font-semibold">Add account</span></button>
-            <button className="quick-action disabled:cursor-not-allowed disabled:opacity-45" onClick={onTransfer} disabled={accounts.length < 2} title={accounts.length < 2 ? 'Add at least two accounts to transfer money.' : undefined}><ArrowRightLeft className="mx-auto" size={18} /><span className="mt-2 block text-xs font-semibold">Transfer</span></button>
-            <button className="quick-action quick-action-primary disabled:cursor-not-allowed disabled:opacity-45" onClick={() => accounts[0] && setSelectedAccount(accounts[0])} disabled={!accounts.length}><PencilLine className="mx-auto" size={18} /><span className="mt-2 block text-xs font-semibold">Adjust</span></button>
-          </div>
-          {accounts.length < 2 && <p className="mt-3 text-xs text-[var(--muted)]">Transfers need at least two accounts.</p>}
-        </article>
+      {/* ---- Header: Wallet / Accounts + add button (mock 5a) ---- */}
+      <section className="flex items-start justify-between gap-4">
+        <div>
+          <p className="text-sm text-[var(--muted)]">Wallet</p>
+          <h2 className="mt-0.5 text-[32px] font-semibold leading-tight text-white">Accounts</h2>
+        </div>
+        <button
+          aria-label="Add account"
+          className="grid h-[52px] w-[52px] place-items-center rounded-full border border-white/12 bg-white/[.055] text-white backdrop-blur-xl transition hover:border-[rgba(255,92,0,.35)]"
+          onClick={() => setAddingAccount(true)}
+        >
+          <Plus size={21} />
+        </button>
       </section>
 
+      {/* ---- Total balance ---- */}
       <section>
-        <div>
-          <div className="mb-3 flex items-end justify-between">
-            <div>
-              <p className="text-sm text-[var(--muted)]">Wallet cards</p>
-              <h3 className="text-2xl font-semibold text-white">Your accounts</h3>
-            </div>
+        <p className="text-sm text-[var(--muted)]">Total balance</p>
+        <h3 className="mt-1 text-[42px] font-semibold leading-none tracking-tight text-white sm:text-5xl">{formatPKR(total)}</h3>
+      </section>
+
+      {/* ---- Card carousel ---- */}
+      {accounts.length > 0 ? (
+        <section>
+          <div
+            ref={carouselRef}
+            className="scrollbar-none -mx-4 flex snap-x snap-mandatory gap-3.5 overflow-x-auto px-4 pb-2 sm:mx-0 sm:px-0"
+            style={{ scrollbarWidth: 'none' }}
+            onScroll={onCarouselScroll}
+          >
+            {accounts.map((account) => {
+              const light = isLightColor(account.color)
+              const ink = light ? '#191714' : '#F2EFEA'
+              const inkSoft = light ? 'rgba(25,23,20,.62)' : 'rgba(242,239,234,.62)'
+              const share = total > 0 ? Math.round((account.balance / total) * 100) : 0
+              return (
+                <article
+                  key={account.id}
+                  className="relative min-w-[calc(100%-3.5rem)] snap-center overflow-hidden rounded-[30px] border p-6 shadow-[0_18px_36px_rgba(0,0,0,.45)] sm:min-w-[330px]"
+                  style={{
+                    background: `linear-gradient(150deg, ${adjustHexLightness(account.color, 14)}, ${adjustHexLightness(account.color, -32)})`,
+                    borderColor: light ? 'rgba(25,23,20,.14)' : 'rgba(255,255,255,.16)',
+                    color: ink,
+                  }}
+                >
+                  <div
+                    aria-hidden
+                    className="pointer-events-none absolute -right-10 top-6 h-56 w-56 rounded-full"
+                    style={{ background: `radial-gradient(circle, ${light ? 'rgba(255,92,0,.18)' : 'rgba(255,92,0,.30)'}, transparent 66%)` }}
+                  />
+                  <div className="relative flex items-start justify-between">
+                    <div>
+                      <p className="text-[15px] font-semibold">{account.name}</p>
+                      <p className="mt-0.5 text-[12px] capitalize" style={{ color: inkSoft }}>
+                        {account.type}{account.cardLabel ? ` - ${account.cardLabel}` : ''}
+                      </p>
+                    </div>
+                    <button
+                      aria-label={`${account.name} options`}
+                      className="-mr-1.5 -mt-1 rounded-full p-1.5 transition hover:bg-black/10"
+                      style={{ color: inkSoft }}
+                      onClick={() => setMenuAccount(account)}
+                    >
+                      <MoreVertical size={18} />
+                    </button>
+                  </div>
+                  <p className="relative mt-10 text-[38px] font-semibold leading-none tracking-tight">{formatPKR(account.balance)}</p>
+                  <div className="relative mt-10 flex items-center justify-between">
+                    <p className="text-[10.5px] font-semibold tracking-[.18em]" style={{ color: inkSoft }}>POCKET LEDGER</p>
+                    <p className="text-[12px]" style={{ color: inkSoft }}>{share}% of portfolio</p>
+                  </div>
+                </article>
+              )
+            })}
           </div>
-          <div className="grid gap-3">
-            {accounts.map((account) => (
-              <ReorderableAccountCard
+
+          {/* dots */}
+          <div className="mt-3 flex justify-center gap-2">
+            {accounts.map((account, index) => (
+              <button
                 key={account.id}
-                account={account}
-                draggingAccountId={draggingAccountId}
-                onCommitReorder={commitAccountReorder}
-                onEdit={setEditingAccount}
-                onReorderPosition={scrollReorderViewport}
-                onRegister={registerAccountCard}
-                setDraggingAccountId={setDraggingAccountId}
+                aria-label={`Go to ${account.name}`}
+                className={cn('h-1.5 rounded-full transition-all', index === activeIndex ? 'w-6 bg-[var(--accent)]' : 'w-1.5 bg-white/20')}
+                onClick={() => scrollToIndex(index)}
               />
             ))}
-            {!accounts.length && (
-              <button className="rounded-[1.5rem] border border-dashed border-white/15 bg-white/[.03] px-5 py-10 text-left transition hover:border-[rgba(221,255,69,.35)] hover:bg-[rgba(221,255,69,.06)]" onClick={() => setAddingAccount(true)}>
-                <span className="grid h-12 w-12 place-items-center rounded-2xl bg-[var(--accent)] text-[#171910]"><Plus size={22} /></span>
-                <span className="mt-5 block text-xl font-semibold text-white">Add your first account</span>
-                <span className="mt-2 block text-sm text-[var(--muted)]">Create cash, bank, or wallet accounts to start tracking.</span>
-              </button>
-            )}
           </div>
+        </section>
+      ) : (
+        <button className="w-full rounded-[1.5rem] border border-dashed border-white/15 bg-white/[.03] px-5 py-10 text-left transition hover:border-[rgba(255,92,0,.35)] hover:bg-[rgba(255,92,0,.06)]" onClick={() => setAddingAccount(true)}>
+          <span className="grid h-12 w-12 place-items-center rounded-2xl bg-[var(--accent)] text-[#16130F]"><Plus size={22} /></span>
+          <span className="mt-5 block text-xl font-semibold text-white">Add your first account</span>
+          <span className="mt-2 block text-sm text-[var(--muted)]">Create cash, bank, or wallet accounts to start tracking.</span>
+        </button>
+      )}
+
+      {/* ---- Per-card spending trends ---- */}
+      {activeAccount && stats && (
+        <motion.section key={activeAccount.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.22 }} className="space-y-3">
+          <div className="flex items-baseline justify-between">
+            <p className="text-[17px] font-semibold text-white">{activeAccount.name} · {viewingCurrentMonth ? 'this month' : monthLabel}</p>
+            <label className="relative inline-flex cursor-pointer items-center gap-1 text-[13px] font-semibold text-[var(--accent)]">
+              {monthLabel}
+              <ChevronDown size={14} />
+              <select
+                aria-label="Select month"
+                className="absolute inset-0 cursor-pointer opacity-0"
+                value={selectedMonthKey}
+                onChange={(event) => setSelectedMonthKey(event.target.value)}
+              >
+                {monthOptions.map((key) => <option key={key} value={key}>{labelForMonthKey(key)}</option>)}
+              </select>
+            </label>
+          </div>
+
+          {/* in / out / kept */}
+          <div className="grid grid-cols-3 gap-2">
+            <div className="rounded-[18px] border border-white/10 bg-white/[.055] px-4 py-3.5 backdrop-blur-xl">
+              <p className="text-[11px] text-[var(--muted-2)]">In</p>
+              <p className="mt-1 text-lg font-semibold text-[var(--positive)]">{formatPlain(stats.moneyIn)}</p>
+            </div>
+            <div className="rounded-[18px] border border-white/10 bg-white/[.055] px-4 py-3.5 backdrop-blur-xl">
+              <p className="text-[11px] text-[var(--muted-2)]">Out</p>
+              <p className="mt-1 text-lg font-semibold text-[var(--negative)]">{formatPlain(stats.moneyOut)}</p>
+            </div>
+            <div className="rounded-[18px] border border-[rgba(255,92,0,.28)] bg-[rgba(255,92,0,.14)] px-4 py-3.5 backdrop-blur-xl">
+              <p className="text-[11px] text-[#FFB27A]">Kept</p>
+              <p className="mt-1 text-lg font-semibold text-white">{stats.kept >= 0 ? '+' : '-'}{formatPlain(stats.kept)}</p>
+            </div>
+          </div>
+
+          {/* weekly spend bars */}
+          <div className="rounded-[22px] border border-white/10 bg-white/[.055] px-4.5 py-4 backdrop-blur-xl">
+            <div className="mb-3 flex items-baseline justify-between">
+              <p className="text-[12px] text-[var(--muted-2)]">Weekly spend from this card</p>
+              {spendDelta !== null && (
+                <p className={cn('text-[12px] font-semibold', spendDelta > 0 ? 'text-[var(--negative)]' : 'text-[var(--positive)]')}>
+                  {spendDelta > 0 ? '▲' : '▼'} {Math.abs(spendDelta)}% vs {previousMonthLabel}
+                </p>
+              )}
+            </div>
+            <div className="flex h-[56px] items-end gap-3">
+              {stats.weeklySpend.slice(0, weeksToShow).map((amount, week) => {
+                const isCurrent = week === highlightWeek
+                return (
+                  <div key={week} className="flex h-full flex-1 flex-col items-center justify-end gap-1.5">
+                    <span
+                      className="w-full rounded-[7px]"
+                      style={{
+                        height: `${Math.max(10, (amount / maxWeeklySpend) * 100)}%`,
+                        background: isCurrent ? 'linear-gradient(180deg,#FF5C00,#B23F02)' : '#3A3A3E',
+                        boxShadow: isCurrent ? '0 0 16px rgba(255,92,0,.4)' : undefined,
+                      }}
+                    />
+                    <span className={cn('text-[10px]', isCurrent ? 'text-[#FFB27A]' : 'text-[var(--muted-2)]')}>W{week + 1}</span>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+
+          {/* top category */}
+          {stats.topCategory && (
+            <div className="flex items-center gap-3 rounded-[20px] border border-white/10 bg-white/[.055] px-4 py-3.5 backdrop-blur-xl">
+              <span className="grid h-10 w-10 place-items-center rounded-[13px] border border-[rgba(255,92,0,.28)] bg-[rgba(255,92,0,.16)] text-[var(--accent)]">
+                <ShoppingCart size={17} />
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-[13.5px] font-semibold text-white">Top category: {stats.topCategory.name}</p>
+                <p className="mt-0.5 text-[11.5px] text-[var(--muted-2)]">
+                  {formatPlain(stats.topCategory.amount)} · {stats.moneyOut > 0 ? Math.round((stats.topCategory.amount / stats.moneyOut) * 100) : 0}% of this card's spend
+                </p>
+              </div>
+              {onOpenTransactions && (
+                <button className="shrink-0 text-[12.5px] font-semibold text-[var(--accent)]" onClick={onOpenTransactions}>
+                  Details →
+                </button>
+              )}
+            </div>
+          )}
+          {!stats.topCategory && stats.moneyIn === 0 && stats.moneyOut === 0 && (
+            <p className="rounded-[20px] border border-white/10 bg-white/[.035] px-4 py-3 text-xs text-[var(--muted)]">No activity on this account yet this month.</p>
+          )}
+        </motion.section>
+      )}
+
+      {/* ---- Card ⋮ action sheet ---- */}
+      {menuAccount && (
+        <div className="fixed inset-0 z-50 grid items-end bg-black/60 backdrop-blur-sm sm:items-center sm:p-6" onClick={() => setMenuAccount(null)}>
+          <motion.div
+            initial={{ opacity: 0, y: 36 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mx-auto w-full max-w-lg rounded-t-[1.75rem] border border-white/10 bg-[var(--surface)] p-4 pb-[max(1.25rem,env(safe-area-inset-bottom))] shadow-2xl sm:rounded-[2rem]"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <p className="px-1 text-xs text-[var(--muted)]">{menuAccount.name}</p>
+            <div className="mt-3 grid gap-2">
+              <button
+                className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/[.045] px-4 py-3.5 text-sm font-semibold text-white"
+                onClick={() => { setEditingAccount(menuAccount); setMenuAccount(null) }}
+              >
+                <PencilLine size={17} className="text-[var(--accent)]" /> Edit card
+              </button>
+              <button
+                className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/[.045] px-4 py-3.5 text-sm font-semibold text-white"
+                onClick={() => { setSelectedAccount(menuAccount); setMenuAccount(null) }}
+              >
+                <WalletCards size={17} className="text-[var(--accent)]" /> Adjust balance
+              </button>
+              <button
+                className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/[.045] px-4 py-3.5 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-45"
+                disabled={accounts.length < 2}
+                title={accounts.length < 2 ? 'Add at least two accounts to transfer money.' : undefined}
+                onClick={() => { setMenuAccount(null); onTransfer() }}
+              >
+                <ArrowRightLeft size={17} className="text-[var(--accent)]" /> Transfer money
+              </button>
+            </div>
+            <button className="mt-3 w-full rounded-2xl bg-[var(--surface-2)] px-4 py-3 text-sm font-semibold text-white" onClick={() => setMenuAccount(null)}>
+              Cancel
+            </button>
+          </motion.div>
         </div>
-      </section>
+      )}
 
       <AddAccountModal
         open={addingAccount}
@@ -184,115 +458,9 @@ export function Accounts({ accounts, setAccounts, setTransactions, onTransfer }:
   )
 }
 
-function ReorderableAccountCard({
-  account,
-  draggingAccountId,
-  onCommitReorder,
-  onEdit,
-  onRegister,
-  onReorderPosition,
-  setDraggingAccountId,
-}: {
-  account: Account
-  draggingAccountId: string | null
-  onCommitReorder: (accountId: string, clientY: number) => void
-  onEdit: (account: Account) => void
-  onRegister: (accountId: string, node: HTMLDivElement | null) => void
-  onReorderPosition: (clientY: number) => void
-  setDraggingAccountId: (accountId: string | null) => void
-}) {
-  const holdTimer = useRef<number | null>(null)
-  const startPoint = useRef<{ x: number; y: number } | null>(null)
-  const dragStartY = useRef(0)
-  const lastClientY = useRef(0)
-  const isDragging = useRef(false)
-  const suppressClick = useRef(false)
-  const [isUnlocked, setIsUnlocked] = useState(false)
-  const [dragOffset, setDragOffset] = useState(0)
-
-  const clearHold = () => {
-    if (holdTimer.current) {
-      window.clearTimeout(holdTimer.current)
-      holdTimer.current = null
-    }
-  }
-
-  const preventTouchScroll = (event: TouchEvent) => {
-    if (isDragging.current) event.preventDefault()
-  }
-
-  const unlockDocumentScroll = () => {
-    document.removeEventListener('touchmove', preventTouchScroll)
-    document.body.classList.remove('reorder-scroll-locked')
-  }
-
-  const finishHold = () => {
-    const wasDragging = isDragging.current
-    clearHold()
-    isDragging.current = false
-    if (wasDragging) onCommitReorder(account.id, lastClientY.current)
-    setIsUnlocked(false)
-    setDraggingAccountId(null)
-    setDragOffset(0)
-    unlockDocumentScroll()
-    window.setTimeout(() => {
-      suppressClick.current = false
-    }, 0)
-  }
-
-  const startHold = (event: PointerEvent<HTMLElement>) => {
-    if ((event.target as HTMLElement).closest('button, input, select, textarea, a')) return
-    clearHold()
-    startPoint.current = { x: event.clientX, y: event.clientY }
-    dragStartY.current = event.clientY
-    lastClientY.current = event.clientY
-    holdTimer.current = window.setTimeout(() => {
-      setIsUnlocked(true)
-      setDraggingAccountId(account.id)
-      isDragging.current = true
-      suppressClick.current = true
-      document.body.classList.add('reorder-scroll-locked')
-      document.addEventListener('touchmove', preventTouchScroll, { passive: false })
-      if ('vibrate' in navigator) navigator.vibrate?.(12)
-    }, 360)
-  }
-
-  const cancelIfScrolling = (event: PointerEvent<HTMLElement>) => {
-    if (isDragging.current) {
-      event.preventDefault()
-      lastClientY.current = event.clientY
-      const offset = event.clientY - dragStartY.current
-      setDragOffset(offset)
-      onReorderPosition(event.clientY)
-      return
-    }
-    if (!holdTimer.current || !startPoint.current) return
-    const distance = Math.hypot(event.clientX - startPoint.current.x, event.clientY - startPoint.current.y)
-    if (distance > 8) clearHold()
-  }
-
-  return (
-    <motion.div
-      ref={(node) => onRegister(account.id, node)}
-      layout
-      animate={{ y: isUnlocked ? dragOffset : 0, scale: isUnlocked ? 1.018 : 1, opacity: draggingAccountId && draggingAccountId !== account.id ? 0.82 : 1 }}
-      transition={{ layout: { type: 'spring', stiffness: 260, damping: 28 }, y: { type: 'spring', stiffness: 1100, damping: 54, mass: 0.45 }, default: { duration: 0.14, ease: 'easeOut' } }}
-      className={cn('account-reorder-item', isUnlocked && 'account-reorder-item-unlocked')}
-      onPointerDown={startHold}
-      onPointerMove={cancelIfScrolling}
-      onPointerUp={finishHold}
-      onPointerCancel={finishHold}
-      onLostPointerCapture={finishHold}
-      onClickCapture={(event) => {
-        if (!suppressClick.current) return
-        event.preventDefault()
-        event.stopPropagation()
-      }}
-    >
-      <AccountPreviewCard account={account} onEdit={onEdit} />
-    </motion.div>
-  )
-}
+/* ============================================================
+   Modals & color picker — unchanged behavior, V3 accents only
+   ============================================================ */
 
 function AddAccountModal({
   open,
@@ -487,7 +655,7 @@ function EditAccountModal({
       ])
     }
 
-    onNotice(balanceDifference === 0 ? `${updatedName} updated. Home card stack is synced.` : `${adjustmentLabel} recorded for ${updatedName}.`)
+    onNotice(balanceDifference === 0 ? `${updatedName} updated. Card carousel is synced.` : `${adjustmentLabel} recorded for ${updatedName}.`)
     onClose()
   }
 
@@ -565,7 +733,7 @@ function CardColorPicker({
           <button
             key={option.name}
             aria-label={`Use ${option.name}`}
-            className={cn('h-12 rounded-2xl border transition', baseColor === option.value ? 'border-[var(--accent)] ring-2 ring-[rgba(221,255,69,.22)]' : 'border-white/10')}
+            className={cn('h-12 rounded-2xl border transition', baseColor === option.value ? 'border-[var(--accent)] ring-2 ring-[rgba(255,92,0,.25)]' : 'border-white/10')}
             title={option.name}
             style={{ background: option.value }}
             onClick={() => setColorFromBase(option.value, 0)}
@@ -605,7 +773,7 @@ function AdjustBalanceModal({
   setTransactions: Dispatch<SetStateAction<Transaction[]>>
 }) {
   const [actualBalance, setActualBalance] = useState('')
-  const [date, setDate] = useState('2026-06-05')
+  const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10))
   const [note, setNote] = useState('Balance adjusted manually')
 
   if (!account) return null

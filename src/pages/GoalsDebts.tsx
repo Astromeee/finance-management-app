@@ -1,12 +1,23 @@
 import { ArrowRight, CalendarClock, CheckCircle2, Landmark, PencilLine, Plus, Repeat2, Target, Trash2, WalletCards, X, type LucideIcon } from 'lucide-react'
-import { motion, useDragControls } from 'framer-motion'
-import { useMemo, useState } from 'react'
+import { animate, motion, useDragControls } from 'framer-motion'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import type { PanInfo } from 'framer-motion'
 import { expenseCategories } from '../data/mockData'
 import type { Account, Debt, DebtCategory, DebtStatus, Goal, RecurringFrequency, UpcomingExpense, UpcomingExpenseStatus } from '../types/finance'
 import { formatPKR, percent } from '../utils/financeCalculations'
 import { cn } from '../utils/ui'
+
+/* ============================================================
+   Goals & Debts — V3 redesign
+   Same data, props, and modals. New skin + motion:
+   - Goal cards: animated SVG progress ring (orange gradient stroke,
+     spring draw-in) with count-up percentage
+   - Debt cards: spring-animated progress bar with glow + count-up
+   - Overview: glass stat cards with animated mini-rings
+   - Segmented pill tabs
+   Drop-in replacement for src/pages/GoalsDebts.tsx.
+   ============================================================ */
 
 type UpcomingPayload = Omit<UpcomingExpense, 'id' | 'status' | 'createdAt' | 'paidTransactionId'>
 type PaidPayload = { accountId: string; paymentDate: string; notes?: string }
@@ -38,6 +49,95 @@ const frequencyLabels: Record<RecurringFrequency, string> = {
 
 const debtCategoryOptions: DebtCategory[] = ['Debt', 'Overdue Payment', 'Money I Owe', 'Installment', 'Other']
 const debtStatusOptions: DebtStatus[] = ['Active', 'Due Soon', 'Overdue', 'Paid']
+
+const EASE = [0.22, 1, 0.36, 1] as const
+
+/* ---------- shared motion atoms ---------- */
+
+/** Number that counts up from 0 when it enters. */
+function CountUp({ value, format = (v: number) => String(Math.round(v)), duration = 1 }: { value: number; format?: (v: number) => string; duration?: number }) {
+  const ref = useRef<HTMLSpanElement>(null)
+  useEffect(() => {
+    const node = ref.current
+    if (!node) return
+    const controls = animate(0, value, {
+      duration,
+      ease: EASE,
+      onUpdate: (latest) => { node.textContent = format(latest) },
+    })
+    return () => controls.stop()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [value])
+  return <span ref={ref}>{format(value)}</span>
+}
+
+/** Animated SVG progress ring with gradient stroke + glow. */
+function ProgressRing({
+  progress,
+  size = 96,
+  stroke = 9,
+  from = '#FF5C00',
+  to = '#FF8A47',
+  track = 'rgba(246,243,239,.08)',
+  children,
+}: {
+  progress: number
+  size?: number
+  stroke?: number
+  from?: string
+  to?: string
+  track?: string
+  children?: ReactNode
+}) {
+  const clamped = Math.max(0, Math.min(100, progress))
+  const radius = (size - stroke) / 2
+  const circumference = 2 * Math.PI * radius
+  const id = useRef(`ring-${Math.random().toString(36).slice(2, 8)}`).current
+  return (
+    <div className="relative flex-none" style={{ width: size, height: size }}>
+      <svg width={size} height={size} className="-rotate-90">
+        <defs>
+          <linearGradient id={id} x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stopColor={from} />
+            <stop offset="100%" stopColor={to} />
+          </linearGradient>
+        </defs>
+        <circle cx={size / 2} cy={size / 2} r={radius} fill="none" stroke={track} strokeWidth={stroke} />
+        <motion.circle
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          fill="none"
+          stroke={`url(#${id})`}
+          strokeWidth={stroke}
+          strokeLinecap="round"
+          strokeDasharray={circumference}
+          initial={{ strokeDashoffset: circumference }}
+          animate={{ strokeDashoffset: circumference * (1 - clamped / 100) }}
+          transition={{ duration: 1.2, ease: EASE }}
+          style={{ filter: `drop-shadow(0 0 8px ${from}55)` }}
+        />
+      </svg>
+      <div className="absolute inset-0 flex flex-col items-center justify-center">{children}</div>
+    </div>
+  )
+}
+
+/** Spring-animated horizontal progress bar with glow. */
+function ProgressBar({ progress, color = '#FF5C00', glow = true, height = 8 }: { progress: number; color?: string; glow?: boolean; height?: number }) {
+  const clamped = Math.max(0, Math.min(100, progress))
+  return (
+    <div className="w-full overflow-hidden rounded-full bg-white/[.07]" style={{ height }}>
+      <motion.div
+        className="h-full rounded-full"
+        style={{ background: `linear-gradient(90deg, ${color}, color-mix(in srgb, ${color} 70%, #000))`, boxShadow: glow ? `0 0 14px ${color}66` : undefined }}
+        initial={{ width: 0 }}
+        animate={{ width: `${clamped}%` }}
+        transition={{ type: 'spring', stiffness: 60, damping: 16, mass: 1 }}
+      />
+    </div>
+  )
+}
 
 export function GoalsDebts({
   goals,
@@ -82,52 +182,110 @@ export function GoalsDebts({
   const [editingDebt, setEditingDebt] = useState<Debt | null>(null)
   const [payingExpense, setPayingExpense] = useState<UpcomingExpense | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<DeleteTarget | null>(null)
-  const [activeTab, setActiveTab] = useState<GoalsDebtsTab>('debts')
+  const [activeTab, setActiveTab] = useState<GoalsDebtsTab>('goals')
   const sortedUpcoming = useMemo(
     () => [...upcomingExpenses].sort((a, b) => a.status === 'paid' && b.status !== 'paid' ? 1 : b.status === 'paid' && a.status !== 'paid' ? -1 : a.dueDate.localeCompare(b.dueDate)),
     [upcomingExpenses],
   )
   const summary = upcomingSummary(upcomingExpenses)
   const totalSavings = goals.reduce((sum, goal) => sum + goal.saved, 0)
+  const totalGoalTarget = goals.reduce((sum, goal) => sum + goal.target, 0)
+  const totalDebt = debts.reduce((sum, debt) => sum + debtTotal(debt), 0)
+  const totalDebtPaid = debts.reduce((sum, debt) => sum + debtPaid(debt), 0)
   const totalDebtToPay = debts.reduce((sum, debt) => sum + debtRemaining(debt), 0)
   const activeGoals = goals.filter((goal) => goal.status !== 'Completed').length
   const activeDebts = debts.filter((debt) => debtDisplayStatus(debt) !== 'Paid').length
   const activeUpcoming = sortedUpcoming.filter((expense) => expense.status !== 'paid').length
+  const goalProgress = percent(totalSavings, totalGoalTarget)
+  const debtProgress = totalDebt > 0 ? Math.round((totalDebtPaid / totalDebt) * 100) : 100
+
+  const tabs: Array<{ key: GoalsDebtsTab; label: string; count: number }> = [
+    { key: 'goals', label: 'Goals', count: activeGoals },
+    { key: 'debts', label: 'Debts', count: activeDebts },
+    { key: 'upcoming', label: 'Upcoming', count: activeUpcoming },
+  ]
 
   return (
     <div className="space-y-6 pb-32">
-      <section className="goals-overview-grid">
-        <OverviewStatCard label="Total savings" value={formatPKR(totalSavings)} icon={WalletCards} tone="lime" />
-        <OverviewStatCard label="Debt to pay" value={formatPKR(totalDebtToPay)} icon={Landmark} tone="orange" />
-        <OverviewStatCard label="Upcoming this month" value={formatPKR(summary.thisMonth)} icon={CalendarClock} tone="cyan" />
-        <OverviewStatCard label="Due next 7 days" value={formatPKR(summary.nextSevenDays)} icon={Target} tone="purple" />
+      {/* ---- Header: Plans / Goals & Debts + add button (mock 6b) ---- */}
+      <section className="flex items-start justify-between gap-4">
+        <div>
+          <p className="text-sm text-[var(--muted)]">Plans</p>
+          <h2 className="mt-0.5 text-[32px] font-semibold leading-tight text-white">Goals &amp; Debts</h2>
+        </div>
+        <button
+          aria-label={activeTab === 'debts' ? 'Add debt' : activeTab === 'upcoming' ? 'Add upcoming expense' : 'Add goal'}
+          className="grid h-[52px] w-[52px] place-items-center rounded-full bg-gradient-to-br from-[#FF5C00] to-[#D14E0C] text-[#16130F] shadow-[0_12px_28px_rgba(255,92,0,.25)]"
+          onClick={() => {
+            if (activeTab === 'debts') setShowAddDebt(true)
+            else if (activeTab === 'upcoming') setShowAddExpense(true)
+            else onAddGoal()
+          }}
+        >
+          <Plus size={22} />
+        </button>
       </section>
 
-      <section className="goals-tabs" aria-label="Goals and debts sections">
-        <button className={cn(activeTab === 'goals' && 'goals-tab-active')} onClick={() => setActiveTab('goals')}>
-          <span>Goals</span>
-          <strong>{activeGoals}</strong>
-        </button>
-        <button className={cn(activeTab === 'debts' && 'goals-tab-active')} onClick={() => setActiveTab('debts')}>
-          <span>Debts</span>
-          <strong>{activeDebts}</strong>
-        </button>
-        <button className={cn(activeTab === 'upcoming' && 'goals-tab-active')} onClick={() => setActiveTab('upcoming')}>
-          <span>Upcoming</span>
-          <strong>{activeUpcoming}</strong>
-        </button>
+      {/* ---- Overview: animated glass stats ---- */}
+      <section className="grid grid-cols-2 gap-3 xl:grid-cols-4">
+        <OverviewCard
+          label="Total savings"
+          value={totalSavings}
+          icon={WalletCards}
+          color="#7DC98F"
+          ring={goalProgress}
+          ringLabel={totalGoalTarget > 0 ? `${goalProgress}% of goals` : 'No goals yet'}
+        />
+        <OverviewCard
+          label="Debt to pay"
+          value={totalDebtToPay}
+          icon={Landmark}
+          color="#FF5C00"
+          ring={debtProgress}
+          ringLabel={totalDebt > 0 ? `${debtProgress}% paid` : 'All clear'}
+        />
+        <OverviewCard label="Upcoming this month" value={summary.thisMonth} icon={CalendarClock} color="#5FB8BC" />
+        <OverviewCard label="Due next 7 days" value={summary.nextSevenDays} icon={Target} color="#9AA3B2" />
+      </section>
+
+      {/* ---- Segmented pill tabs ---- */}
+      <section className="flex rounded-full border border-[var(--glass-border)] bg-[var(--glass-bg)] p-1 backdrop-blur-xl" aria-label="Goals and debts sections">
+        {tabs.map((tab) => {
+          const active = activeTab === tab.key
+          return (
+            <button
+              key={tab.key}
+              className={cn(
+                'relative flex flex-1 items-center justify-center gap-2 rounded-full px-4 py-2.5 text-sm font-medium transition',
+                active ? 'text-[#16130F]' : 'text-[var(--muted)]',
+              )}
+              onClick={() => setActiveTab(tab.key)}
+            >
+              {active && (
+                <motion.span
+                  layoutId="goals-tab-pill"
+                  className="absolute inset-0 rounded-full bg-gradient-to-br from-[#FF5C00] to-[#D14E0C]"
+                  transition={{ type: 'spring', stiffness: 380, damping: 32 }}
+                />
+              )}
+              <span className="relative">{tab.label}</span>
+              <strong className={cn('relative rounded-full px-1.5 text-xs', active ? 'bg-black/15' : 'bg-white/[.07] text-[var(--muted-2)]')}>{tab.count}</strong>
+            </button>
+          )
+        })}
       </section>
 
       {activeTab === 'goals' && <section>
-        <div className="goals-section-header">
-          <div><p className="text-sm text-[var(--muted)]">Savings Goals</p><h3 className="text-2xl font-semibold text-white">Build future money</h3></div>
+        <div className="mb-4 flex items-end justify-between gap-3">
+          <div><p className="text-sm text-[var(--muted)]">Savings Goals</p><h3 className="text-2xl font-semibold tracking-tight text-white">Build future money</h3></div>
           <button className="btn-primary" onClick={onAddGoal}>Add goal</button>
         </div>
         {goals.length ? <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {goals.map((goal) => (
-            <GoalNeonCard
+          {goals.map((goal, index) => (
+            <GoalRingCard
               key={goal.id}
               goal={goal}
+              index={index}
               onAddSavings={() => setSavingGoal(goal)}
               onEdit={() => setEditingGoal(goal)}
               onDelete={() => setDeleteTarget({ kind: 'goal', id: goal.id, title: goal.name })}
@@ -137,15 +295,16 @@ export function GoalsDebts({
       </section>}
 
       {activeTab === 'debts' && <section>
-        <div className="goals-section-header">
-          <div><p className="text-sm text-[var(--muted)]">Debts / Overdue / Money I Owe</p><h3 className="text-2xl font-semibold text-white">Debts</h3></div>
+        <div className="mb-4 flex items-end justify-between gap-3">
+          <div><p className="text-sm text-[var(--muted)]">Debts / Overdue / Money I Owe</p><h3 className="text-2xl font-semibold tracking-tight text-white">Debts</h3></div>
           <button className="btn-primary" onClick={() => setShowAddDebt(true)}><Plus size={18} /> Add debt</button>
         </div>
         {debts.length ? <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {debts.map((debt) => (
-            <DebtNeonCard
+          {debts.map((debt, index) => (
+            <DebtGlowCard
               key={debt.id}
               debt={debt}
+              index={index}
               onPayDebt={() => onDebtPayment(debt.id)}
               onEdit={() => setEditingDebt(debt)}
               onDelete={() => setDeleteTarget({ kind: 'debt', id: debt.id, title: debtTitle(debt) })}
@@ -155,41 +314,53 @@ export function GoalsDebts({
       </section>}
 
       {activeTab === 'upcoming' && <section>
-        <div className="goals-section-header">
+        <div className="mb-4 flex items-end justify-between gap-3">
           <div>
             <p className="text-sm text-[var(--muted)]">Upcoming Expenses</p>
-            <h3 className="text-2xl font-semibold text-white">Plan future payments</h3>
+            <h3 className="text-2xl font-semibold tracking-tight text-white">Plan future payments</h3>
           </div>
           <button className="btn-primary" onClick={() => setShowAddExpense(true)}><Plus size={18} /> Add Upcoming Expense</button>
         </div>
 
         {sortedUpcoming.length ? <div className="grid gap-3 xl:grid-cols-2">
-          {sortedUpcoming.map((expense) => {
+          {sortedUpcoming.map((expense, index) => {
             const displayStatus = upcomingDisplayStatus(expense)
             const account = accounts.find((item) => item.id === expense.linkedAccountId)
             return (
-              <article key={expense.id} className={cn('upcoming-expense-card', `upcoming-expense-${displayStatus}`)}>
+              <motion.article
+                key={expense.id}
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.35, delay: index * 0.05, ease: EASE }}
+                className={cn(
+                  'rounded-[24px] border p-5 backdrop-blur-xl',
+                  displayStatus === 'overdue'
+                    ? 'border-[rgba(232,105,74,.3)] bg-[rgba(232,105,74,.07)]'
+                    : 'border-[var(--glass-border)] bg-[var(--glass-bg)]',
+                  displayStatus === 'paid' && 'opacity-60',
+                )}
+              >
                 <div className="flex min-w-0 items-start justify-between gap-4">
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
-                      <h4 className="truncate text-xl font-semibold text-white">{expense.title}</h4>
+                      <h4 className="truncate text-lg font-semibold text-white">{expense.title}</h4>
                       <StatusBadge status={displayStatus} />
-                      {expense.isRecurring && <span className="inline-flex items-center gap-1 rounded-full border border-[rgba(221,255,69,.2)] bg-[rgba(221,255,69,.08)] px-2.5 py-1 text-xs font-semibold text-[var(--accent)]"><Repeat2 size={13} />Recurring</span>}
+                      {expense.isRecurring && <span className="inline-flex items-center gap-1 rounded-full border border-[rgba(255,92,0,.22)] bg-[var(--accent-soft)] px-2.5 py-1 text-xs font-semibold text-[var(--accent)]"><Repeat2 size={13} />Recurring</span>}
                     </div>
                     <p className="mt-2 text-sm text-[var(--muted)]">{expense.category} · Due {formatDate(expense.dueDate)}{account ? ` · ${account.name}` : ''}</p>
-                    {expense.isRecurring && expense.recurringFrequency && <p className="mt-1 text-xs text-[var(--muted)]">{frequencyLabels[expense.recurringFrequency]} commitment</p>}
+                    {expense.isRecurring && expense.recurringFrequency && <p className="mt-1 text-xs text-[var(--muted-2)]">{frequencyLabels[expense.recurringFrequency]} commitment</p>}
                   </div>
-                  <strong className="shrink-0 text-2xl font-semibold text-white">{formatPKR(expense.amount)}</strong>
+                  <strong className="shrink-0 text-2xl font-semibold tracking-tight text-white">{formatPKR(expense.amount)}</strong>
                 </div>
                 {expense.notes && <p className="mt-3 rounded-2xl bg-white/[.035] px-3 py-2 text-sm text-[var(--muted)]">{expense.notes}</p>}
-                <div className="goal-card-actions">
+                <div className="mt-4 grid gap-2">
                   <button className="btn-primary justify-center px-4 py-2 text-sm disabled:opacity-50" disabled={displayStatus === 'paid'} onClick={() => setPayingExpense(expense)}><CheckCircle2 size={16} /> Mark as Paid</button>
                   <div className="grid grid-cols-2 gap-2">
-                    <button className="goal-secondary-action" onClick={() => setEditingExpense(expense)}><PencilLine size={15} /> Edit</button>
-                    <button className="goal-danger-action" onClick={() => setDeleteTarget({ kind: 'upcoming', id: expense.id, title: expense.title })}><Trash2 size={15} /> Delete</button>
+                    <button className="flex items-center justify-center gap-1.5 rounded-full border border-[var(--border)] px-4 py-2 text-sm font-medium text-[var(--muted)] transition hover:text-white" onClick={() => setEditingExpense(expense)}><PencilLine size={15} /> Edit</button>
+                    <button className="flex items-center justify-center gap-1.5 rounded-full border border-[rgba(232,105,74,.25)] px-4 py-2 text-sm font-medium text-[var(--negative)]" onClick={() => setDeleteTarget({ kind: 'upcoming', id: expense.id, title: expense.title })}><Trash2 size={15} /> Delete</button>
                   </div>
                 </div>
-              </article>
+              </motion.article>
             )
           })}
         </div> : <GoalsEmptyState title="No upcoming expenses" note="Plan future payments like rent, subscriptions, bills, or family support before they hit your balance." action="Add upcoming" onAction={() => setShowAddExpense(true)} />}
@@ -264,70 +435,75 @@ export function GoalsDebts({
   )
 }
 
-function OverviewStatCard({ label, value, icon: Icon, tone }: { label: string; value: string; icon: LucideIcon; tone: 'lime' | 'orange' | 'cyan' | 'purple' }) {
+/* ---------- redesigned cards ---------- */
+
+function OverviewCard({ label, value, icon: Icon, color, ring, ringLabel }: { label: string; value: number; icon: LucideIcon; color: string; ring?: number; ringLabel?: string }) {
   return (
-    <article className={cn('goals-overview-card', `goals-overview-${tone}`)}>
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--muted)]">{label}</p>
-          <h3 className="mt-3 text-2xl font-semibold text-white sm:text-3xl">{value}</h3>
-        </div>
-        <span className="goals-overview-icon"><Icon size={22} /></span>
+    <article className="flex items-center gap-3.5 rounded-[22px] border border-[var(--glass-border)] bg-[var(--glass-bg)] p-4 backdrop-blur-xl">
+      {ring !== undefined ? (
+        <ProgressRing progress={ring} size={56} stroke={6} from={color} to={color}>
+          <Icon size={18} style={{ color }} />
+        </ProgressRing>
+      ) : (
+        <span className="grid h-11 w-11 flex-none place-items-center rounded-[16px]" style={{ color, background: 'color-mix(in srgb, currentColor 12%, transparent)', border: '1px solid color-mix(in srgb, currentColor 24%, transparent)' }}>
+          <Icon size={19} />
+        </span>
+      )}
+      <div className="min-w-0">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--muted-2)]">{label}</p>
+        <h3 className="mt-0.5 truncate text-lg font-semibold tracking-tight text-white">
+          <CountUp value={value} format={(v) => formatPKR(Math.round(v))} />
+        </h3>
+        {ringLabel && <p className="text-[11px] text-[var(--muted-2)]">{ringLabel}</p>}
       </div>
     </article>
   )
 }
 
-function GoalsEmptyState({ title, note, action, onAction }: { title: string; note: string; action: string; onAction: () => void }) {
-  return (
-    <div className="goals-empty-state">
-      <div className="grid h-14 w-14 place-items-center rounded-2xl bg-[var(--accent)] text-[#111318]">
-        <Plus size={28} />
-      </div>
-      <div>
-        <h4 className="text-2xl font-semibold text-white">{title}</h4>
-        <p className="mt-2 max-w-xl text-sm leading-6 text-[var(--muted)]">{note}</p>
-      </div>
-      <button className="btn-primary justify-center" onClick={onAction}>{action}</button>
-    </div>
-  )
-}
-
-function GoalNeonCard({ goal, onAddSavings, onEdit, onDelete }: { goal: Goal; onAddSavings: () => void; onEdit: () => void; onDelete: () => void }) {
+function GoalRingCard({ goal, index, onAddSavings, onEdit, onDelete }: { goal: Goal; index: number; onAddSavings: () => void; onEdit: () => void; onDelete: () => void }) {
   const progress = percent(goal.saved, goal.target)
   const remaining = Math.max(0, goal.target - goal.saved)
+  const done = goal.status === 'Completed' || progress >= 100
 
   return (
-    <article className="upcoming-expense-card goal-debt-card">
-      <div className="flex min-w-0 items-start justify-between gap-4">
-        <div className="min-w-0">
-          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--muted)]">Saved amount</p>
-          <h4 className="mt-2 truncate text-xl font-semibold text-white">{goal.name}</h4>
-        </div>
-        <span className="upcoming-status-badge upcoming-status-due_soon">{goal.status}</span>
-      </div>
-      <div className="mt-5 h-2.5 overflow-hidden rounded-full bg-[var(--surface-3)] shadow-inner shadow-black/20">
-        <div className="h-full rounded-full bg-[var(--accent)] shadow-[0_0_18px_rgba(221,255,69,.65)]" style={{ width: `${progress}%` }} />
-      </div>
-      <div className="mt-4 flex items-end justify-between gap-3">
-        <div>
-          <p className="text-sm text-[var(--muted)]">{formatPKR(goal.saved)} of {formatPKR(goal.target)}</p>
+    <motion.article
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.35, delay: index * 0.06, ease: EASE }}
+      className="rounded-[26px] border border-[var(--glass-border)] bg-[var(--glass-bg)] p-5 backdrop-blur-xl"
+    >
+      <div className="flex items-start gap-4">
+        <ProgressRing progress={progress} size={92} stroke={9} from={done ? '#7DC98F' : '#FF5C00'} to={done ? '#4E9A66' : '#FF8A47'}>
+          <strong className="text-lg font-semibold tracking-tight text-white"><CountUp value={progress} format={(v) => `${Math.round(v)}%`} /></strong>
+          <span className="text-[10px] text-[var(--muted-2)]">saved</span>
+        </ProgressRing>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-start justify-between gap-2">
+            <h4 className="truncate text-lg font-semibold text-white">{goal.name}</h4>
+            <span className={cn(
+              'flex-none rounded-full border px-2.5 py-0.5 text-[11px] font-semibold',
+              done ? 'border-[rgba(125,201,143,.3)] bg-[rgba(125,201,143,.1)] text-[var(--positive)]' : 'border-[rgba(255,92,0,.25)] bg-[var(--accent-soft)] text-[var(--accent)]',
+            )}>{goal.status}</span>
+          </div>
+          <p className="mt-2 text-xl font-semibold tracking-tight text-white">
+            <CountUp value={goal.saved} format={(v) => formatPKR(Math.round(v))} />
+            <span className="text-sm font-normal text-[var(--muted-2)]"> / {formatPKR(goal.target)}</span>
+          </p>
           <p className="mt-1 text-xs text-[var(--muted-2)]">{formatPKR(remaining)} remaining{goal.dueDate ? ` · Due ${goal.dueDate}` : ''}</p>
         </div>
-        <strong className="text-2xl text-white">{progress}%</strong>
       </div>
-      <div className="goal-card-actions">
+      <div className="mt-4 grid gap-2">
         <button className="btn-primary justify-center px-4 py-2 text-sm" onClick={onAddSavings}><WalletCards size={16} /> Add savings</button>
         <div className="grid grid-cols-2 gap-2">
-          <button className="goal-secondary-action" onClick={onEdit}><PencilLine size={15} /> Edit</button>
-          <button className="goal-danger-action" onClick={onDelete}><Trash2 size={15} /> Delete</button>
+          <button className="flex items-center justify-center gap-1.5 rounded-full border border-[var(--border)] px-4 py-2 text-sm font-medium text-[var(--muted)] transition hover:text-white" onClick={onEdit}><PencilLine size={15} /> Edit</button>
+          <button className="flex items-center justify-center gap-1.5 rounded-full border border-[rgba(232,105,74,.25)] px-4 py-2 text-sm font-medium text-[var(--negative)]" onClick={onDelete}><Trash2 size={15} /> Delete</button>
         </div>
       </div>
-    </article>
+    </motion.article>
   )
 }
 
-function DebtNeonCard({ debt, onPayDebt, onEdit, onDelete }: { debt: Debt; onPayDebt: () => void; onEdit: () => void; onDelete: () => void }) {
+function DebtGlowCard({ debt, index, onPayDebt, onEdit, onDelete }: { debt: Debt; index: number; onPayDebt: () => void; onEdit: () => void; onDelete: () => void }) {
   const total = debtTotal(debt)
   const paid = debtPaid(debt)
   const progress = percent(paid, total)
@@ -336,50 +512,84 @@ function DebtNeonCard({ debt, onPayDebt, onEdit, onDelete }: { debt: Debt; onPay
   const overdue = status === 'Overdue'
   const paidOff = status === 'Paid'
   const category = debt.category ?? 'Debt'
+  const barColor = overdue ? '#E8694A' : paidOff ? '#7DC98F' : '#FF5C00'
 
   return (
-    <article className={cn('upcoming-expense-card goal-debt-card', overdue && 'upcoming-expense-overdue')}>
+    <motion.article
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.35, delay: index * 0.06, ease: EASE }}
+      className={cn(
+        'rounded-[26px] border p-5 backdrop-blur-xl',
+        overdue ? 'border-[rgba(232,105,74,.3)] bg-[rgba(232,105,74,.07)]' : 'border-[var(--glass-border)] bg-[var(--glass-bg)]',
+      )}
+    >
       <div className="flex min-w-0 items-start justify-between gap-4">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
-            <span className={cn('upcoming-status-badge', category === 'Money I Owe' ? 'upcoming-status-due_soon' : overdue ? 'upcoming-status-overdue' : 'upcoming-status-upcoming')}>{category}</span>
-            {debt.personOrCompany && <span className="rounded-full border border-white/10 bg-white/[.04] px-2.5 py-1 text-xs font-semibold text-[var(--muted)]">{debt.personOrCompany}</span>}
+            <span className="rounded-full border border-[var(--border)] bg-white/[.04] px-2.5 py-0.5 text-[11px] font-semibold text-[var(--muted)]">{category}</span>
+            {debt.personOrCompany && <span className="rounded-full border border-[var(--border)] bg-white/[.04] px-2.5 py-0.5 text-[11px] font-semibold text-[var(--muted)]">{debt.personOrCompany}</span>}
           </div>
-          <h4 className="mt-3 truncate text-xl font-semibold text-white">{debtTitle(debt)}</h4>
+          <h4 className="mt-2.5 truncate text-lg font-semibold text-white">{debtTitle(debt)}</h4>
         </div>
-        <span className={cn('upcoming-status-badge', debtStatusClass(status))}>{status}</span>
+        <span className={cn(
+          'flex-none rounded-full border px-2.5 py-0.5 text-[11px] font-semibold',
+          paidOff ? 'border-[rgba(125,201,143,.3)] bg-[rgba(125,201,143,.1)] text-[var(--positive)]'
+            : overdue ? 'border-[rgba(232,105,74,.35)] bg-[rgba(232,105,74,.12)] text-[var(--negative)]'
+              : status === 'Due Soon' ? 'border-[rgba(255,92,0,.3)] bg-[var(--accent-soft)] text-[var(--accent)]'
+                : 'border-[var(--border)] bg-white/[.04] text-[var(--muted)]',
+        )}>{status}</span>
       </div>
-      <div className="mt-5 h-2.5 overflow-hidden rounded-full bg-[var(--surface-3)] shadow-inner shadow-black/20">
-        <div className={cn('h-full rounded-full shadow-[0_0_18px_currentColor]', overdue ? 'bg-[var(--negative)] text-[var(--negative)]' : paidOff ? 'bg-[var(--positive)] text-[var(--positive)]' : 'bg-[var(--accent)] text-[var(--accent)]')} style={{ width: `${progress}%` }} />
-      </div>
+
       <div className="mt-4 flex items-end justify-between gap-3">
-        <div>
-          <p className="text-sm text-[var(--muted)]">{formatPKR(paid)} paid / {formatPKR(total)} total</p>
-          <p className="mt-1 text-xs text-[var(--muted-2)]">{formatPKR(remaining)} left{debt.dueDate ? ` · Due ${formatDate(debt.dueDate)}` : ''}</p>
-        </div>
-        <strong className="text-2xl text-white">{progress}%</strong>
+        <p className="text-xl font-semibold tracking-tight text-white">
+          <CountUp value={paid} format={(v) => formatPKR(Math.round(v))} />
+          <span className="text-sm font-normal text-[var(--muted-2)]"> / {formatPKR(total)}</span>
+        </p>
+        <strong className="text-lg font-semibold text-white"><CountUp value={progress} format={(v) => `${Math.round(v)}%`} /></strong>
       </div>
+      <div className="mt-2.5">
+        <ProgressBar progress={progress} color={barColor} />
+      </div>
+      <p className="mt-2 text-xs text-[var(--muted-2)]">{formatPKR(remaining)} left{debt.dueDate ? ` · Due ${formatDate(debt.dueDate)}` : ''}</p>
       {debt.notes && <p className="mt-3 rounded-2xl bg-white/[.035] px-3 py-2 text-sm text-[var(--muted)]">{debt.notes}</p>}
-      <div className="goal-card-actions">
-        <button className="btn-primary justify-center px-4 py-2 text-sm" disabled={paidOff} onClick={onPayDebt}><CheckCircle2 size={16} /> Add Payment</button>
+      <div className="mt-4 grid gap-2">
+        <button className="btn-primary justify-center px-4 py-2 text-sm disabled:opacity-50" disabled={paidOff} onClick={onPayDebt}><CheckCircle2 size={16} /> Add Payment</button>
         <div className="grid grid-cols-2 gap-2">
-          <button className="goal-secondary-action" onClick={onEdit}><PencilLine size={15} /> Edit</button>
-          <button className="goal-danger-action" onClick={onDelete}><Trash2 size={15} /> Delete</button>
+          <button className="flex items-center justify-center gap-1.5 rounded-full border border-[var(--border)] px-4 py-2 text-sm font-medium text-[var(--muted)] transition hover:text-white" onClick={onEdit}><PencilLine size={15} /> Edit</button>
+          <button className="flex items-center justify-center gap-1.5 rounded-full border border-[rgba(232,105,74,.25)] px-4 py-2 text-sm font-medium text-[var(--negative)]" onClick={onDelete}><Trash2 size={15} /> Delete</button>
         </div>
       </div>
-    </article>
+    </motion.article>
+  )
+}
+
+function GoalsEmptyState({ title, note, action, onAction }: { title: string; note: string; action: string; onAction: () => void }) {
+  return (
+    <div className="flex flex-col items-start gap-4 rounded-[26px] border border-dashed border-[var(--border)] bg-white/[.02] p-6">
+      <div className="grid h-13 w-13 place-items-center rounded-2xl bg-gradient-to-br from-[#FF5C00] to-[#D14E0C] p-3 text-[#16130F]">
+        <Plus size={26} />
+      </div>
+      <div>
+        <h4 className="text-xl font-semibold text-white">{title}</h4>
+        <p className="mt-2 max-w-xl text-sm leading-6 text-[var(--muted)]">{note}</p>
+      </div>
+      <button className="btn-primary justify-center" onClick={onAction}>{action}</button>
+    </div>
   )
 }
 
 function StatusBadge({ status }: { status: UpcomingExpenseStatus }) {
-  const labels: Record<UpcomingExpenseStatus, string> = {
-    upcoming: 'Upcoming',
-    due_soon: 'Due Soon',
-    overdue: 'Overdue',
-    paid: 'Paid',
+  const config: Record<UpcomingExpenseStatus, { label: string; cls: string }> = {
+    upcoming: { label: 'Upcoming', cls: 'border-[var(--border)] bg-white/[.04] text-[var(--muted)]' },
+    due_soon: { label: 'Due Soon', cls: 'border-[rgba(255,92,0,.3)] bg-[var(--accent-soft)] text-[var(--accent)]' },
+    overdue: { label: 'Overdue', cls: 'border-[rgba(232,105,74,.35)] bg-[rgba(232,105,74,.12)] text-[var(--negative)]' },
+    paid: { label: 'Paid', cls: 'border-[rgba(125,201,143,.3)] bg-[rgba(125,201,143,.1)] text-[var(--positive)]' },
   }
-  return <span className={cn('upcoming-status-badge', `upcoming-status-${status}`)}>{labels[status]}</span>
+  return <span className={cn('rounded-full border px-2.5 py-0.5 text-[11px] font-semibold', config[status].cls)}>{config[status].label}</span>
 }
+
+/* ---------- modals (behavior unchanged, accents recolored) ---------- */
 
 export function AddUpcomingExpenseModal({
   open,
@@ -442,7 +652,7 @@ export function AddUpcomingExpenseModal({
           <input className="h-5 w-5 accent-[var(--accent)]" type="checkbox" checked={isRecurring} onChange={(event) => setIsRecurring(event.target.checked)} />
         </label>
         {isRecurring && (
-          <div className="grid gap-4 rounded-3xl border border-[rgba(221,255,69,.14)] bg-[rgba(221,255,69,.045)] p-3">
+          <div className="grid gap-4 rounded-3xl border border-[rgba(255,92,0,.16)] bg-[rgba(255,92,0,.05)] p-3">
             <Select label="Frequency" value={recurringFrequency} onChange={(value) => setRecurringFrequency(value as RecurringFrequency)} options={Object.entries(frequencyLabels).map(([value, label]) => ({ value, label }))} />
             <Field label="Repeat start date" type="date" value={repeatStartDate} onChange={setRepeatStartDate} />
             <Field label="Optional repeat end date" type="date" value={repeatEndDate} onChange={setRepeatEndDate} />
@@ -600,20 +810,20 @@ function AddSavingsModal({
         onClose()
       }}>
         <Field label="Savings amount" type="number" value={amount} onChange={setAmount} placeholder="Rs. 5,000" />
-        <div className="rounded-2xl border border-[rgba(221,255,69,.18)] bg-[rgba(221,255,69,.06)] p-3">
+        <div className="rounded-2xl border border-[rgba(255,92,0,.2)] bg-[rgba(255,92,0,.06)] p-3">
           <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--muted)]">Current Savings Balance</p>
           <p className="mt-1 text-2xl font-semibold text-white">{formatPKR(savings.balance)}</p>
         </div>
         <Field label="Date" type="date" value={date} onChange={setDate} />
         <TextArea label="Notes optional" value={notes} onChange={setNotes} />
-        <div className="rounded-2xl border border-[rgba(221,255,69,.18)] bg-[rgba(221,255,69,.06)] p-3 text-sm text-[var(--muted)]">
+        <div className="rounded-2xl border border-[rgba(255,92,0,.2)] bg-[rgba(255,92,0,.06)] p-3 text-sm text-[var(--muted)]">
           Remaining target: {formatPKR(remaining)}. Saving will only reduce your Savings balance. Transfer money to Savings first if needed.
         </div>
         <button className="btn-primary justify-center disabled:opacity-60" disabled={invalid}>Add savings</button>
       </form>
       {showInsufficient && (
         <div className="fixed inset-0 z-[70] grid place-items-center bg-black/55 p-5 backdrop-blur-sm">
-          <div className="w-full max-w-sm rounded-[1.5rem] border border-[rgba(233,141,103,.24)] bg-[var(--surface)] p-5 shadow-2xl">
+          <div className="w-full max-w-sm rounded-[1.5rem] border border-[rgba(232,105,74,.24)] bg-[var(--surface)] p-5 shadow-2xl">
             <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--negative)]">Not enough savings</p>
             <h3 className="mt-2 text-xl font-semibold text-white">Savings balance is too low</h3>
             <p className="mt-2 text-sm text-[var(--muted)]">You have {formatPKR(savings.balance)} in Savings. Transfer money into Savings first, then add it to this goal.</p>
@@ -669,7 +879,7 @@ function ConfirmDeleteModal({
         <p className="mt-3 text-sm text-[var(--muted)]">{labels[target.kind].note}</p>
         <div className="mt-5 grid grid-cols-2 gap-3">
           <button className="rounded-2xl bg-[var(--surface-2)] px-4 py-3 text-sm font-semibold text-white" onClick={onClose}>Keep it</button>
-          <button className="rounded-2xl border border-[rgba(233,141,103,.24)] bg-[rgba(233,141,103,.1)] px-4 py-3 text-sm font-semibold text-[var(--negative)]" onClick={onConfirm}>Delete</button>
+          <button className="rounded-2xl border border-[rgba(232,105,74,.24)] bg-[rgba(232,105,74,.1)] px-4 py-3 text-sm font-semibold text-[var(--negative)]" onClick={onConfirm}>Delete</button>
         </div>
       </motion.section>
     </div>
@@ -704,7 +914,7 @@ function RecordUpcomingExpensePaidModal({
         <Select label="Paid from account" value={accountId} onChange={setAccountId} options={accounts.map((item) => ({ value: item.id, label: `${item.name} · ${formatPKR(item.balance)}` }))} />
         <Field label="Payment date" type="date" value={paymentDate} onChange={setPaymentDate} />
         <TextArea label="Notes optional" value={notes} onChange={setNotes} />
-        <div className="rounded-2xl border border-[rgba(221,255,69,.18)] bg-[rgba(221,255,69,.06)] p-3 text-sm text-[var(--muted)]">
+        <div className="rounded-2xl border border-[rgba(255,92,0,.2)] bg-[rgba(255,92,0,.06)] p-3 text-sm text-[var(--muted)]">
           Confirming will create a real expense transaction, reduce the selected account balance, and mark this planned item as paid.
         </div>
         <button className="btn-primary justify-center" disabled={!accountId || !paymentDate}>Record as actual expense <ArrowRight size={17} /></button>
@@ -807,13 +1017,6 @@ function debtDisplayStatus(debt: Debt): DebtStatus {
     if (daysUntilDue <= 7) return 'Due Soon'
   }
   return debt.status === 'Overdue' || debt.status === 'Due Soon' ? debt.status : 'Active'
-}
-
-function debtStatusClass(status: DebtStatus) {
-  if (status === 'Paid') return 'upcoming-status-paid'
-  if (status === 'Overdue') return 'upcoming-status-overdue'
-  if (status === 'Due Soon') return 'upcoming-status-due_soon'
-  return 'upcoming-status-upcoming'
 }
 
 function upcomingDisplayStatus(expense: UpcomingExpense): UpcomingExpenseStatus {
