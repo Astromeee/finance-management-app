@@ -47,6 +47,7 @@ export function Dashboard({
   const [profile, setProfileState] = useState(getProfile)
   const [theme, setThemeState] = useState<Theme>(getTheme)
   const [activeIndex, setActiveIndex] = useState(0)
+  const [selectedDay, setSelectedDay] = useState<number | null>(null)
   const carouselRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => onProfileChange(setProfileState), [])
@@ -94,15 +95,17 @@ export function Dashboard({
     const dayIndex = (now.getDay() + 6) % 7
     const monday = new Date(now)
     monday.setDate(now.getDate() - dayIndex)
+    const labels: string[] = []
     const spend = Array.from({ length: 7 }, (_, index) => {
       const date = new Date(monday)
       date.setDate(monday.getDate() + index)
+      labels.push(date.toLocaleDateString('en-US', { weekday: 'short' }))
       const key = localDateKey(date)
       return transactions
         .filter((transaction) => transaction.date === key && transaction.type === 'expense')
         .reduce((sum, transaction) => sum + transaction.amount, 0)
     })
-    return { spend, todayIndex: dayIndex, max: Math.max(...spend, 1) }
+    return { spend, labels, todayIndex: dayIndex, max: Math.max(...spend, 1) }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [transactions])
 
@@ -121,7 +124,11 @@ export function Dashboard({
     const node = event.currentTarget
     const cardWidth = node.firstElementChild instanceof HTMLElement ? node.firstElementChild.offsetWidth + 12 : 1
     const index = Math.round(node.scrollLeft / cardWidth)
-    if (index !== activeIndex) setActiveIndex(Math.max(0, Math.min(accounts.length - 1, index)))
+    if (index !== activeIndex) {
+      setActiveIndex(Math.max(0, Math.min(accounts.length - 1, index)))
+      // haptic tick as each card snaps into place (supported on Android/Chrome)
+      navigator.vibrate?.(10)
+    }
   }
 
   const scrollToIndex = (index: number) => {
@@ -238,20 +245,20 @@ export function Dashboard({
               onScroll={onCarouselScroll}
             >
               {accounts.map((account) => (
-                <div key={account.id} className="dash-account-card relative min-w-full snap-center overflow-hidden rounded-[20px] p-5">
+                <div key={account.id} className="dash-account-card relative flex min-h-[200px] min-w-full snap-center snap-always flex-col overflow-hidden rounded-[22px] p-6">
                   <PixelMosaic />
-                  <p className="text-[12.5px] text-[var(--muted-2)]">Available balance</p>
-                  <p className="relative mt-1.5 text-[32px] font-semibold leading-none tracking-tight text-white tabular-nums">
+                  <p className="text-[13px] text-[var(--muted-2)]">Available balance</p>
+                  <p className="relative mt-2 text-[36px] font-semibold leading-none tracking-tight text-white tabular-nums">
                     {showBalance ? (
                       <>
                         {formatPKR(account.balance)}
-                        <span className="text-[15px] font-normal text-[var(--muted-2)]">.00</span>
+                        <span className="text-[16px] font-normal text-[var(--muted-2)]">.00</span>
                       </>
                     ) : (
                       'Rs •••••'
                     )}
                   </p>
-                  <div className="relative mt-8 flex items-center justify-between">
+                  <div className="relative mt-auto flex items-center justify-between pt-10">
                     <p className="text-[10.5px] font-semibold tracking-[.18em] text-[var(--muted-2)]">POCKET LEDGER</p>
                     <p className="text-[12px] text-[var(--muted-2)]">{account.type[0].toUpperCase()}{account.type.slice(1)} account</p>
                   </div>
@@ -304,23 +311,36 @@ export function Dashboard({
           </button>
         </div>
         <p className="mt-1.5 text-[24px] font-semibold text-white tabular-nums">
-          {formatPKR(month.spent)}{' '}
-          <span className="text-[14px] font-normal text-[var(--muted-2)]">{month.income > 0 ? `of ${plain(month.income)} in` : 'spent this month'}</span>
+          {selectedDay === null ? (
+            <>
+              {formatPKR(month.spent)}{' '}
+              <span className="text-[14px] font-normal text-[var(--muted-2)]">{month.income > 0 ? `of ${plain(month.income)} in` : 'spent this month'}</span>
+            </>
+          ) : (
+            <>
+              {formatPKR(pace.spend[selectedDay])}{' '}
+              <span className="text-[14px] font-normal text-[var(--muted-2)]">spent {pace.labels[selectedDay]}</span>
+            </>
+          )}
         </p>
 
         <div className="mt-4 flex h-16 items-end gap-2">
           {pace.spend.map((amount, index) => {
             const future = index > pace.todayIndex
-            const isToday = index === pace.todayIndex
+            const active = selectedDay === null ? index === pace.todayIndex : index === selectedDay
             return (
-              <span
+              <button
                 key={index}
-                className={cn('flex-1 rounded-[9px]', future && 'border border-dashed border-white/15')}
+                type="button"
+                aria-label={`${pace.labels[index]}: ${formatPKR(amount)}`}
+                disabled={future}
+                className={cn('flex-1 rounded-[9px] transition-all', future && 'border border-dashed border-white/15')}
                 style={{
                   height: future ? '34%' : `${Math.max(12, (amount / pace.max) * 100)}%`,
-                  background: future ? 'transparent' : isToday ? 'linear-gradient(180deg,#FF5C00,#D14E0C)' : 'var(--surface-3)',
-                  boxShadow: isToday ? '0 0 16px rgba(255,92,0,.35)' : undefined,
+                  background: future ? 'transparent' : active ? 'linear-gradient(180deg,#FF5C00,#D14E0C)' : 'var(--surface-3)',
+                  boxShadow: active && !future ? '0 0 16px rgba(255,92,0,.35)' : undefined,
                 }}
+                onClick={() => setSelectedDay((current) => (current === index ? null : index))}
               />
             )
           })}

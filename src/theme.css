@@ -205,6 +205,19 @@ body,
     linear-gradient(150deg, #232326, #101012);
 }
 
+/* Restore padding on the Transactions filter card — index.css zeroes it at
+   mobile widths, which left the search / selects / chips flush to the edges
+   now that theme.css gives the card a glass background. */
+.transaction-filter-card {
+  padding: 1rem;
+}
+
+@media (min-width: 768px) {
+  .transaction-filter-card {
+    padding: 1.25rem;
+  }
+}
+
 /* ============================================================
    LIGHT THEME — orange on white with frosted glass
    Activated by <html data-theme="light"> (see src/lib/theme.ts)
@@ -404,8 +417,8 @@ body,
   z-index: 40;
   display: flex;
   align-items: center;
-  gap: 0.4rem;
-  padding: 0.5rem;
+  gap: 0.6rem;
+  padding: 0.5rem 0.85rem;
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 999px;
   background: rgba(19, 19, 20, 0.9);
@@ -494,12 +507,16 @@ body,
   color: #f2efea !important;
 }
 
-/* Lightweight per-page enter fade (replaces the framer page wrapper) */
+/* Lightweight per-page enter fade (replaces the framer page wrapper).
+   Opacity-only on purpose: a transform here would make position:fixed
+   modals resolve against this element instead of the viewport, trapping
+   the Goals/Debts/Upcoming sheets. No fill-mode so no stacking context
+   lingers after the fade. */
 @keyframes pl-page-enter {
-  from { opacity: 0; transform: translateY(12px); }
-  to { opacity: 1; transform: translateY(0); }
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
-.pl-page-enter { animation: pl-page-enter 0.24s ease-out both; }
+.pl-page-enter { animation: pl-page-enter 0.22s ease-out; }
 
 /* Motion hygiene */
 @media (prefers-reduced-motion: reduce) {

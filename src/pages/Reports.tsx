@@ -220,13 +220,6 @@ export function Reports({
       </section>
 
       {/* ---- Spending mix ---- */}
-      <ReportPanel eyebrow="Where your money went" title="Spending Mix" meta={`${spendingByCategory.length} categories`}>
-        <div className="grid gap-5 lg:grid-cols-[minmax(0,20rem)_1fr]">
-          <DonutChart data={spendingMix} colors={chartColors} empty={!spendingByCategory.length} />
-          <RankedBars items={spendingByCategory.slice(0, 5)} empty="No actual expenses in this period." />
-        </div>
-      </ReportPanel>
-
       {/* ---- Cashflow trend ---- */}
       <ReportPanel eyebrow="Money in and out" title="Cashflow Trend">
         {hasMoneyMovement ? (

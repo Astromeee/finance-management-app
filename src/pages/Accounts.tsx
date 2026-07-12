@@ -1,6 +1,6 @@
 import { ArrowRightLeft, ChevronDown, MoreVertical, PencilLine, Plus, ShoppingCart, WalletCards, X } from 'lucide-react'
 import { motion } from 'framer-motion'
-import { useMemo, useRef, useState, type Dispatch, type SetStateAction, type UIEvent } from 'react'
+import { useEffect, useMemo, useRef, useState, type Dispatch, type SetStateAction, type UIEvent } from 'react'
 import type { Account, Transaction } from '../types/finance'
 import { formatPKR, totalBalance } from '../utils/financeCalculations'
 import { cn } from '../utils/ui'
@@ -202,6 +202,10 @@ export function Accounts({ accounts, setAccounts, setTransactions, onTransfer, o
   const weeksToShow = viewingCurrentMonth
     ? (now.getDate() > 28 ? 5 : 4)
     : (stats && stats.weeklySpend[4] > 0 ? 5 : 4)
+  const [selectedWeek, setSelectedWeek] = useState<number | null>(null)
+  // reset the selected week when the visible account or month changes
+  useEffect(() => setSelectedWeek(null), [activeAccount?.id, selectedMonthKey])
+  const displayWeek = selectedWeek ?? highlightWeek
 
   return (
     <div className="space-y-5">
@@ -341,7 +345,9 @@ export function Accounts({ accounts, setAccounts, setTransactions, onTransfer, o
           {/* weekly spend bars */}
           <div className="rounded-[22px] border border-white/10 bg-white/[.055] px-4.5 py-4 backdrop-blur-xl">
             <div className="mb-3 flex items-baseline justify-between">
-              <p className="text-[12px] text-[var(--muted-2)]">Weekly spend from this card</p>
+              <p className="text-[12px] text-[var(--muted-2)]">
+                {selectedWeek === null ? 'Weekly spend from this card' : `Week ${selectedWeek + 1} · ${formatPKR(stats.weeklySpend[selectedWeek])}`}
+              </p>
               {spendDelta !== null && (
                 <p className={cn('text-[12px] font-semibold', spendDelta > 0 ? 'text-[var(--negative)]' : 'text-[var(--positive)]')}>
                   {spendDelta > 0 ? '▲' : '▼'} {Math.abs(spendDelta)}% vs {previousMonthLabel}
@@ -350,19 +356,25 @@ export function Accounts({ accounts, setAccounts, setTransactions, onTransfer, o
             </div>
             <div className="flex h-[56px] items-end gap-3">
               {stats.weeklySpend.slice(0, weeksToShow).map((amount, week) => {
-                const isCurrent = week === highlightWeek
+                const isActive = week === displayWeek
                 return (
-                  <div key={week} className="flex h-full flex-1 flex-col items-center justify-end gap-1.5">
+                  <button
+                    key={week}
+                    type="button"
+                    aria-label={`Week ${week + 1}: ${formatPKR(amount)}`}
+                    className="flex h-full flex-1 flex-col items-center justify-end gap-1.5"
+                    onClick={() => setSelectedWeek((current) => (current === week ? null : week))}
+                  >
                     <span
-                      className="w-full rounded-[7px]"
+                      className="w-full rounded-[7px] transition-all"
                       style={{
                         height: `${Math.max(10, (amount / maxWeeklySpend) * 100)}%`,
-                        background: isCurrent ? 'linear-gradient(180deg,#FF5C00,#B23F02)' : '#3A3A3E',
-                        boxShadow: isCurrent ? '0 0 16px rgba(255,92,0,.4)' : undefined,
+                        background: isActive ? 'linear-gradient(180deg,#FF5C00,#B23F02)' : '#3A3A3E',
+                        boxShadow: isActive ? '0 0 16px rgba(255,92,0,.4)' : undefined,
                       }}
                     />
-                    <span className={cn('text-[10px]', isCurrent ? 'text-[#FFB27A]' : 'text-[var(--muted-2)]')}>W{week + 1}</span>
-                  </div>
+                    <span className={cn('text-[10px]', isActive ? 'text-[#FFB27A]' : 'text-[var(--muted-2)]')}>W{week + 1}</span>
+                  </button>
                 )
               })}
             </div>
