@@ -925,6 +925,7 @@ function RecordUpcomingExpensePaidModal({
 
 function Sheet({ title, eyebrow, open, onClose, children }: { title: string; eyebrow: string; open: boolean; onClose: () => void; children: ReactNode }) {
   const dragControls = useDragControls()
+  const sheetRef = useRef<HTMLElement>(null)
   if (!open) return null
 
   const closeOnDrag = (_: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
@@ -934,6 +935,7 @@ function Sheet({ title, eyebrow, open, onClose, children }: { title: string; eye
   return (
     <div className="fixed inset-0 z-50 grid items-end bg-black/70 p-0 backdrop-blur-sm sm:items-center sm:p-6" onMouseDown={onClose}>
       <motion.section
+        ref={sheetRef}
         initial={{ opacity: 0, y: 72, scale: 0.985 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
         transition={{ type: 'spring', stiffness: 190, damping: 30, mass: 1 }}
@@ -944,10 +946,22 @@ function Sheet({ title, eyebrow, open, onClose, children }: { title: string; eye
         dragConstraints={{ top: 0, bottom: 0 }}
         dragElastic={{ top: 0, bottom: 0.28 }}
         onDragEnd={closeOnDrag}
-        className="modal-sheet-scroll mx-auto max-h-[86svh] w-full max-w-lg overflow-y-auto overscroll-contain rounded-t-[1.75rem] border border-white/10 bg-[var(--surface)] p-4 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-2xl sm:max-h-[90vh] sm:rounded-[2rem] sm:p-5"
+        className="modal-sheet-scroll mx-auto max-h-[86svh] w-full max-w-lg select-none overflow-y-auto overscroll-contain rounded-t-[1.75rem] border border-white/10 bg-[var(--surface)] p-4 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-2xl sm:max-h-[90vh] sm:rounded-[2rem] sm:p-5"
         onMouseDown={(event) => event.stopPropagation()}
+        onPointerDown={(event) => {
+          // Let a touch/drag starting anywhere on the sheet dismiss it, not just
+          // the handle — but only once already scrolled to the top, so dragging
+          // still scrolls the form normally when its content overflows (e.g.
+          // with the on-screen keyboard open).
+          if ((sheetRef.current?.scrollTop ?? 0) <= 0) dragControls.start(event)
+        }}
       >
-        <button className="mx-auto mb-3 block h-5 w-20 touch-none rounded-full" type="button" aria-label={`Drag to close ${title}`} onPointerDown={(event) => dragControls.start(event)}>
+        <button
+          className="mx-auto mb-3 block h-5 w-20 touch-none rounded-full"
+          type="button"
+          aria-label={`Drag to close ${title}`}
+          onPointerDown={(event) => { event.stopPropagation(); dragControls.start(event) }}
+        >
           <span className="mx-auto block h-1.5 w-14 rounded-full bg-white/18" />
         </button>
         <div className="flex items-center justify-between">
