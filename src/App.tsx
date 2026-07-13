@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import type { FormEvent, ReactNode } from 'react'
 import { AddExpenseModal, AddGoalModal, AddIncomeModal, DebtPaymentModal, TransferModal } from './components/forms/FinanceActionModals'
 import { AppShell } from './components/layout/AppShell'
-import { accounts as initialAccounts, budgets as initialBudgets, debts as initialDebts, expenseCategories as initialExpenseCategories, goals as initialGoals, incomeSources as initialIncomeSources, transactions as initialTransactions, upcomingExpenses as initialUpcomingExpenses } from './data/mockData'
+import { accounts as initialAccounts, budgets as initialBudgets, debts as initialDebts, expenseCategories as initialExpenseCategories, goals as initialGoals, incomeSources as initialIncomeSources, legacySiblingNames, transactions as initialTransactions, upcomingExpenses as initialUpcomingExpenses } from './data/mockData'
 import { loadFinanceState, saveFinanceState, type FinanceState } from './lib/financeStateStore'
 import { getProfile, onProfileChange, setProfile, type Profile } from './lib/profile'
 import { isSupabaseConfigured, supabase } from './lib/supabase'
@@ -54,6 +54,9 @@ const initialFinanceState: FinanceState = {
   upcomingExpenses: initialUpcomingExpenses,
   expenseCategories: initialExpenseCategories.map((category) => category.name),
   incomeCategories: initialIncomeSources.map((category) => category.name),
+  // brand-new accounts start with no sibling names; existing accounts' rows
+  // predate this field and get backfilled with legacySiblingNames on load
+  siblingNames: [],
 }
 
 function nextRecurringDate(dueDate: string, frequency: RecurringFrequency) {
@@ -136,6 +139,7 @@ function App() {
   const [upcomingExpenses, setUpcomingExpenses] = useState<UpcomingExpense[]>(initialUpcomingExpenses)
   const [expenseCategoryNames, setExpenseCategoryNames] = useState(() => initialExpenseCategories.map((category) => category.name))
   const [incomeCategoryNames, setIncomeCategoryNames] = useState(() => initialIncomeSources.map((category) => category.name))
+  const [siblingNames, setSiblingNames] = useState<string[]>([])
   const [profile, setProfileState] = useState<Profile>(getProfile)
   const remoteStateLoaded = useRef(!isSupabaseConfigured)
   const saveTimer = useRef<number | undefined>(undefined)
@@ -189,6 +193,9 @@ function App() {
         setUpcomingExpenses(remoteState.upcomingExpenses)
         setExpenseCategoryNames(remoteState.expenseCategories?.length ? remoteState.expenseCategories : initialExpenseCategories.map((category) => category.name))
         setIncomeCategoryNames(remoteState.incomeCategories?.length ? remoteState.incomeCategories : initialIncomeSources.map((category) => category.name))
+        // undefined = row predates this field (existing account) → backfill legacy names.
+        // Any array, including [], means the field was already saved (new accounts save `[]` from initialFinanceState) → trust it as-is.
+        setSiblingNames(remoteState.siblingNames === undefined ? legacySiblingNames : remoteState.siblingNames)
         if (remoteState.profile && JSON.stringify(remoteState.profile) !== JSON.stringify(getProfile())) {
           setProfile(remoteState.profile)
         }
@@ -219,6 +226,7 @@ function App() {
       upcomingExpenses,
       expenseCategories: expenseCategoryNames,
       incomeCategories: incomeCategoryNames,
+      siblingNames,
       profile,
     }
 
@@ -231,7 +239,7 @@ function App() {
     }, 500)
 
     return () => window.clearTimeout(saveTimer.current)
-  }, [accounts, budgets, debts, expenseCategoryNames, financeUserId, goals, incomeCategoryNames, profile, showToast, transactions, upcomingExpenses])
+  }, [accounts, budgets, debts, expenseCategoryNames, financeUserId, goals, incomeCategoryNames, profile, showToast, siblingNames, transactions, upcomingExpenses])
 
   const handlePasswordLogin = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -428,7 +436,28 @@ function App() {
       ),
     },
     budgets: { title: 'Budgets', subtitle: 'Monthly limits and usage', component: <Budgets budgets={budgets} /> },
-    reports: { title: 'Analytics', subtitle: 'Spending trends and insights', component: <Reports accounts={accounts} transactions={transactions} goals={goals} debts={debts} upcomingExpenses={upcomingExpenses} expenseCategories={expenseCategoryNames} incomeCategories={incomeCategoryNames} onAddExpenseCategory={(category) => setExpenseCategoryNames((current) => current.some((item) => item.toLowerCase() === category.toLowerCase()) ? current : [...current, category])} onAddIncomeCategory={(category) => setIncomeCategoryNames((current) => current.some((item) => item.toLowerCase() === category.toLowerCase()) ? current : [...current, category])} /> },
+    reports: {
+      title: 'Analytics',
+      subtitle: 'Spending trends and insights',
+      component: (
+        <Reports
+          accounts={accounts}
+          transactions={transactions}
+          goals={goals}
+          debts={debts}
+          upcomingExpenses={upcomingExpenses}
+          expenseCategories={expenseCategoryNames}
+          incomeCategories={incomeCategoryNames}
+          onAddExpenseCategory={(category) => setExpenseCategoryNames((current) => current.some((item) => item.toLowerCase() === category.toLowerCase()) ? current : [...current, category])}
+          onAddIncomeCategory={(category) => setIncomeCategoryNames((current) => current.some((item) => item.toLowerCase() === category.toLowerCase()) ? current : [...current, category])}
+          onRemoveExpenseCategory={(category) => setExpenseCategoryNames((current) => current.filter((item) => item !== category))}
+          onRemoveIncomeCategory={(category) => setIncomeCategoryNames((current) => current.filter((item) => item !== category))}
+          siblingNames={siblingNames}
+          onAddSiblingName={(name) => setSiblingNames((current) => current.some((item) => item.toLowerCase() === name.toLowerCase()) ? current : [...current, name])}
+          onRemoveSiblingName={(name) => setSiblingNames((current) => current.filter((item) => item !== name))}
+        />
+      ),
+    },
     settings: { title: 'Settings', subtitle: 'Preferences and data tools', component: <Settings /> },
     profile: { title: 'Profile', subtitle: 'Your name and photo', component: <ProfilePage onBack={() => setActivePage('dashboard')} /> },
   }
@@ -462,6 +491,7 @@ function App() {
         open={activeModal === 'income'}
         accounts={accountsWithSavings}
         incomeCategories={incomeCategoryNames}
+        siblingNames={siblingNames}
         onClose={() => setActiveModal(null)}
         onSubmit={({ amount, source, accountId, date, notes }) => {
           const account = accountsWithSavings.find((item) => item.id === accountId)

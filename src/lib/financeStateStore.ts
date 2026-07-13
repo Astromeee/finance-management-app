@@ -11,6 +11,12 @@ export type FinanceState = {
   upcomingExpenses: UpcomingExpense[]
   expenseCategories?: string[]
   incomeCategories?: string[]
+  /**
+   * Names used by the "Siblings Support" income source. Undefined means the
+   * row predates this field (App.tsx backfills legacy defaults for those);
+   * an empty array means the account intentionally has none.
+   */
+  siblingNames?: string[]
   /** display name + avatar data URL — synced so the profile follows the account across devices */
   profile?: Profile
 }

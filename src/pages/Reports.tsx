@@ -15,7 +15,7 @@ import {
   YAxis,
 } from 'recharts'
 import { motion } from 'framer-motion'
-import { ArrowDownLeft, ArrowUpRight, Landmark, PercentCircle, PieChart as PieChartIcon, TrendingUp, WalletCards, ChevronDown, type LucideIcon } from 'lucide-react'
+import { ArrowDownLeft, ArrowUpRight, Landmark, PercentCircle, PieChart as PieChartIcon, TrendingUp, WalletCards, ChevronDown, X, type LucideIcon } from 'lucide-react'
 import { formatPKR, percent } from '../utils/financeCalculations'
 import type { Account, Debt, Goal, Transaction, UpcomingExpense } from '../types/finance'
 import { cn } from '../utils/ui'
@@ -77,6 +77,11 @@ export function Reports({
   incomeCategories,
   onAddExpenseCategory,
   onAddIncomeCategory,
+  onRemoveExpenseCategory,
+  onRemoveIncomeCategory,
+  siblingNames,
+  onAddSiblingName,
+  onRemoveSiblingName,
 }: {
   accounts: Account[]
   transactions: Transaction[]
@@ -87,12 +92,18 @@ export function Reports({
   incomeCategories: string[]
   onAddExpenseCategory: (category: string) => void
   onAddIncomeCategory: (category: string) => void
+  onRemoveExpenseCategory: (category: string) => void
+  onRemoveIncomeCategory: (category: string) => void
+  siblingNames: string[]
+  onAddSiblingName: (name: string) => void
+  onRemoveSiblingName: (name: string) => void
 }) {
   const [period, setPeriod] = useState<PeriodSelection>('this-month')
   const [customStart, setCustomStart] = useState(monthStart(new Date()).toISOString().slice(0, 10))
   const [customEnd, setCustomEnd] = useState(new Date().toISOString().slice(0, 10))
   const [newExpenseCategory, setNewExpenseCategory] = useState('')
   const [newIncomeCategory, setNewIncomeCategory] = useState('')
+  const [newSiblingName, setNewSiblingName] = useState('')
   const [showMoreAnalytics, setShowMoreAnalytics] = useState(false)
 
   const range = useMemo(() => getRange(period, customStart, customEnd), [period, customEnd, customStart])
@@ -330,7 +341,7 @@ export function Reports({
             <button className="btn-primary justify-center" type="submit">Add Category</button>
           </form>
           <div className="mt-3 flex flex-wrap gap-2">
-            {expenseCategories.slice(-8).map((category) => <span key={category} className="rounded-full border border-[var(--border)] bg-white/[.04] px-3 py-1 text-xs font-semibold text-[var(--muted)]">{category}</span>)}
+            {expenseCategories.slice(-8).map((category) => <RemovableChip key={category} label={category} onRemove={() => onRemoveExpenseCategory(category)} />)}
           </div>
         </ReportPanel>
 
@@ -346,15 +357,51 @@ export function Reports({
             <button className="btn-primary justify-center" type="submit">Add Source</button>
           </form>
           <div className="mt-3 flex flex-wrap gap-2">
-            {incomeCategories.slice(-8).map((category) => <span key={category} className="rounded-full border border-[var(--border)] bg-white/[.04] px-3 py-1 text-xs font-semibold text-[var(--muted)]">{category}</span>)}
+            {incomeCategories.slice(-8).map((category) => <RemovableChip key={category} label={category} onRemove={() => onRemoveIncomeCategory(category)} />)}
           </div>
         </ReportPanel>
       </section>
+
+      {/* ---- Sibling names (used by the "Siblings Support" income source) ---- */}
+      <ReportPanel eyebrow="Family setup" title="Sibling Names" meta={`${siblingNames.length} names`}>
+        <form className="grid gap-3 sm:grid-cols-[1fr_auto]" onSubmit={(event) => {
+          event.preventDefault()
+          const name = newSiblingName.trim()
+          if (!name) return
+          onAddSiblingName(name)
+          setNewSiblingName('')
+        }}>
+          <input className="form-input" value={newSiblingName} onChange={(event) => setNewSiblingName(event.target.value)} placeholder="Add a name, e.g. Ali" />
+          <button className="btn-primary justify-center" type="submit">Add Name</button>
+        </form>
+        {siblingNames.length ? (
+          <div className="mt-3 flex flex-wrap gap-2">
+            {siblingNames.map((name) => <RemovableChip key={name} label={name} onRemove={() => onRemoveSiblingName(name)} />)}
+          </div>
+        ) : (
+          <p className="mt-3 text-xs text-[var(--muted-2)]">Add names here to pick from when logging "Siblings Support" income.</p>
+        )}
+      </ReportPanel>
     </div>
   )
 }
 
 /* ============ presentational pieces ============ */
+
+function RemovableChip({ label, onRemove }: { label: string; onRemove: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onRemove}
+      aria-label={`Remove ${label}`}
+      title={`Remove ${label}`}
+      className="group inline-flex items-center gap-1.5 rounded-full border border-[var(--border)] bg-white/[.04] px-3 py-1 text-xs font-semibold text-[var(--muted)] transition hover:border-[rgba(232,105,74,.35)] hover:bg-[rgba(232,105,74,.08)] hover:text-[var(--negative)]"
+    >
+      {label}
+      <X size={12} className="opacity-60 transition group-hover:opacity-100" />
+    </button>
+  )
+}
 
 function ReportPanel({ eyebrow, title, meta, children }: { eyebrow: string; title: string; meta?: string; children: ReactNode }) {
   return (

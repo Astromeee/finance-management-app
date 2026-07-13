@@ -15,8 +15,6 @@ function numeric(value: string) {
   return Number(value)
 }
 
-const siblings = ['Abdul Waheed', 'Abdul Wahid', 'Abdul Wajid', 'Asma', 'Tahira', 'Saima', 'Sajida']
-
 function Sheet({ title, eyebrow, open, onClose, children }: { title: string; eyebrow: string; open: boolean; onClose: () => void; children: ReactNode }) {
   const dragControls = useDragControls()
   if (!open) return null
@@ -78,23 +76,26 @@ export function AddIncomeModal({
   open,
   accounts,
   incomeCategories,
+  siblingNames,
   onClose,
   onSubmit,
 }: {
   open: boolean
   accounts: Account[]
   incomeCategories: string[]
+  siblingNames: string[]
   onClose: () => void
   onSubmit: (payload: { amount: number; source: string; accountId: string; date: string; notes?: string }) => void
 }) {
   const [amount, setAmount] = useState('')
   const [source, setSource] = useState(incomeCategories[0] ?? 'Other Income')
-  const [sibling, setSibling] = useState(siblings[0])
+  const [sibling, setSibling] = useState(siblingNames[0] ?? '')
   const [accountId, setAccountId] = useState('')
   const [date, setDate] = useState(today())
   const [notes, setNotes] = useState('')
   const ublAccount = accounts.find((account) => account.name.toLowerCase().includes('ubl'))
   const selectedAccountId = accountId || ublAccount?.id || accounts[0]?.id || ''
+  const needsSibling = source === 'Siblings Support' && siblingNames.length > 0
   const invalid = numeric(amount) <= 0 || !source || !selectedAccountId || !date
 
   return (
@@ -102,13 +103,13 @@ export function AddIncomeModal({
       <form className="mt-5 grid gap-4" onSubmit={(event) => {
         event.preventDefault()
         if (!invalid) {
-          onSubmit({ amount: numeric(amount), source: source === 'Siblings Support' ? `${source} - ${sibling}` : source, accountId: selectedAccountId, date, notes })
+          onSubmit({ amount: numeric(amount), source: needsSibling && sibling ? `${source} - ${sibling}` : source, accountId: selectedAccountId, date, notes })
           onClose()
         }
       }}>
         <Field label="Amount" type="number" value={amount} onChange={setAmount} placeholder="Rs. 5,000" />
         <Select label="Source" value={source} onChange={setSource} options={incomeCategories} />
-        {source === 'Siblings Support' && <Select label="Sibling" value={sibling} onChange={setSibling} options={siblings} />}
+        {needsSibling && <Select label="Sibling" value={sibling} onChange={setSibling} options={siblingNames} />}
         <Select label="Account received in" value={selectedAccountId} onChange={setAccountId} options={accounts.map((account) => ({ value: account.id, label: account.name }))} />
         <Field label="Date" type="date" value={date} onChange={setDate} />
         <TextArea label="Notes" value={notes} onChange={setNotes} />
