@@ -1,8 +1,11 @@
+const SHELL_CACHE = 'pocket-ledger-shell-v2'
+
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open('pocket-ledger-shell-v1').then((cache) => cache.addAll([
+    caches.open(SHELL_CACHE).then((cache) => cache.addAll([
       '/',
       '/manifest.webmanifest',
+      '/favicon.svg',
       '/pocket-ledger-icon.png'
     ])),
   )
@@ -10,7 +13,11 @@ self.addEventListener('install', (event) => {
 })
 
 self.addEventListener('activate', (event) => {
-  event.waitUntil(self.clients.claim())
+  event.waitUntil(
+    caches.keys()
+      .then((keys) => Promise.all(keys.filter((key) => key !== SHELL_CACHE).map((key) => caches.delete(key))))
+      .then(() => self.clients.claim()),
+  )
 })
 
 self.addEventListener('fetch', (event) => {

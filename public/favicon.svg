@@ -1,38 +1,17 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
   <defs>
-    <radialGradient id="bg" cx="50%" cy="47%" r="70%">
-      <stop offset="0%" stop-color="#151916"/>
-      <stop offset="54%" stop-color="#080a0b"/>
-      <stop offset="100%" stop-color="#030405"/>
+    <radialGradient id="bloom" cx="82%" cy="16%" r="78%">
+      <stop offset="0%" stop-color="#F26419" stop-opacity="0.42"/>
+      <stop offset="42%" stop-color="#D14E0C" stop-opacity="0.16"/>
+      <stop offset="72%" stop-color="#16130F" stop-opacity="0"/>
     </radialGradient>
-    <filter id="glow" x="-55%" y="-55%" width="210%" height="210%">
-      <feGaussianBlur stdDeviation="18" result="blur"/>
-      <feColorMatrix in="blur" type="matrix" values="0 0 0 0 0.78 0 0 0 0 1 0 0 0 0 0.05 0 0 0 0.95 0"/>
-      <feMerge>
-        <feMergeNode/>
-        <feMergeNode in="SourceGraphic"/>
-      </feMerge>
-    </filter>
-    <linearGradient id="lime" x1="205" y1="180" x2="820" y2="820" gradientUnits="userSpaceOnUse">
-      <stop offset="0%" stop-color="#efff35"/>
-      <stop offset="55%" stop-color="#cfff16"/>
-      <stop offset="100%" stop-color="#a6ff00"/>
-    </linearGradient>
   </defs>
-  <rect width="1024" height="1024" fill="url(#bg)"/>
-  <g filter="url(#glow)" fill="none" stroke="url(#lime)" stroke-width="42" stroke-linecap="round" stroke-linejoin="round">
-    <path d="M336 683V380c0-56 31-96 82-119l240-109v150"/>
-    <path d="M386 394c28-44 62-69 109-83l172-49c54-15 93 9 93 61v54"/>
-    <path d="M366 410c31-25 67-38 109-38h234c70 0 115 39 115 102v263c0 67-39 106-107 112l-316 28c-73 7-120-34-120-109V411c0-5 .2-11 .8-16"/>
-    <path d="M698 505h92c36 0 58 22 58 58v97c0 37-22 58-58 58h-92c-53 0-91-38-91-107v-1c0-67 38-105 91-105Z"/>
-    <path d="M429 533h82"/>
-    <path d="M429 613h91"/>
-    <path d="M429 694h92"/>
+  <rect width="512" height="512" rx="114" fill="#16130F"/>
+  <rect width="512" height="512" rx="114" fill="url(#bloom)"/>
+  <g fill="#F6F3EF">
+    <rect x="136" y="153" width="240" height="42" rx="13"/>
+    <rect x="136" y="235" width="240" height="42" rx="13"/>
+    <rect x="136" y="317" width="150" height="42" rx="13"/>
   </g>
-  <g filter="url(#glow)" fill="url(#lime)">
-    <circle cx="356" cy="533" r="22"/>
-    <circle cx="356" cy="613" r="22"/>
-    <circle cx="356" cy="694" r="22"/>
-    <circle cx="745" cy="611" r="23"/>
-  </g>
+  <rect x="304" y="317" width="42" height="42" rx="13" fill="#FF5C00"/>
 </svg>

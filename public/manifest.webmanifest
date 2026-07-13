@@ -1,17 +1,23 @@
 {
   "name": "Pocket ledger",
   "short_name": "Pocket ledger",
-  "description": "A dark neon personal finance ledger for accounts, transactions, goals, debts, and reports.",
+  "description": "A personal finance ledger for accounts, transactions, goals, debts, and reports.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
-  "background_color": "#0d0e10",
-  "theme_color": "#ddff45",
+  "background_color": "#16130F",
+  "theme_color": "#16130F",
   "orientation": "portrait",
   "icons": [
     {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
       "src": "/pocket-ledger-icon.png",
-      "sizes": "1254x1254",
+      "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"
     }
