@@ -1,6 +1,7 @@
 import { ArrowLeft, ArrowRight, CalendarDays, Check, GraduationCap, Landmark, PencilLine, ShieldCheck, Sparkles, WalletCards } from 'lucide-react'
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { localDateKey } from '../lib/date'
+import { trackEvent } from '../lib/analytics'
 import { parseWholePkr } from '../lib/money'
 import type { Account, AccountType, IncomeCadence, IncomeSourceType, JourneySettings, MoneyPriority } from '../types/finance'
 import { cn } from '../utils/ui'
@@ -70,6 +71,7 @@ export function Onboarding({ email, initialName, initialSettings, existingAccoun
   useEffect(() => {
     if (!existingAccount) localStorage.setItem(STORAGE_KEY, JSON.stringify(draft))
   }, [draft, existingAccount])
+  useEffect(() => { trackEvent('onboarding_started', { surface: 'onboarding', action: 'open' }) }, [])
 
   const parsedBalance = useMemo(() => draft.balance === '0' ? 0 : parseWholePkr(draft.balance), [draft.balance])
   const parsedIncome = Number.isSafeInteger(settings.typicalIncome) ? settings.typicalIncome : 0

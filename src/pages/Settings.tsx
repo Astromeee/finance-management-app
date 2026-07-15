@@ -13,6 +13,8 @@ type Props = {
   transactions: Transaction[]; upcomingExpenses: UpcomingExpense[]
   expenseCategories: string[]; incomeCategories: string[]; profile: Profile
   onNavigate: (page: string) => void
+  analyticsConsent: boolean
+  onAnalyticsConsentChange: (granted: boolean) => void
   onRestartTour: () => void
   onProfileChange: (profile: Profile) => void
   onSaveCategory: (category: Category) => Promise<void>
@@ -107,6 +109,7 @@ export function Settings(props: Props) {
         <SettingsRow detail={theme === 'dark' ? 'Dark — orange on black' : 'Light — orange on white'} icon={theme === 'dark' ? Moon : Sun} title="Theme" trailing={<button aria-checked={theme === 'light'} aria-label="Toggle light theme" className="relative h-8 w-14 flex-none rounded-full transition-colors" onClick={() => setThemeState(toggleTheme())} role="switch" style={{ background: theme === 'light' ? '#FF5C00' : 'var(--surface-3)' }}><span className="absolute top-1 h-6 w-6 rounded-full bg-white shadow-md transition-all" style={{ left: theme === 'light' ? 'calc(100% - 1.75rem)' : '0.25rem' }} /></button>} />
         <SettingsRow detail={`${props.accounts.length} active account${props.accounts.length === 1 ? '' : 's'}`} icon={Wallet} title="Manage accounts" trailing={<button className="text-sm font-semibold text-[var(--accent)]" onClick={() => props.onNavigate('accounts')}>Open</button>} />
         <SettingsRow detail="Replay setup and learn where key features live" icon={BookOpen} title="Help & Tour" trailing={<button className="text-sm font-semibold text-[var(--accent)]" onClick={props.onRestartTour}>Restart</button>} />
+        <SettingsRow detail="Optional anonymous interaction events; never financial values or personal content" icon={ShieldCheck} title="Private analytics" trailing={<button aria-checked={props.analyticsConsent} aria-label="Allow privacy-safe analytics" className="relative h-8 w-14 flex-none rounded-full transition-colors" onClick={() => props.onAnalyticsConsentChange(!props.analyticsConsent)} role="switch" style={{ background: props.analyticsConsent ? 'var(--positive)' : 'var(--surface-3)' }}><span className="absolute top-1 h-6 w-6 rounded-full bg-white shadow transition-all" style={{ left: props.analyticsConsent ? 'calc(100% - 1.75rem)' : '0.25rem' }} /></button>} />
       </SettingsGroup>
 
       <section id="categories">

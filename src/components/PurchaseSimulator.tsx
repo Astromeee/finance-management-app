@@ -1,5 +1,6 @@
 import { AlertTriangle, ArrowRight, CheckCircle2, ShieldAlert, Sparkles } from 'lucide-react'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { trackEvent } from '../lib/analytics'
 import type { AffordabilityResult, Category, SafeSpendResult } from '../types/finance'
 import { formatPKR } from '../utils/financeCalculations'
 import { calculateAffordability } from '../utils/journeyCalculations'
@@ -19,6 +20,13 @@ export function PurchaseSimulator({ open, safeSpend, categories, onClose, onMana
   const [category, setCategory] = useState(expenseCategories[0]?.name ?? 'Miscellaneous')
   const parsedAmount = Math.max(0, Math.floor(Number(amount) || 0))
   const result = useMemo(() => calculateAffordability(parsedAmount, safeSpend), [parsedAmount, safeSpend])
+  const lastTrackedState = useRef<string | undefined>(undefined)
+  useEffect(() => {
+    if (parsedAmount > 0 && result.state !== lastTrackedState.current) {
+      trackEvent('simulator_result_viewed', { surface: 'home', state: result.state })
+      lastTrackedState.current = result.state
+    }
+  }, [parsedAmount, result.state])
 
   return <BottomSheet eyebrow="Plan before you pay" onClose={onClose} open={open} title="Can today afford it?">
     <div className="mt-5 grid gap-4">

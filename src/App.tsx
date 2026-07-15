@@ -5,6 +5,7 @@ import { AppShell } from './components/layout/AppShell'
 import { accounts as initialAccounts, budgets as initialBudgets, debts as initialDebts, expenseCategories as initialExpenseCategories, goals as initialGoals, incomeSources as initialIncomeSources, transactions as initialTransactions, upcomingExpenses as initialUpcomingExpenses } from './data/mockData'
 import { adjustAccountBalance, archiveAccount, archiveCategory, deleteBudget, deleteDebt, deleteFinanceTransaction, deleteGoal, deleteUpcomingExpense, deleteWishlistItem, loadFinanceData, markUpcomingExpensePaid, recordFinanceAction, saveAccount, saveBudget, saveCategory, saveDebt, saveGoal, saveJourneySettings, saveMoneyQuest, saveUpcomingExpense, saveUserSettings, saveWishlistItem, updateFinanceTransaction } from './lib/financeRepository'
 import { addRecurringDate } from './lib/date'
+import { setAnalyticsConsent, trackEvent } from './lib/analytics'
 import { getProfile, onProfileChange, setProfile, type Profile } from './lib/profile'
 import { isSupabaseConfigured, supabase } from './lib/supabase'
 import { AuthCallback, AuthPage } from './pages/Auth'
@@ -67,6 +68,15 @@ function debtTotal(debt: Debt) {
 
 function debtPaid(debt: Debt) {
   return debt.paidAmount ?? debt.paid ?? 0
+}
+
+function analyticsSurfaceFor(page: string): 'home' | 'activity' | 'plan' | 'goals' | 'insights' | 'settings' {
+  if (page === 'transactions') return 'activity'
+  if (page === 'budgets') return 'plan'
+  if (page === 'goals') return 'goals'
+  if (page === 'reports') return 'insights'
+  if (page === 'settings' || page === 'profile' || page === 'accounts') return 'settings'
+  return 'home'
 }
 
 function createDebt(payload: DebtPayload): Debt {
@@ -145,6 +155,8 @@ function App() {
 
   // expose the active page to CSS so Home gets its own "ledger paper" canvas (see theme.css §7)
   useEffect(() => { document.documentElement.dataset.page = activePage }, [activePage])
+  useEffect(() => { setAnalyticsConsent(journeySettings.analyticsConsent) }, [journeySettings.analyticsConsent])
+  useEffect(() => { trackEvent('page_view', { surface: analyticsSurfaceFor(activePage) }) }, [activePage])
 
   const setActivePage = useCallback((page: string) => {
     navigate(page === 'dashboard' ? '/app' : `/app/${page}`)
@@ -342,7 +354,7 @@ function App() {
   }
 
   const pages: Record<string, { title: string; subtitle: string; component: ReactNode }> = {
-    dashboard: { title: 'Home', subtitle: 'Your payday journey', component: <Dashboard accounts={accountsWithSavings} transactions={transactions} goals={goals} debts={debts} budgets={budgets} upcomingExpenses={upcomingExpenses} categories={categories} journeySettings={journeySettings} onAction={setActiveModal} onNavigate={setActivePage} onPlanPurchase={() => setActiveModal('simulator')} onSetupJourney={() => navigate('/onboarding')} onTourComplete={() => { const next = { ...journeySettings, tourCompleted: true }; setJourneySettings(next); void saveJourneySettings(next, true) }} /> },
+    dashboard: { title: 'Home', subtitle: 'Your payday journey', component: <Dashboard accounts={accountsWithSavings} transactions={transactions} goals={goals} debts={debts} budgets={budgets} upcomingExpenses={upcomingExpenses} categories={categories} journeySettings={journeySettings} onAction={setActiveModal} onNavigate={setActivePage} onPlanPurchase={() => { setActiveModal('simulator'); trackEvent('simulator_opened', { surface: 'home' }) }} onSetupJourney={() => navigate('/onboarding')} onTourComplete={() => { const next = { ...journeySettings, tourCompleted: true }; setJourneySettings(next); void saveJourneySettings(next, true) }} /> },
     transactions: { title: 'Transactions', subtitle: 'Track income, spending, and transfers', component: <Transactions transactions={transactions} accounts={accountsWithSavings} expenseCategories={expenseCategoryNames} incomeCategories={incomeCategoryNames} onUpdateTransaction={updateTransaction} onDeleteTransaction={deleteTransaction} /> },
     accounts: {
       title: 'Accounts',
@@ -477,7 +489,7 @@ function App() {
         />
       ),
     },
-    budgets: { title: 'Plan', subtitle: 'Budgets, bills, and considered purchases', component: <Budgets budgets={budgets} upcomingExpenses={upcomingExpenses} accounts={accounts} categories={categories} transactions={transactions} wishlistItems={wishlistItems} activeQuest={moneyQuests.find((item) => item.status === 'active')} goals={goals} onNavigateSettings={() => setActivePage('settings')} onAddUpcoming={addUpcoming} onUpdateUpcoming={updateUpcoming} onDeleteUpcoming={removeUpcoming} onMarkUpcomingPaid={payUpcoming} onSaveWishlist={(item) => { void saveWishlistItem(item).catch((error) => showToast(error.message)); setWishlistItems((current) => [item, ...current.filter((entry) => entry.id !== item.id)]) }} onDeleteWishlist={(id) => { void deleteWishlistItem(id).catch((error) => showToast(error.message)); setWishlistItems((current) => current.filter((item) => item.id !== id)) }} onBuyWishlist={(item) => { setExpenseDraft({ amount: item.amount, category: categories.find((category) => category.id === item.categoryId)?.name ?? 'Miscellaneous', wishlistId: item.id }); setActiveModal('expense') }} onMoveWishlistToGoal={(item) => { const goal: Goal = { id: makeId(), name: item.name, target: item.amount, saved: 0, status: 'Active' }; const next = { ...item, goalId: goal.id, status: 'moved_to_goal' as const }; void saveGoal(goal).catch((error) => showToast(error.message)); void saveWishlistItem(next).catch((error) => showToast(error.message)); setGoals((current) => [goal, ...current]); setWishlistItems((current) => current.map((entry) => entry.id === item.id ? next : entry)); showToast('Wishlist item moved to a savings goal') }} onSaveQuest={(quest) => { void saveMoneyQuest(quest).catch((error) => showToast(error.message)); setMoneyQuests((current) => [quest, ...current.filter((item) => item.id !== quest.id && item.status !== 'active')]) }} onCancelQuest={(quest) => { const next = { ...quest, status: 'cancelled' as const }; void saveMoneyQuest(next).catch((error) => showToast(error.message)); setMoneyQuests((current) => current.map((item) => item.id === quest.id ? next : item)) }} /> },
+    budgets: { title: 'Plan', subtitle: 'Budgets, bills, and considered purchases', component: <Budgets budgets={budgets} upcomingExpenses={upcomingExpenses} accounts={accounts} categories={categories} transactions={transactions} wishlistItems={wishlistItems} activeQuest={moneyQuests.find((item) => item.status === 'active')} goals={goals} onNavigateSettings={() => setActivePage('settings')} onAddUpcoming={addUpcoming} onUpdateUpcoming={updateUpcoming} onDeleteUpcoming={removeUpcoming} onMarkUpcomingPaid={payUpcoming} onSaveWishlist={(item) => { void saveWishlistItem(item).catch((error) => showToast(error.message)); setWishlistItems((current) => [item, ...current.filter((entry) => entry.id !== item.id)]); if (item.status === 'skipped' || item.status === 'waiting') trackEvent('wishlist_decision', { surface: 'plan', action: item.status === 'skipped' ? 'skip' : 'wait' }) }} onDeleteWishlist={(id) => { void deleteWishlistItem(id).catch((error) => showToast(error.message)); setWishlistItems((current) => current.filter((item) => item.id !== id)) }} onBuyWishlist={(item) => { setExpenseDraft({ amount: item.amount, category: categories.find((category) => category.id === item.categoryId)?.name ?? 'Miscellaneous', wishlistId: item.id }); setActiveModal('expense'); trackEvent('wishlist_decision', { surface: 'plan', action: 'buy' }) }} onMoveWishlistToGoal={(item) => { const goal: Goal = { id: makeId(), name: item.name, target: item.amount, saved: 0, status: 'Active' }; const next = { ...item, goalId: goal.id, status: 'moved_to_goal' as const }; void saveGoal(goal).catch((error) => showToast(error.message)); void saveWishlistItem(next).catch((error) => showToast(error.message)); setGoals((current) => [goal, ...current]); setWishlistItems((current) => current.map((entry) => entry.id === item.id ? next : entry)); showToast('Wishlist item moved to a savings goal'); trackEvent('wishlist_decision', { surface: 'plan', action: 'move_to_goal' }) }} onSaveQuest={(quest) => { void saveMoneyQuest(quest).catch((error) => showToast(error.message)); setMoneyQuests((current) => [quest, ...current.filter((item) => item.id !== quest.id && item.status !== 'active')]) }} onCancelQuest={(quest) => { const next = { ...quest, status: 'cancelled' as const }; void saveMoneyQuest(next).catch((error) => showToast(error.message)); setMoneyQuests((current) => current.map((item) => item.id === quest.id ? next : item)); trackEvent('quest_ended', { surface: 'plan', action: 'cancel' }) }} /> },
     reports: {
       title: 'Analytics',
       subtitle: 'Spending trends and insights',
@@ -493,7 +505,7 @@ function App() {
         />
       ),
     },
-    settings: { title: 'Settings', subtitle: 'Preferences and data tools', component: <Settings accounts={accounts} authEmail={authEmail} authProvider={authProvider} budgets={budgets} categories={categories} debts={debts} expenseCategories={expenseCategoryNames} goals={goals} incomeCategories={incomeCategoryNames} profile={profile} transactions={transactions} upcomingExpenses={upcomingExpenses} onNavigate={setActivePage} onRestartTour={() => navigate('/onboarding')} onProfileChange={(next) => { setProfile(next); setProfileState(next); void saveUserSettings(next, true) }} onSaveCategory={async (category) => { await saveCategory(category); setCategories((current) => [...current.filter((item) => item.id !== category.id), category]) }} onArchiveCategory={async (id) => { await archiveCategory(id); setCategories((current) => current.filter((item) => item.id !== id)) }} onSaveBudget={async (budget) => { await saveBudget(budget); setBudgets((current) => [...current.filter((item) => item.id !== budget.id), budget]) }} onDeleteBudget={async (id) => { await deleteBudget(id); setBudgets((current) => current.filter((item) => item.id !== id)) }} onSignOut={() => supabase?.auth.signOut()} /> },
+    settings: { title: 'Settings', subtitle: 'Preferences and data tools', component: <Settings accounts={accounts} authEmail={authEmail} authProvider={authProvider} budgets={budgets} categories={categories} debts={debts} expenseCategories={expenseCategoryNames} goals={goals} incomeCategories={incomeCategoryNames} profile={profile} transactions={transactions} upcomingExpenses={upcomingExpenses} analyticsConsent={journeySettings.analyticsConsent} onAnalyticsConsentChange={(analyticsConsent) => { const next = { ...journeySettings, analyticsConsent }; setJourneySettings(next); void saveJourneySettings(next, true) }} onNavigate={setActivePage} onRestartTour={() => navigate('/onboarding')} onProfileChange={(next) => { setProfile(next); setProfileState(next); void saveUserSettings(next, true) }} onSaveCategory={async (category) => { await saveCategory(category); setCategories((current) => [...current.filter((item) => item.id !== category.id), category]) }} onArchiveCategory={async (id) => { await archiveCategory(id); setCategories((current) => current.filter((item) => item.id !== id)) }} onSaveBudget={async (budget) => { await saveBudget(budget); setBudgets((current) => [...current.filter((item) => item.id !== budget.id), budget]) }} onDeleteBudget={async (id) => { await deleteBudget(id); setBudgets((current) => current.filter((item) => item.id !== id)) }} onSignOut={() => supabase?.auth.signOut()} /> },
     profile: { title: 'Profile', subtitle: 'Your name and photo', component: <ProfilePage onBack={() => setActivePage('dashboard')} /> },
   }
 
@@ -557,7 +569,7 @@ function App() {
           setExpenseDraft(undefined)
         }}
       />}
-      {activeModal === 'simulator' && <PurchaseSimulator open safeSpend={calculateSafeSpend({ accounts, budgets, categories, upcomingExpenses, settings: journeySettings })} categories={categories} onClose={() => setActiveModal(null)} onManageCategories={() => { setActiveModal(null); setActivePage('settings') }} onRecordExpense={(draft) => { setExpenseDraft(draft); setActiveModal('expense') }} />}
+      {activeModal === 'simulator' && <PurchaseSimulator open safeSpend={calculateSafeSpend({ accounts, budgets, categories, upcomingExpenses, settings: journeySettings })} categories={categories} onClose={() => setActiveModal(null)} onManageCategories={() => { setActiveModal(null); setActivePage('settings'); trackEvent('category_management_opened', { surface: 'home' }) }} onRecordExpense={(draft) => { setExpenseDraft(draft); setActiveModal('expense'); trackEvent('simulator_expense_handoff', { surface: 'home' }) }} />}
       {activeModal === 'transfer' && <TransferModal
         open={activeModal === 'transfer'}
         accounts={accountsWithSavings}
@@ -661,6 +673,7 @@ function App() {
         setProfile(nextProfile)
         setProfileState(nextProfile)
         setOnboardingCompleted(true)
+        trackEvent('onboarding_completed', { surface: 'onboarding', action: 'complete' })
         navigate('/app', { replace: true })
       }} />} />
       <Route path="/privacy" element={<LegalPage kind="privacy" />} />
