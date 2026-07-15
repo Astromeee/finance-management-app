@@ -23,6 +23,7 @@ export type Database = {
           color: string
           created_at: string
           id: string
+          include_in_safe_spend: boolean
           name: string
           opening_balance: number
           type: string
@@ -37,6 +38,7 @@ export type Database = {
           color?: string
           created_at?: string
           id: string
+          include_in_safe_spend?: boolean
           name: string
           opening_balance?: number
           type: string
@@ -51,6 +53,7 @@ export type Database = {
           color?: string
           created_at?: string
           id?: string
+          include_in_safe_spend?: boolean
           name?: string
           opening_balance?: number
           type?: string
@@ -115,6 +118,7 @@ export type Database = {
           kind: string
           name: string
           sort_order: number
+          spending_nature: string
           updated_at: string
           user_id: string
         }
@@ -126,6 +130,7 @@ export type Database = {
           kind: string
           name: string
           sort_order?: number
+          spending_nature?: string
           updated_at?: string
           user_id: string
         }
@@ -137,6 +142,7 @@ export type Database = {
           kind?: string
           name?: string
           sort_order?: number
+          spending_nature?: string
           updated_at?: string
           user_id?: string
         }
@@ -290,6 +296,102 @@ export type Database = {
             referencedColumns: ["user_id", "id"]
           },
         ]
+      }
+      money_quests: {
+        Row: {
+          category_id: string | null
+          created_at: string
+          ends_on: string
+          goal_id: string | null
+          id: string
+          quest_type: string
+          starts_on: string
+          status: string
+          target_amount: number | null
+          target_count: number | null
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          category_id?: string | null
+          created_at?: string
+          ends_on: string
+          goal_id?: string | null
+          id: string
+          quest_type: string
+          starts_on: string
+          status?: string
+          target_amount?: number | null
+          target_count?: number | null
+          title: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          category_id?: string | null
+          created_at?: string
+          ends_on?: string
+          goal_id?: string | null
+          id?: string
+          quest_type?: string
+          starts_on?: string
+          status?: string
+          target_amount?: number | null
+          target_count?: number | null
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "money_quests_category_fkey"
+            columns: ["user_id", "category_id"]
+            isOneToOne: false
+            referencedRelation: "categories"
+            referencedColumns: ["user_id", "id"]
+          },
+          {
+            foreignKeyName: "money_quests_goal_fkey"
+            columns: ["user_id", "goal_id"]
+            isOneToOne: false
+            referencedRelation: "goals"
+            referencedColumns: ["user_id", "id"]
+          },
+        ]
+      }
+      money_wins: {
+        Row: {
+          cycle_end: string | null
+          cycle_start: string | null
+          detail: string | null
+          earned_at: string
+          id: string
+          title: string
+          user_id: string
+          win_type: string
+        }
+        Insert: {
+          cycle_end?: string | null
+          cycle_start?: string | null
+          detail?: string | null
+          earned_at?: string
+          id: string
+          title: string
+          user_id: string
+          win_type: string
+        }
+        Update: {
+          cycle_end?: string | null
+          cycle_start?: string | null
+          detail?: string | null
+          earned_at?: string
+          id?: string
+          title?: string
+          user_id?: string
+          win_type?: string
+        }
+        Relationships: []
       }
       transactions: {
         Row: {
@@ -480,39 +582,133 @@ export type Database = {
       }
       user_settings: {
         Row: {
+          analytics_consent: boolean
           avatar: string | null
           created_at: string
           currency: string
           display_name: string | null
+          income_cadence: string | null
+          income_source_type: string | null
+          next_income_date: string | null
           onboarding_completed: boolean
+          onboarding_step: number
+          onboarding_version: number
+          primary_money_priority: string | null
+          safety_reserve: number
           theme: string
           timezone: string
+          tour_completed: boolean
+          typical_income_amount: number
           updated_at: string
           user_id: string
         }
         Insert: {
+          analytics_consent?: boolean
           avatar?: string | null
           created_at?: string
           currency?: string
           display_name?: string | null
+          income_cadence?: string | null
+          income_source_type?: string | null
+          next_income_date?: string | null
           onboarding_completed?: boolean
+          onboarding_step?: number
+          onboarding_version?: number
+          primary_money_priority?: string | null
+          safety_reserve?: number
           theme?: string
           timezone?: string
+          tour_completed?: boolean
+          typical_income_amount?: number
           updated_at?: string
           user_id: string
         }
         Update: {
+          analytics_consent?: boolean
           avatar?: string | null
           created_at?: string
           currency?: string
           display_name?: string | null
+          income_cadence?: string | null
+          income_source_type?: string | null
+          next_income_date?: string | null
           onboarding_completed?: boolean
+          onboarding_step?: number
+          onboarding_version?: number
+          primary_money_priority?: string | null
+          safety_reserve?: number
           theme?: string
           timezone?: string
+          tour_completed?: boolean
+          typical_income_amount?: number
           updated_at?: string
           user_id?: string
         }
         Relationships: []
+      }
+      wishlist_items: {
+        Row: {
+          amount: number
+          category_id: string | null
+          created_at: string
+          goal_id: string | null
+          id: string
+          name: string
+          reconsider_at: string
+          status: string
+          transaction_id: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          amount: number
+          category_id?: string | null
+          created_at?: string
+          goal_id?: string | null
+          id: string
+          name: string
+          reconsider_at: string
+          status?: string
+          transaction_id?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          category_id?: string | null
+          created_at?: string
+          goal_id?: string | null
+          id?: string
+          name?: string
+          reconsider_at?: string
+          status?: string
+          transaction_id?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "wishlist_items_category_fkey"
+            columns: ["user_id", "category_id"]
+            isOneToOne: false
+            referencedRelation: "categories"
+            referencedColumns: ["user_id", "id"]
+          },
+          {
+            foreignKeyName: "wishlist_items_goal_fkey"
+            columns: ["user_id", "goal_id"]
+            isOneToOne: false
+            referencedRelation: "goals"
+            referencedColumns: ["user_id", "id"]
+          },
+          {
+            foreignKeyName: "wishlist_items_transaction_fkey"
+            columns: ["user_id", "transaction_id"]
+            isOneToOne: false
+            referencedRelation: "transactions"
+            referencedColumns: ["user_id", "id"]
+          },
+        ]
       }
     }
     Views: {

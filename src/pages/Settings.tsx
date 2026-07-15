@@ -43,7 +43,7 @@ export function Settings(props: Props) {
     const name = categoryName.trim()
     if (!name) return
     if (props.categories.some((item) => item.kind === categoryKind && item.name.toLowerCase() === name.toLowerCase())) return notify('That category already exists.')
-    await props.onSaveCategory({ id: crypto.randomUUID(), name, kind: categoryKind, color: categoryKind === 'income' ? '#2d9d78' : '#ff5c00' })
+    await props.onSaveCategory({ id: crypto.randomUUID(), name, kind: categoryKind, color: categoryKind === 'income' ? '#77D6A3' : '#FF6B3D', spendingNature: 'flexible' })
     setCategoryName('')
     notify('Category added.')
   }

@@ -7,6 +7,12 @@ export type DebtCategory = 'Debt' | 'Overdue Payment' | 'Money I Owe' | 'Install
 export type DebtStatus = 'Active' | 'Due Soon' | 'Overdue' | 'Paid'
 export type UpcomingExpenseStatus = 'upcoming' | 'due_soon' | 'overdue' | 'paid'
 export type RecurringFrequency = 'weekly' | 'monthly' | 'quarterly' | 'semi_annual' | 'yearly'
+export type IncomeSourceType = 'salary' | 'allowance' | 'irregular' | 'mixed'
+export type IncomeCadence = 'weekly' | 'monthly' | 'custom'
+export type MoneyPriority = 'stretch' | 'save' | 'control_spending' | 'bills_debt' | 'understand'
+export type SpendingNature = 'essential' | 'flexible'
+export type JourneyState = 'comfortable' | 'watchful' | 'protect' | 'needs_setup'
+export type AffordabilityState = 'safe' | 'caution' | 'risky' | 'needs_setup'
 
 export interface Account {
   id: string
@@ -16,6 +22,7 @@ export interface Account {
   color: string
   activity: string
   cardLabel: string
+  includeInSafeSpend: boolean
 }
 
 export interface Category {
@@ -23,6 +30,114 @@ export interface Category {
   name: string
   kind: 'income' | 'expense'
   color: string
+  spendingNature: SpendingNature
+}
+
+export interface JourneySettings {
+  incomeSourceType?: IncomeSourceType
+  incomeCadence?: IncomeCadence
+  typicalIncome: number
+  nextIncomeDate?: string
+  primaryPriority?: MoneyPriority
+  safetyReserve: number
+  onboardingVersion: number
+  onboardingStep: number
+  tourCompleted: boolean
+  analyticsConsent: boolean
+}
+
+export interface IncomeCycle {
+  startDate: string
+  endDate: string
+  totalDays: number
+  daysRemaining: number
+  daysElapsed: number
+}
+
+export interface SafeSpendResult {
+  state: JourneyState
+  safeToSpendToday: number
+  flexibleMoneyRemaining: number
+  includedBalance: number
+  reservedForBills: number
+  safetyReserve: number
+  cycle: IncomeCycle | null
+  explanation: string
+  missing: string[]
+}
+
+export interface AffordabilityResult {
+  state: AffordabilityState
+  amount: number
+  safeToSpendAfter: number
+  flexibleMoneyAfter: number
+  explanation: string
+}
+
+export interface MoneyLeakInsight {
+  id: string
+  title: string
+  explanation: string
+  action: string
+  amount: number
+  transactionCount: number
+  categoryId?: string
+  confidence: 'low' | 'medium' | 'high'
+}
+
+export interface CycleStory {
+  cycle: IncomeCycle
+  openingMoney: number
+  spent: number
+  protected: number
+  closingMoney: number
+  strongestCategory?: string
+  headline: string
+}
+
+export type QuestType = 'no_spend_days' | 'category_limit' | 'tracking_days' | 'goal_contribution'
+export type QuestStatus = 'active' | 'completed' | 'expired' | 'cancelled'
+
+export interface MoneyQuest {
+  id: string
+  type: QuestType
+  title: string
+  categoryId?: string
+  goalId?: string
+  targetAmount?: number
+  targetCount?: number
+  startsOn: string
+  endsOn: string
+  status: QuestStatus
+  createdAt?: string
+  updatedAt?: string
+}
+
+export type WishlistStatus = 'waiting' | 'ready' | 'bought' | 'skipped' | 'moved_to_goal'
+
+export interface WishlistItem {
+  id: string
+  name: string
+  amount: number
+  categoryId?: string
+  goalId?: string
+  reconsiderAt: string
+  status: WishlistStatus
+  transactionId?: string
+  createdAt?: string
+  updatedAt?: string
+}
+
+export type MoneyWinType = 'quest_completed' | 'goal_milestone' | 'budget_recovered' | 'cycle_improved' | 'tracking_consistency' | 'wishlist_skipped'
+
+export interface MoneyWin {
+  id: string
+  type: MoneyWinType
+  title: string
+  detail?: string
+  cycleStart?: string
+  cycleEnd?: string
+  earnedAt: string
 }
 
 export interface Transaction {

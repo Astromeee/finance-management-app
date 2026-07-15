@@ -552,6 +552,7 @@ function AddAccountModal({
       color,
       activity: '',
       cardLabel: label,
+      includeInSafeSpend: true,
     }
 
     try {

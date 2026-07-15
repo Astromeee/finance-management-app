@@ -19,7 +19,7 @@ export function Onboarding({ email, initialName, onComplete }: { email?: string;
     try {
       await onComplete({ name: name.trim() || email?.split('@')[0] || 'Pocket Ledger user' }, {
         id: crypto.randomUUID(), name: accountName.trim(), type: accountType, balance: amount,
-        color: '#ff5c00', activity: 'Opening balance', cardLabel: accountType.toUpperCase(),
+        color: '#FF6B3D', activity: 'Opening balance', cardLabel: accountType.toUpperCase(), includeInSafeSpend: true,
       })
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'Could not finish setup.')

@@ -1,5 +1,5 @@
 import { DEFAULT_EXPENSE_CATEGORIES, DEFAULT_INCOME_CATEGORIES, generalizeCategory } from '../data/defaultCategories'
-import type { Account, Budget, Category, Debt, Goal, Transaction, UpcomingExpense } from '../types/finance'
+import type { Account, Budget, Category, Debt, Goal, JourneySettings, MoneyQuest, MoneyWin, Transaction, UpcomingExpense, WishlistItem } from '../types/finance'
 import type { Json, TablesInsert } from '../types/database'
 import { localMonthKey } from './date'
 import type { Profile } from './profile'
@@ -15,6 +15,10 @@ export type FinanceData = {
   categories: Category[]
   profile: Profile
   onboardingCompleted: boolean
+  journeySettings: JourneySettings
+  moneyQuests: MoneyQuest[]
+  wishlistItems: WishlistItem[]
+  moneyWins: MoneyWin[]
 }
 
 type Row = Record<string, unknown>
@@ -37,6 +41,7 @@ function accountFromRow(row: Row): Account {
     color: value(row, 'color'),
     activity: value(row, 'activity'),
     cardLabel: value(row, 'card_label'),
+    includeInSafeSpend: row.include_in_safe_spend !== false,
   }
 }
 
@@ -118,7 +123,8 @@ export async function ensureDefaultCategories() {
     id: `${kind}-${crypto.randomUUID()}`,
     name,
     kind,
-    color: kind === 'income' ? '#2d9d78' : '#ff5c00',
+    color: kind === 'income' ? '#77D6A3' : '#FF6B3D',
+    spending_nature: kind === 'expense' && ['Food & Essentials', 'Transport', 'Education'].includes(name) ? 'essential' : 'flexible',
     sort_order: index,
     archived: false,
   }))
@@ -128,7 +134,7 @@ export async function ensureDefaultCategories() {
 
 export async function loadFinanceData(): Promise<FinanceData> {
   await ensureDefaultCategories()
-  const [accounts, transactions, goals, debts, budgets, upcoming, categories, settings] = await Promise.all([
+  const [accounts, transactions, goals, debts, budgets, upcoming, categories, settings, quests, wishlist, wins] = await Promise.all([
     client().from('accounts').select('*').eq('archived', false).order('created_at'),
     client().from('transactions').select('*').order('transaction_date', { ascending: false }).order('created_at', { ascending: false }),
     client().from('goals').select('*').order('created_at', { ascending: false }),
@@ -137,8 +143,11 @@ export async function loadFinanceData(): Promise<FinanceData> {
     client().from('upcoming_expenses').select('*').order('due_date'),
     client().from('categories').select('*').eq('archived', false).order('kind').order('sort_order'),
     client().from('user_settings').select('*').maybeSingle(),
+    client().from('money_quests').select('*').order('created_at', { ascending: false }),
+    client().from('wishlist_items').select('*').order('reconsider_at'),
+    client().from('money_wins').select('*').order('earned_at', { ascending: false }),
   ])
-  for (const result of [accounts, transactions, goals, debts, budgets, upcoming, categories, settings]) {
+  for (const result of [accounts, transactions, goals, debts, budgets, upcoming, categories, settings, quests, wishlist, wins]) {
     if (result.error) throw result.error
   }
   const transactionModels = (transactions.data as Row[]).map(transactionFromRow)
@@ -164,9 +173,42 @@ export async function loadFinanceData(): Promise<FinanceData> {
     upcomingExpenses: (upcoming.data as Row[]).map(upcomingFromRow),
     categories: (categories.data as Row[]).map((row) => ({
       id: value(row, 'id'), name: value(row, 'name'), kind: value(row, 'kind'), color: value(row, 'color'),
+      spendingNature: value(row, 'spending_nature'),
     })),
     profile: { name: (settingsRow?.display_name as string | undefined) || 'Pocket Ledger user', avatar: settingsRow?.avatar as string | undefined },
     onboardingCompleted: Boolean(settingsRow?.onboarding_completed),
+    journeySettings: {
+      incomeSourceType: settingsRow?.income_source_type as JourneySettings['incomeSourceType'],
+      incomeCadence: settingsRow?.income_cadence as JourneySettings['incomeCadence'],
+      typicalIncome: Number(settingsRow?.typical_income_amount ?? 0),
+      nextIncomeDate: settingsRow?.next_income_date as string | undefined,
+      primaryPriority: settingsRow?.primary_money_priority as JourneySettings['primaryPriority'],
+      safetyReserve: Number(settingsRow?.safety_reserve ?? 0),
+      onboardingVersion: Number(settingsRow?.onboarding_version ?? 1),
+      onboardingStep: Number(settingsRow?.onboarding_step ?? 0),
+      tourCompleted: Boolean(settingsRow?.tour_completed),
+      analyticsConsent: Boolean(settingsRow?.analytics_consent),
+    },
+    moneyQuests: (quests.data as Row[]).map((row) => ({
+      id: value(row, 'id'), type: value(row, 'quest_type'), title: value(row, 'title'),
+      categoryId: row.category_id as string | undefined, goalId: row.goal_id as string | undefined,
+      targetAmount: row.target_amount == null ? undefined : Number(row.target_amount),
+      targetCount: row.target_count as number | undefined, startsOn: value(row, 'starts_on'),
+      endsOn: value(row, 'ends_on'), status: value(row, 'status'),
+      createdAt: row.created_at as string | undefined, updatedAt: row.updated_at as string | undefined,
+    })),
+    wishlistItems: (wishlist.data as Row[]).map((row) => ({
+      id: value(row, 'id'), name: value(row, 'name'), amount: Number(row.amount),
+      categoryId: row.category_id as string | undefined, goalId: row.goal_id as string | undefined,
+      reconsiderAt: value(row, 'reconsider_at'), status: value(row, 'status'),
+      transactionId: row.transaction_id as string | undefined,
+      createdAt: row.created_at as string | undefined, updatedAt: row.updated_at as string | undefined,
+    })),
+    moneyWins: (wins.data as Row[]).map((row) => ({
+      id: value(row, 'id'), type: value(row, 'win_type'), title: value(row, 'title'),
+      detail: row.detail as string | undefined, cycleStart: row.cycle_start as string | undefined,
+      cycleEnd: row.cycle_end as string | undefined, earnedAt: value(row, 'earned_at'),
+    })),
   }
 }
 
@@ -239,6 +281,7 @@ export async function saveAccount(account: Account, openingBalance?: number) {
     user_id: userId, id: account.id, name: account.name, type: account.type,
     balance: account.balance, color: account.color,
     activity: account.activity, card_label: account.cardLabel, archived: false,
+    include_in_safe_spend: account.includeInSafeSpend,
   }
   if (openingBalance !== undefined) row.opening_balance = openingBalance
   const { error } = await client().from('accounts').upsert(row)
@@ -263,7 +306,7 @@ export async function saveCategory(category: Category) {
   const userId = await requireUserId()
   const { error } = await client().from('categories').upsert({
     user_id: userId, id: category.id, name: category.name, kind: category.kind,
-    color: category.color, sort_order: 100, archived: false,
+    color: category.color, spending_nature: category.spendingNature, sort_order: 100, archived: false,
   })
   if (error) throw error
 }
@@ -339,6 +382,56 @@ export async function saveUserSettings(profile: Profile, onboardingCompleted: bo
   const { error } = await client().from('user_settings').upsert({
     user_id: userId, display_name: profile.name, avatar: profile.avatar,
     currency: 'PKR', timezone: 'Asia/Karachi', onboarding_completed: onboardingCompleted,
+  })
+  if (error) throw error
+}
+
+export async function saveJourneySettings(settings: JourneySettings, onboardingCompleted: boolean) {
+  const userId = await requireUserId()
+  const { error } = await client().from('user_settings').upsert({
+    user_id: userId,
+    currency: 'PKR',
+    timezone: 'Asia/Karachi',
+    onboarding_completed: onboardingCompleted,
+    income_source_type: settings.incomeSourceType,
+    income_cadence: settings.incomeCadence,
+    typical_income_amount: settings.typicalIncome,
+    next_income_date: settings.nextIncomeDate,
+    primary_money_priority: settings.primaryPriority,
+    safety_reserve: settings.safetyReserve,
+    onboarding_version: settings.onboardingVersion,
+    onboarding_step: settings.onboardingStep,
+    tour_completed: settings.tourCompleted,
+    analytics_consent: settings.analyticsConsent,
+  })
+  if (error) throw error
+}
+
+export async function saveMoneyQuest(quest: MoneyQuest) {
+  const userId = await requireUserId()
+  const { error } = await client().from('money_quests').upsert({
+    user_id: userId, id: quest.id, quest_type: quest.type, title: quest.title,
+    category_id: quest.categoryId, goal_id: quest.goalId, target_amount: quest.targetAmount,
+    target_count: quest.targetCount, starts_on: quest.startsOn, ends_on: quest.endsOn, status: quest.status,
+  })
+  if (error) throw error
+}
+
+export async function saveWishlistItem(item: WishlistItem) {
+  const userId = await requireUserId()
+  const { error } = await client().from('wishlist_items').upsert({
+    user_id: userId, id: item.id, name: item.name, amount: item.amount,
+    category_id: item.categoryId, goal_id: item.goalId, reconsider_at: item.reconsiderAt,
+    status: item.status, transaction_id: item.transactionId,
+  })
+  if (error) throw error
+}
+
+export async function saveMoneyWin(win: MoneyWin) {
+  const userId = await requireUserId()
+  const { error } = await client().from('money_wins').upsert({
+    user_id: userId, id: win.id, win_type: win.type, title: win.title, detail: win.detail,
+    cycle_start: win.cycleStart, cycle_end: win.cycleEnd, earned_at: win.earnedAt,
   })
   if (error) throw error
 }

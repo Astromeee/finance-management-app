@@ -6,11 +6,11 @@ export const accounts: Account[] = [
 
 export const incomeSources: Category[] = [
   ...DEFAULT_INCOME_CATEGORIES,
-].map((name, index) => ({ id: name.toLowerCase().replaceAll(' ', '-'), name, kind: 'income', color: ['#ddff45', '#8be28f', '#d4d4d0', '#aeb7c5'][index % 4] }))
+].map((name, index) => ({ id: name.toLowerCase().replaceAll(' ', '-'), name, kind: 'income', color: ['#77D6A3', '#FF6B3D', '#C6BED4', '#F1B75A'][index % 4], spendingNature: 'flexible' as const }))
 
 export const expenseCategories: Category[] = [
   ...DEFAULT_EXPENSE_CATEGORIES,
-].map((name, index) => ({ id: name.toLowerCase().replaceAll(' ', '-'), name, kind: 'expense', color: ['#ddff45', '#d4d4d0', '#8f949c', '#e98d67', '#aeb7c5', '#c9a46a'][index % 6] }))
+].map((name, index) => ({ id: name.toLowerCase().replaceAll(' ', '-'), name, kind: 'expense', color: ['#FF6B3D', '#77D6A3', '#C6BED4', '#F1B75A', '#8E7FA6', '#FF806B'][index % 6], spendingNature: ['Food & Essentials', 'Transport', 'Education'].includes(name) ? 'essential' as const : 'flexible' as const }))
 
 export const transactions: Transaction[] = [
 ]
