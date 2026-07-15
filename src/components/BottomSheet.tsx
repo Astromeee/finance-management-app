@@ -1,6 +1,6 @@
 import { X } from 'lucide-react'
 import { animate, motion, useMotionValue } from 'framer-motion'
-import { useEffect, useRef, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react'
+import { useEffect, useId, useRef, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react'
 
 /**
  * Bottom sheet that can be swiped down to dismiss from ANYWHERE on it, not
@@ -28,6 +28,9 @@ export function BottomSheet({
   children: ReactNode
 }) {
   const y = useMotionValue(0)
+  const titleId = useId()
+  const descriptionId = useId()
+  const dialogRef = useRef<HTMLElement>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
   const drag = useRef({ startY: 0, active: false, pointerId: -1 })
 
@@ -38,6 +41,38 @@ export function BottomSheet({
     const controls = animate(y, 0, { type: 'spring', stiffness: 260, damping: 30 })
     return () => controls.stop()
   }, [open, y])
+
+  useEffect(() => {
+    if (!open) return
+    const previous = document.activeElement instanceof HTMLElement ? document.activeElement : null
+    const dialog = dialogRef.current
+    const focusable = () => Array.from(dialog?.querySelectorAll<HTMLElement>('button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), a[href], [tabindex]:not([tabindex="-1"])') ?? [])
+    window.setTimeout(() => (focusable()[0] ?? dialog)?.focus(), 0)
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        event.preventDefault()
+        onClose()
+        return
+      }
+      if (event.key !== 'Tab') return
+      const items = focusable()
+      if (!items.length) return
+      const first = items[0]
+      const last = items.at(-1)!
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault()
+        last.focus()
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault()
+        first.focus()
+      }
+    }
+    document.addEventListener('keydown', onKeyDown)
+    return () => {
+      document.removeEventListener('keydown', onKeyDown)
+      previous?.focus()
+    }
+  }, [onClose, open])
 
   if (!open) return null
 
@@ -74,6 +109,12 @@ export function BottomSheet({
   return (
     <div className="fixed inset-0 z-50 grid items-end bg-black/70 p-0 backdrop-blur-sm sm:items-center sm:p-6" onPointerDown={onClose}>
       <motion.section
+        ref={dialogRef}
+        aria-describedby={descriptionId}
+        aria-labelledby={titleId}
+        aria-modal="true"
+        role="dialog"
+        tabIndex={-1}
         style={{ y, touchAction: 'none' }}
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
@@ -88,8 +129,8 @@ export function BottomSheet({
           <span aria-hidden className="mx-auto mb-3 block h-1.5 w-14 rounded-full bg-white/18" />
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-xs text-[var(--muted)]">{eyebrow}</p>
-              <h2 className="text-xl font-semibold text-white">{title}</h2>
+              <p className="text-xs text-[var(--muted)]" id={descriptionId}>{eyebrow}</p>
+              <h2 className="text-xl font-semibold text-white" id={titleId}>{title}</h2>
             </div>
             <button className="icon-button" type="button" onClick={onClose} aria-label={`Close ${title}`}><X size={19} /></button>
           </div>

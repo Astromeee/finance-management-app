@@ -31,6 +31,7 @@ export interface Transaction {
   amount: number
   type: TransactionType
   category?: string
+  categoryId?: string
   source?: string
   account: string
   accountId?: string
@@ -76,6 +77,8 @@ export interface Budget {
   category: string
   amount: number
   used: number
+  categoryId?: string
+  periodMonth?: string
 }
 
 export interface UpcomingExpense {

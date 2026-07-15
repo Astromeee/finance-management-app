@@ -1,38 +1,34 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
-import type { FormEvent, ReactNode } from 'react'
-import { AddExpenseModal, AddGoalModal, AddIncomeModal, DebtPaymentModal, TransferModal } from './components/forms/FinanceActionModals'
+import { lazy, Suspense, useCallback, useEffect, useState } from 'react'
+import type { ReactNode } from 'react'
+import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
 import { AppShell } from './components/layout/AppShell'
-import { accounts as initialAccounts, budgets as initialBudgets, debts as initialDebts, expenseCategories as initialExpenseCategories, goals as initialGoals, incomeSources as initialIncomeSources, legacySiblingNames, transactions as initialTransactions, upcomingExpenses as initialUpcomingExpenses } from './data/mockData'
-import { loadFinanceState, saveFinanceState, type FinanceState } from './lib/financeStateStore'
+import { accounts as initialAccounts, budgets as initialBudgets, debts as initialDebts, expenseCategories as initialExpenseCategories, goals as initialGoals, incomeSources as initialIncomeSources, transactions as initialTransactions, upcomingExpenses as initialUpcomingExpenses } from './data/mockData'
+import { adjustAccountBalance, archiveAccount, archiveCategory, deleteBudget, deleteDebt, deleteFinanceTransaction, deleteGoal, deleteUpcomingExpense, loadFinanceData, markUpcomingExpensePaid, recordFinanceAction, saveAccount, saveBudget, saveCategory, saveDebt, saveGoal, saveUpcomingExpense, saveUserSettings, updateFinanceTransaction } from './lib/financeRepository'
+import { addRecurringDate } from './lib/date'
 import { getProfile, onProfileChange, setProfile, type Profile } from './lib/profile'
 import { isSupabaseConfigured, supabase } from './lib/supabase'
-import { Accounts } from './pages/Accounts'
-import { Budgets } from './pages/Budgets'
-import { Dashboard } from './pages/Dashboard'
-import { GoalsDebts } from './pages/GoalsDebts'
-import { ProfilePage } from './pages/Profile'
-import { Reports } from './pages/Reports'
-import { Settings } from './pages/Settings'
-import { Transactions } from './pages/Transactions'
-import type { Budget, Debt, DebtCategory, DebtStatus, Goal, RecurringFrequency, Transaction, UpcomingExpense } from './types/finance'
+import { AuthCallback, AuthPage } from './pages/Auth'
+import { LegalPage } from './pages/Legal'
+import { Onboarding } from './pages/Onboarding'
+import type { Budget, Category, Debt, DebtCategory, DebtStatus, Goal, RecurringFrequency, Transaction, UpcomingExpense } from './types/finance'
+
+const AddExpenseModal = lazy(() => import('./components/forms/FinanceActionModals').then((module) => ({ default: module.AddExpenseModal })))
+const AddGoalModal = lazy(() => import('./components/forms/FinanceActionModals').then((module) => ({ default: module.AddGoalModal })))
+const AddIncomeModal = lazy(() => import('./components/forms/FinanceActionModals').then((module) => ({ default: module.AddIncomeModal })))
+const DebtPaymentModal = lazy(() => import('./components/forms/FinanceActionModals').then((module) => ({ default: module.DebtPaymentModal })))
+const TransferModal = lazy(() => import('./components/forms/FinanceActionModals').then((module) => ({ default: module.TransferModal })))
+const Accounts = lazy(() => import('./pages/Accounts').then((module) => ({ default: module.Accounts })))
+const Budgets = lazy(() => import('./pages/Budgets').then((module) => ({ default: module.Budgets })))
+const Dashboard = lazy(() => import('./pages/Dashboard').then((module) => ({ default: module.Dashboard })))
+const GoalsDebts = lazy(() => import('./pages/GoalsDebts').then((module) => ({ default: module.GoalsDebts })))
+const ProfilePage = lazy(() => import('./pages/Profile').then((module) => ({ default: module.ProfilePage })))
+const Reports = lazy(() => import('./pages/Reports').then((module) => ({ default: module.Reports })))
+const Settings = lazy(() => import('./pages/Settings').then((module) => ({ default: module.Settings })))
+const Transactions = lazy(() => import('./pages/Transactions').then((module) => ({ default: module.Transactions })))
 
 type ActionModal = 'income' | 'expense' | 'transfer' | 'goal' | 'debt' | null
 
-const makeId = (prefix: string) => `${prefix}-${Date.now()}-${Math.random().toString(16).slice(2, 7)}`
-const SAVINGS_ACCOUNT_ID = 'savings'
-
-const createSavingsAccount = (balance = 0) => ({
-  id: SAVINGS_ACCOUNT_ID,
-  name: 'Savings',
-  type: 'wallet' as const,
-  balance,
-  color: '#ddff45',
-  activity: 'Goal savings reserve',
-  cardLabel: 'SAVE',
-})
-
-const withSavingsAccount = (accounts: typeof initialAccounts) =>
-  accounts.some((account) => account.id === SAVINGS_ACCOUNT_ID) ? accounts : [...accounts, createSavingsAccount()]
+const makeId = () => crypto.randomUUID()
 
 type DebtPayload = {
   title: string
@@ -45,29 +41,8 @@ type DebtPayload = {
   notes?: string
 }
 
-const initialFinanceState: FinanceState = {
-  accounts: initialAccounts,
-  transactions: initialTransactions,
-  goals: initialGoals,
-  debts: initialDebts,
-  budgets: initialBudgets,
-  upcomingExpenses: initialUpcomingExpenses,
-  expenseCategories: initialExpenseCategories.map((category) => category.name),
-  incomeCategories: initialIncomeSources.map((category) => category.name),
-  // brand-new accounts start with no sibling names; existing accounts' rows
-  // predate this field and get backfilled with legacySiblingNames on load
-  siblingNames: [],
-}
-
 function nextRecurringDate(dueDate: string, frequency: RecurringFrequency) {
-  const date = new Date(dueDate)
-  if (Number.isNaN(date.getTime())) return ''
-  if (frequency === 'weekly') date.setDate(date.getDate() + 7)
-  if (frequency === 'monthly') date.setMonth(date.getMonth() + 1)
-  if (frequency === 'quarterly') date.setMonth(date.getMonth() + 3)
-  if (frequency === 'semi_annual') date.setMonth(date.getMonth() + 6)
-  if (frequency === 'yearly') date.setFullYear(date.getFullYear() + 1)
-  return date.toISOString().slice(0, 10)
+  return addRecurringDate(dueDate, frequency)
 }
 
 function debtTitle(debt: Debt) {
@@ -85,7 +60,7 @@ function debtPaid(debt: Debt) {
 function createDebt(payload: DebtPayload): Debt {
   const paidAmount = Math.min(payload.totalAmount, payload.paidAmount)
   return {
-    id: makeId('debt'),
+    id: makeId(),
     title: payload.title,
     name: payload.title,
     personOrCompany: payload.personOrCompany,
@@ -121,33 +96,41 @@ function updateDebtFromPayload(debt: Debt, payload: DebtPayload): Debt {
 }
 
 function App() {
-  const [activePage, setActivePage] = useState('dashboard')
+  const location = useLocation()
+  const navigate = useNavigate()
+  const routePage = location.pathname.startsWith('/app/') ? location.pathname.split('/')[2] : 'dashboard'
+  const activePage = routePage
   const [activeModal, setActiveModal] = useState<ActionModal>(null)
   const [activeDebtId, setActiveDebtId] = useState<string | undefined>()
   const [toast, setToast] = useState('')
   const [authReady, setAuthReady] = useState(!isSupabaseConfigured)
+  const [dataReady, setDataReady] = useState(!isSupabaseConfigured)
   const [financeUserId, setFinanceUserId] = useState<string | null>(null)
-  const [authEmail, setAuthEmail] = useState('')
-  const [authPassword, setAuthPassword] = useState('')
-  const [authMessage, setAuthMessage] = useState('')
-  const [authLoading, setAuthLoading] = useState(false)
+  const [authEmail, setAuthEmail] = useState<string>()
+  const [authProvider, setAuthProvider] = useState<string>()
+  const [onboardingCompleted, setOnboardingCompleted] = useState(!isSupabaseConfigured)
   const [accounts, setAccounts] = useState(initialAccounts)
   const [transactions, setTransactions] = useState(initialTransactions)
   const [goals, setGoals] = useState<Goal[]>(initialGoals)
   const [debts, setDebts] = useState<Debt[]>(initialDebts)
   const [budgets, setBudgets] = useState<Budget[]>(initialBudgets)
   const [upcomingExpenses, setUpcomingExpenses] = useState<UpcomingExpense[]>(initialUpcomingExpenses)
-  const [expenseCategoryNames, setExpenseCategoryNames] = useState(() => initialExpenseCategories.map((category) => category.name))
-  const [incomeCategoryNames, setIncomeCategoryNames] = useState(() => initialIncomeSources.map((category) => category.name))
-  const [siblingNames, setSiblingNames] = useState<string[]>([])
+  const [categories, setCategories] = useState<Category[]>(() => [...initialIncomeSources, ...initialExpenseCategories])
   const [profile, setProfileState] = useState<Profile>(getProfile)
-  const remoteStateLoaded = useRef(!isSupabaseConfigured)
-  const saveTimer = useRef<number | undefined>(undefined)
+  const expenseCategoryNames = categories.filter((category) => category.kind === 'expense').map((category) => category.name)
+  const incomeCategoryNames = categories.filter((category) => category.kind === 'income').map((category) => category.name)
 
   const showToast = useCallback((message: string) => {
     setToast(message)
     window.setTimeout(() => setToast(''), 2600)
   }, [])
+
+  // expose the active page to CSS so Home gets its own "ledger paper" canvas (see theme.css §7)
+  useEffect(() => { document.documentElement.dataset.page = activePage }, [activePage])
+
+  const setActivePage = useCallback((page: string) => {
+    navigate(page === 'dashboard' ? '/app' : `/app/${page}`)
+  }, [navigate])
 
   useEffect(() => onProfileChange(setProfileState), [])
 
@@ -160,13 +143,17 @@ function App() {
       if (!mounted) return
       if (error) console.warn('Supabase session check failed:', error)
       setFinanceUserId(data.session?.user.id ?? null)
+      setAuthEmail(data.session?.user.email)
+      setAuthProvider(data.session?.user.app_metadata.provider as string | undefined)
       setAuthReady(true)
     })
 
     const { data } = supabase.auth.onAuthStateChange((_event, session) => {
       setFinanceUserId(session?.user.id ?? null)
+      setAuthEmail(session?.user.email)
+      setAuthProvider(session?.user.app_metadata.provider as string | undefined)
       setAuthReady(true)
-      if (!session?.user) remoteStateLoaded.current = false
+      if (!session?.user) setDataReady(false)
     })
 
     return () => {
@@ -182,8 +169,8 @@ function App() {
       if (!isSupabaseConfigured || !financeUserId) return
 
       try {
-        remoteStateLoaded.current = false
-        const remoteState = await loadFinanceState(initialFinanceState)
+        setDataReady(false)
+        const remoteState = await loadFinanceData()
         if (cancelled) return
         setAccounts(remoteState.accounts)
         setTransactions(remoteState.transactions)
@@ -191,20 +178,15 @@ function App() {
         setDebts(remoteState.debts)
         setBudgets(remoteState.budgets)
         setUpcomingExpenses(remoteState.upcomingExpenses)
-        setExpenseCategoryNames(remoteState.expenseCategories?.length ? remoteState.expenseCategories : initialExpenseCategories.map((category) => category.name))
-        setIncomeCategoryNames(remoteState.incomeCategories?.length ? remoteState.incomeCategories : initialIncomeSources.map((category) => category.name))
-        // undefined = row predates this field (existing account) → backfill legacy names.
-        // Any array, including [], means the field was already saved (new accounts save `[]` from initialFinanceState) → trust it as-is.
-        setSiblingNames(remoteState.siblingNames === undefined ? legacySiblingNames : remoteState.siblingNames)
-        if (remoteState.profile && JSON.stringify(remoteState.profile) !== JSON.stringify(getProfile())) {
-          setProfile(remoteState.profile)
-        }
-        remoteStateLoaded.current = true
-        showToast('Supabase connected')
+        setCategories(remoteState.categories)
+        setProfile(remoteState.profile)
+        setProfileState(remoteState.profile)
+        setOnboardingCompleted(remoteState.onboardingCompleted)
+        setDataReady(true)
       } catch (error) {
-        remoteStateLoaded.current = true
-        console.warn('Supabase sync disabled:', error)
-        showToast('Using local data')
+        console.warn('Supabase load failed:', error)
+        setDataReady(true)
+        showToast('Could not load your ledger. Please retry.')
       }
     }
 
@@ -214,59 +196,12 @@ function App() {
     }
   }, [financeUserId, showToast])
 
-  useEffect(() => {
-    if (!isSupabaseConfigured || !financeUserId || !remoteStateLoaded.current) return
-
-    const state: FinanceState = {
-      accounts,
-      transactions,
-      goals,
-      debts,
-      budgets,
-      upcomingExpenses,
-      expenseCategories: expenseCategoryNames,
-      incomeCategories: incomeCategoryNames,
-      siblingNames,
-      profile,
-    }
-
-    window.clearTimeout(saveTimer.current)
-    saveTimer.current = window.setTimeout(() => {
-      saveFinanceState(state).catch((error) => {
-        console.warn('Supabase save failed:', error)
-        showToast('Supabase save failed')
-      })
-    }, 500)
-
-    return () => window.clearTimeout(saveTimer.current)
-  }, [accounts, budgets, debts, expenseCategoryNames, financeUserId, goals, incomeCategoryNames, profile, showToast, siblingNames, transactions, upcomingExpenses])
-
-  const handlePasswordLogin = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault()
-    if (!supabase || !authEmail.trim() || !authPassword) return
-
-    setAuthLoading(true)
-    setAuthMessage('')
-    const { error } = await supabase.auth.signInWithPassword({
-      email: authEmail.trim(),
-      password: authPassword,
-    })
-    setAuthLoading(false)
-    setAuthMessage(error ? error.message : '')
-  }
-
   const addTransaction = (transaction: Transaction) => {
     setTransactions((current) => [{ ...transaction, createdAt: new Date().toISOString() }, ...current])
   }
 
   const updateAccountBalance = (accountId: string, delta: number) => {
-    setAccounts((current) => {
-      if (current.some((account) => account.id === accountId)) {
-        return current.map((account) => account.id === accountId ? { ...account, balance: account.balance + delta } : account)
-      }
-      if (accountId === SAVINGS_ACCOUNT_ID) return [...current, createSavingsAccount(delta)]
-      return current
-    })
+    setAccounts((current) => current.map((account) => account.id === accountId ? { ...account, balance: account.balance + delta } : account))
   }
 
   const applyTransactionEffect = (transaction: Transaction, direction: 1 | -1) => {
@@ -309,24 +244,36 @@ function App() {
     }
   }
 
-  const updateTransaction = (nextTransaction: Transaction) => {
+  const updateTransaction = async (nextTransaction: Transaction) => {
     const previous = transactions.find((transaction) => transaction.id === nextTransaction.id)
     if (!previous) return
+    try {
+      await updateFinanceTransaction(nextTransaction)
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : 'Could not update transaction')
+      return
+    }
     applyTransactionEffect(previous, -1)
     applyTransactionEffect(nextTransaction, 1)
     setTransactions((current) => current.map((transaction) => transaction.id === nextTransaction.id ? { ...nextTransaction, createdAt: transaction.createdAt } : transaction))
     showToast('Transaction updated')
   }
 
-  const deleteTransaction = (transactionId: string) => {
+  const deleteTransaction = async (transactionId: string) => {
     const transaction = transactions.find((item) => item.id === transactionId)
     if (!transaction) return
+    try {
+      await deleteFinanceTransaction(transactionId)
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : 'Could not delete transaction')
+      return
+    }
     applyTransactionEffect(transaction, -1)
     setTransactions((current) => current.filter((item) => item.id !== transactionId))
     showToast('Transaction deleted')
   }
 
-  const accountsWithSavings = withSavingsAccount(accounts)
+  const accountsWithSavings = accounts
 
   const pages: Record<string, { title: string; subtitle: string; component: ReactNode }> = {
     dashboard: { title: 'Dashboard', subtitle: 'Your financial overview', component: <Dashboard accounts={accountsWithSavings} transactions={transactions} goals={goals} debts={debts} budgets={budgets} upcomingExpenses={upcomingExpenses} onAction={setActiveModal} onNavigate={setActivePage} /> },
@@ -334,7 +281,7 @@ function App() {
     accounts: {
       title: 'Accounts',
       subtitle: 'Manage cash, banks, and wallets',
-      component: <Accounts accounts={accounts} transactions={transactions} setAccounts={setAccounts} setTransactions={setTransactions} onTransfer={() => setActiveModal('transfer')} onOpenTransactions={() => setActivePage('transactions')} />,
+      component: <Accounts accounts={accounts} transactions={transactions} setAccounts={setAccounts} setTransactions={setTransactions} onTransfer={() => setActiveModal('transfer')} onOpenTransactions={() => setActivePage('transactions')} onSaveAccount={saveAccount} onAdjustBalance={async (account, transaction) => { await adjustAccountBalance(account, transaction) }} onArchiveAccount={archiveAccount} />,
     },
     goals: {
       title: 'Goals & Debts',
@@ -351,31 +298,46 @@ function App() {
             setActiveModal('debt')
           }}
           onAddDebt={(payload) => {
-            setDebts((current) => [createDebt(payload), ...current])
+            const debt = createDebt(payload)
+            setDebts((current) => [debt, ...current])
+            void saveDebt(debt).catch((error) => showToast(error.message))
             showToast(payload.category === 'Money I Owe' ? 'Money owed item added' : 'Debt added')
           }}
           onUpdateGoal={(goalId, payload) => {
-            setGoals((current) => current.map((goal) => goal.id === goalId ? { ...goal, ...payload } : goal))
+            const goal = goals.find((item) => item.id === goalId)
+            if (goal) void saveGoal({ ...goal, ...payload }).catch((error) => showToast(error.message))
+            setGoals((current) => current.map((item) => item.id === goalId ? { ...item, ...payload } : item))
             showToast('Goal updated')
           }}
           onDeleteGoal={(goalId) => {
+            void deleteGoal(goalId).catch((error) => showToast(error.message))
             setGoals((current) => current.filter((goal) => goal.id !== goalId))
             showToast('Goal deleted')
           }}
           onUpdateDebt={(debtId, payload) => {
-            setDebts((current) => current.map((debt) => debt.id === debtId ? updateDebtFromPayload(debt, payload) : debt))
+            const debt = debts.find((item) => item.id === debtId)
+            if (debt) void saveDebt(updateDebtFromPayload(debt, payload)).catch((error) => showToast(error.message))
+            setDebts((current) => current.map((item) => item.id === debtId ? updateDebtFromPayload(item, payload) : item))
             showToast('Debt item updated')
           }}
           onDeleteDebt={(debtId) => {
+            void deleteDebt(debtId).catch((error) => showToast(error.message))
             setDebts((current) => current.filter((debt) => debt.id !== debtId))
             showToast('Debt deleted')
           }}
-          onAddSavings={({ goalId, amount, accountId, date, notes }) => {
+          onAddSavings={async ({ goalId, amount, accountId, date, notes }) => {
             const goal = goals.find((item) => item.id === goalId)
             const account = accountsWithSavings.find((item) => item.id === accountId)
             if (!goal || !account) return
             if (account.balance < amount) {
               showToast('Savings does not have enough money')
+              return
+            }
+            const transactionId = makeId()
+            try {
+              await recordFinanceAction({ id: transactionId, title: 'Goal Saving', type: 'goal_saving', amount, category: goal.name, account: account.name, accountId, goalId, date, notes })
+            } catch (error) {
+              showToast(error instanceof Error ? error.message : 'Could not add savings')
               return
             }
             updateAccountBalance(accountId, -amount)
@@ -384,25 +346,49 @@ function App() {
               const saved = Math.min(item.target, item.saved + amount)
               return { ...item, saved, status: saved >= item.target ? 'Completed' : item.status }
             }))
-            addTransaction({ id: makeId('goal-save'), title: 'Goal Saving', type: 'goal_saving', amount, category: goal.name, account: account.name, accountId, goalId, date, notes })
+            addTransaction({ id: transactionId, title: 'Goal Saving', type: 'goal_saving', amount, category: goal.name, account: account.name, accountId, goalId, date, notes })
             showToast('Savings added')
           }}
           onAddUpcomingExpense={(payload) => {
-            setUpcomingExpenses((current) => [{ ...payload, id: makeId('upcoming'), status: 'upcoming', createdAt: new Date().toISOString() }, ...current])
+            const expense: UpcomingExpense = { ...payload, id: makeId(), status: 'upcoming', createdAt: new Date().toISOString() }
+            setUpcomingExpenses((current) => [expense, ...current])
+            void saveUpcomingExpense(expense).catch((error) => showToast(error.message))
             showToast('Upcoming expense added')
           }}
           onUpdateUpcomingExpense={(expenseId, payload) => {
+            const expense = upcomingExpenses.find((item) => item.id === expenseId)
+            if (expense) void saveUpcomingExpense({ ...expense, ...payload, status: expense.status === 'paid' ? 'paid' : 'upcoming' }).catch((error) => showToast(error.message))
             setUpcomingExpenses((current) => current.map((expense) => expense.id === expenseId ? { ...expense, ...payload, status: expense.status === 'paid' ? 'paid' : 'upcoming' } : expense))
             showToast('Upcoming expense updated')
           }}
           onDeleteUpcomingExpense={(expenseId) => {
+            void deleteUpcomingExpense(expenseId).catch((error) => showToast(error.message))
             setUpcomingExpenses((current) => current.filter((expense) => expense.id !== expenseId))
             showToast('Upcoming expense deleted')
           }}
-          onMarkUpcomingPaid={(expense, { accountId, paymentDate, notes }) => {
+          onMarkUpcomingPaid={async (expense, { accountId, paymentDate, notes }) => {
             const account = accounts.find((item) => item.id === accountId)
             if (!account) return
-            const transactionId = makeId('upcoming-paid')
+            const transactionId = makeId()
+            const nextDueDate = expense.isRecurring && expense.recurringFrequency ? nextRecurringDate(expense.dueDate, expense.recurringFrequency) : undefined
+            const nextExpense = nextDueDate && (!expense.repeatEndDate || nextDueDate <= expense.repeatEndDate) ? {
+              ...expense,
+              id: makeId(),
+              dueDate: nextDueDate,
+              status: 'upcoming' as const,
+              createdAt: new Date().toISOString(),
+              paidTransactionId: undefined,
+            } : undefined
+            try {
+              await markUpcomingExpensePaid(
+                expense.id,
+                { id: transactionId, title: expense.title, type: 'expense', amount: expense.amount, category: expense.category, account: account.name, accountId, date: paymentDate, notes: notes ?? expense.notes },
+                nextExpense,
+              )
+            } catch (error) {
+              showToast(error instanceof Error ? error.message : 'Could not record the payment')
+              return
+            }
             updateAccountBalance(accountId, -expense.amount)
             setBudgets((current) => current.map((budget) => budget.category === expense.category ? { ...budget, used: budget.used + expense.amount } : budget))
             addTransaction({
@@ -418,17 +404,7 @@ function App() {
             })
             setUpcomingExpenses((current) => {
               const paidItems = current.map((item) => item.id === expense.id ? { ...item, status: 'paid' as const, paidTransactionId: transactionId } : item)
-              const nextDueDate = expense.isRecurring && expense.recurringFrequency ? nextRecurringDate(expense.dueDate, expense.recurringFrequency) : undefined
-              if (!nextDueDate || (expense.repeatEndDate && nextDueDate > expense.repeatEndDate)) return paidItems
-              const nextExpense: UpcomingExpense = {
-                ...expense,
-                id: makeId('upcoming-next'),
-                dueDate: nextDueDate,
-                status: 'upcoming',
-                createdAt: new Date().toISOString(),
-                paidTransactionId: undefined,
-              }
-              return [nextExpense, ...paidItems]
+              return nextExpense ? [nextExpense, ...paidItems] : paidItems
             })
             showToast(expense.isRecurring ? 'Expense paid and next recurring item created' : 'Expense recorded')
           }}
@@ -446,109 +422,108 @@ function App() {
           goals={goals}
           debts={debts}
           upcomingExpenses={upcomingExpenses}
-          expenseCategories={expenseCategoryNames}
-          incomeCategories={incomeCategoryNames}
-          onAddExpenseCategory={(category) => setExpenseCategoryNames((current) => current.some((item) => item.toLowerCase() === category.toLowerCase()) ? current : [...current, category])}
-          onAddIncomeCategory={(category) => setIncomeCategoryNames((current) => current.some((item) => item.toLowerCase() === category.toLowerCase()) ? current : [...current, category])}
-          onRemoveExpenseCategory={(category) => setExpenseCategoryNames((current) => current.filter((item) => item !== category))}
-          onRemoveIncomeCategory={(category) => setIncomeCategoryNames((current) => current.filter((item) => item !== category))}
-          siblingNames={siblingNames}
-          onAddSiblingName={(name) => setSiblingNames((current) => current.some((item) => item.toLowerCase() === name.toLowerCase()) ? current : [...current, name])}
-          onRemoveSiblingName={(name) => setSiblingNames((current) => current.filter((item) => item !== name))}
         />
       ),
     },
-    settings: { title: 'Settings', subtitle: 'Preferences and data tools', component: <Settings /> },
+    settings: { title: 'Settings', subtitle: 'Preferences and data tools', component: <Settings accounts={accounts} authEmail={authEmail} authProvider={authProvider} budgets={budgets} categories={categories} debts={debts} expenseCategories={expenseCategoryNames} goals={goals} incomeCategories={incomeCategoryNames} profile={profile} transactions={transactions} upcomingExpenses={upcomingExpenses} onNavigate={setActivePage} onProfileChange={(next) => { setProfile(next); setProfileState(next); void saveUserSettings(next, true) }} onSaveCategory={async (category) => { await saveCategory(category); setCategories((current) => [...current.filter((item) => item.id !== category.id), category]) }} onArchiveCategory={async (id) => { await archiveCategory(id); setCategories((current) => current.filter((item) => item.id !== id)) }} onSaveBudget={async (budget) => { await saveBudget(budget); setBudgets((current) => [...current.filter((item) => item.id !== budget.id), budget]) }} onDeleteBudget={async (id) => { await deleteBudget(id); setBudgets((current) => current.filter((item) => item.id !== id)) }} onSignOut={() => supabase?.auth.signOut()} /> },
     profile: { title: 'Profile', subtitle: 'Your name and photo', component: <ProfilePage onBack={() => setActivePage('dashboard')} /> },
   }
 
-  if (isSupabaseConfigured && !authReady) return <SupabaseAuthShell title="Connecting to Supabase" />
-
-  if (isSupabaseConfigured && !financeUserId) {
-    return (
-      <SupabaseAuthShell title="Pocket Ledger">
-        <form className="mt-6 grid gap-4" onSubmit={handlePasswordLogin}>
-          <label>
-            <span className="form-label">Email address</span>
-            <input className="form-input" type="email" value={authEmail} onChange={(event) => setAuthEmail(event.target.value)} placeholder="you@example.com" required />
-          </label>
-          <label>
-            <span className="form-label">Password</span>
-            <input className="form-input" type="password" value={authPassword} onChange={(event) => setAuthPassword(event.target.value)} placeholder="Enter your password" required />
-          </label>
-          <button className="btn-primary justify-center disabled:opacity-60" disabled={authLoading}>{authLoading ? 'Signing in...' : 'Log in'}</button>
-          {authMessage && <p className="rounded-2xl border border-[rgba(221,255,69,.16)] bg-[rgba(221,255,69,.06)] p-3 text-sm text-[var(--muted)]">{authMessage}</p>}
-        </form>
-      </SupabaseAuthShell>
-    )
-  }
-
-  return (
+  const ledger = (
     <AppShell activePage={activePage} setActivePage={setActivePage}>
-      {toast && <div className="fixed left-1/2 top-4 z-[60] -translate-x-1/2 rounded-full border border-[rgba(221,255,69,.25)] bg-[var(--surface)]/95 px-4 py-2 text-sm font-semibold text-[var(--accent)] shadow-2xl shadow-black/30 backdrop-blur-xl">{toast}</div>}
-      {pages[activePage].component}
-      <AddIncomeModal
+      {toast && <div aria-live="polite" className="fixed left-1/2 top-4 z-[60] -translate-x-1/2 rounded-full border border-[rgba(221,255,69,.25)] bg-[var(--surface)]/95 px-4 py-2 text-sm font-semibold text-[var(--accent)] shadow-2xl shadow-black/30 backdrop-blur-xl" role="status">{toast}</div>}
+      <Suspense fallback={<div className="card p-6 text-sm text-[var(--muted)]" role="status">Loading screen…</div>}>{(pages[activePage] ?? pages.dashboard).component}</Suspense>
+      <Suspense fallback={null}>
+      {activeModal === 'income' && <AddIncomeModal
         open={activeModal === 'income'}
         accounts={accountsWithSavings}
         incomeCategories={incomeCategoryNames}
-        siblingNames={siblingNames}
         onClose={() => setActiveModal(null)}
-        onSubmit={({ amount, source, accountId, date, notes }) => {
+        onSubmit={async ({ amount, source, accountId, date, notes }) => {
           const account = accountsWithSavings.find((item) => item.id === accountId)
           if (!account) return
+          const transactionId = makeId()
+          try {
+            await recordFinanceAction({ id: transactionId, title: source, type: 'income', amount, source, category: source, account: account.name, accountId, date, notes })
+          } catch (error) {
+            showToast(error instanceof Error ? error.message : 'Could not add income')
+            return
+          }
           updateAccountBalance(accountId, amount)
-          addTransaction({ id: makeId('inc'), title: source, type: 'income', amount, source, category: source, account: account.name, accountId, date, notes })
+          addTransaction({ id: transactionId, title: source, type: 'income', amount, source, category: source, account: account.name, accountId, date, notes })
           showToast('Income added')
         }}
-      />
-      <AddExpenseModal
+      />}
+      {activeModal === 'expense' && <AddExpenseModal
         open={activeModal === 'expense'}
         accounts={accountsWithSavings}
         categories={expenseCategoryNames}
         onClose={() => setActiveModal(null)}
-        onSubmit={({ amount, category, accountId, date, notes }) => {
+        onSubmit={async ({ amount, category, accountId, date, notes }) => {
           const account = accountsWithSavings.find((item) => item.id === accountId)
           if (!account) return
+          const transactionId = makeId()
+          try {
+            await recordFinanceAction({ id: transactionId, title: category, type: 'expense', amount, category, account: account.name, accountId, date, notes })
+          } catch (error) {
+            showToast(error instanceof Error ? error.message : 'Could not record expense')
+            return
+          }
           updateAccountBalance(accountId, -amount)
           setBudgets((current) => current.map((budget) => budget.category === category ? { ...budget, used: budget.used + amount } : budget))
-          addTransaction({ id: makeId('exp'), title: category, type: 'expense', amount, category, account: account.name, accountId, date, notes })
+          addTransaction({ id: transactionId, title: category, type: 'expense', amount, category, account: account.name, accountId, date, notes })
           showToast('Expense recorded')
         }}
-      />
-      <TransferModal
+      />}
+      {activeModal === 'transfer' && <TransferModal
         open={activeModal === 'transfer'}
         accounts={accountsWithSavings}
         onClose={() => setActiveModal(null)}
-        onSubmit={({ amount, fromAccountId, toAccountId, date, notes }) => {
+        onSubmit={async ({ amount, fromAccountId, toAccountId, date, notes }) => {
           const from = accountsWithSavings.find((item) => item.id === fromAccountId)
           const to = accountsWithSavings.find((item) => item.id === toAccountId)
           if (!from || !to) return
+          const transactionId = makeId()
+          try {
+            await recordFinanceAction({ id: transactionId, title: 'Transfer', type: 'transfer', amount, category: 'Transfer', account: `${from.name} to ${to.name}`, fromAccountId, toAccountId, date, notes })
+          } catch (error) {
+            showToast(error instanceof Error ? error.message : 'Could not transfer money')
+            return
+          }
           updateAccountBalance(fromAccountId, -amount)
           updateAccountBalance(toAccountId, amount)
-          addTransaction({ id: makeId('trf'), title: 'Transfer', type: 'transfer', amount, category: 'Transfer', account: `${from.name} to ${to.name}`, fromAccountId, toAccountId, date, notes })
+          addTransaction({ id: transactionId, title: 'Transfer', type: 'transfer', amount, category: 'Transfer', account: `${from.name} to ${to.name}`, fromAccountId, toAccountId, date, notes })
           showToast('Transfer completed')
         }}
-      />
-      <AddGoalModal
+      />}
+      {activeModal === 'goal' && <AddGoalModal
         open={activeModal === 'goal'}
         onClose={() => setActiveModal(null)}
         onSubmit={({ name, target, dueDate, notes }) => {
-          const goal: Goal = { id: makeId('goal'), name, target, saved: 0, dueDate, notes, status: 'Active' }
+          const goal: Goal = { id: makeId(), name, target, saved: 0, dueDate, notes, status: 'Active' }
           setGoals((current) => [goal, ...current])
+          void saveGoal(goal).catch((error) => showToast(error.message))
           showToast('Goal created')
         }}
-      />
-      <DebtPaymentModal
+      />}
+      {activeModal === 'debt' && <DebtPaymentModal
         key={activeDebtId ?? 'debt-payment'}
         open={activeModal === 'debt'}
         debts={debts}
         accounts={accountsWithSavings}
         initialDebtId={activeDebtId}
         onClose={() => { setActiveModal(null); setActiveDebtId(undefined) }}
-        onSubmit={({ debtId, amount, accountId, date, notes }) => {
+        onSubmit={async ({ debtId, amount, accountId, date, notes }) => {
           const debt = debts.find((item) => item.id === debtId)
           const account = accountsWithSavings.find((item) => item.id === accountId)
           if (!debt || !account) return
+          const transactionId = makeId()
+          try {
+            await recordFinanceAction({ id: transactionId, title: `Payment toward ${debtTitle(debt)}`, type: 'debt_payment', amount, category: debtTitle(debt), account: account.name, accountId, debtId, date, notes })
+          } catch (error) {
+            showToast(error instanceof Error ? error.message : 'Could not record debt payment')
+            return
+          }
           updateAccountBalance(accountId, -amount)
           setDebts((current) => current.map((item) => {
             if (item.id !== debtId) return item
@@ -567,28 +542,58 @@ function App() {
               createdAt: item.createdAt ?? new Date().toISOString(),
             }
           }))
-          addTransaction({ id: makeId('debt-pay'), title: `Payment toward ${debtTitle(debt)}`, type: 'debt_payment', amount, category: debtTitle(debt), account: account.name, accountId, debtId, date, notes })
+          addTransaction({ id: transactionId, title: `Payment toward ${debtTitle(debt)}`, type: 'debt_payment', amount, category: debtTitle(debt), account: account.name, accountId, debtId, date, notes })
           showToast('Debt payment recorded')
         }}
-      />
+      />}
+      </Suspense>
     </AppShell>
   )
+
+  if (!authReady) return <LoadingScreen message="Connecting securely…" />
+
+  if (!financeUserId) {
+    return <Routes>
+      <Route path="/login" element={<AuthPage mode="login" />} />
+      <Route path="/signup" element={<AuthPage mode="signup" />} />
+      <Route path="/forgot-password" element={<AuthPage mode="forgot" />} />
+      <Route path="/reset-password" element={<AuthPage mode="reset" />} />
+      <Route path="/auth/callback" element={<AuthCallback />} />
+      <Route path="/privacy" element={<LegalPage kind="privacy" />} />
+      <Route path="/terms" element={<LegalPage kind="terms" />} />
+      <Route path="*" element={<Navigate replace to="/login" />} />
+    </Routes>
+  }
+
+  if (!dataReady) return <LoadingScreen message="Loading your private ledger…" />
+
+  if (!onboardingCompleted) {
+    return <Routes>
+      <Route path="/onboarding" element={<Onboarding email={authEmail} onComplete={async (nextProfile, account) => {
+        await saveAccount(account, account.balance)
+        await saveUserSettings(nextProfile, true)
+        setAccounts([account])
+        setProfile(nextProfile)
+        setProfileState(nextProfile)
+        setOnboardingCompleted(true)
+        navigate('/app', { replace: true })
+      }} />} />
+      <Route path="/privacy" element={<LegalPage kind="privacy" />} />
+      <Route path="/terms" element={<LegalPage kind="terms" />} />
+      <Route path="*" element={<Navigate replace to="/onboarding" />} />
+    </Routes>
+  }
+
+  return <Routes>
+    <Route path="/privacy" element={<LegalPage kind="privacy" />} />
+    <Route path="/terms" element={<LegalPage kind="terms" />} />
+    <Route path="/app/*" element={ledger} />
+    <Route path="*" element={<Navigate replace to="/app" />} />
+  </Routes>
 }
 
-function SupabaseAuthShell({ title, children }: { title: string; children?: ReactNode }) {
-  return (
-    <main className="grid min-h-screen place-items-center bg-[var(--bg-deep)] p-5">
-      <section className="w-full max-w-md rounded-[2rem] border border-[rgba(221,255,69,.18)] bg-[var(--surface)] p-6 shadow-2xl shadow-black/35">
-        <div className="mx-auto grid h-16 w-16 place-items-center rounded-full bg-[var(--accent)] text-3xl font-black text-[#111318] shadow-[0_0_30px_rgba(221,255,69,.3)]">M</div>
-        <div className="mt-5 text-center">
-          <p className="text-sm font-semibold uppercase tracking-[0.18em] text-[var(--muted)]">Supabase sync</p>
-          <h1 className="mt-2 text-3xl font-semibold text-white">{title}</h1>
-          <p className="mt-2 text-sm text-[var(--muted)]">Log in to save and load your private finance ledger.</p>
-        </div>
-        {children}
-      </section>
-    </main>
-  )
+function LoadingScreen({ message }: { message: string }) {
+  return <main className="grid min-h-screen place-items-center bg-[var(--bg-deep)] p-5"><div className="text-center"><div className="mx-auto grid h-14 w-14 place-items-center rounded-[18px] bg-[var(--accent)] font-black text-[#16130F]">PL</div><p className="mt-4 text-sm font-semibold text-[var(--muted)]" role="status">{message}</p></div></main>
 }
 
 export default App

@@ -12,7 +12,7 @@ export interface Profile {
 const STORAGE_KEY = 'pl-profile'
 const PROFILE_EVENT = 'pl-profile-change'
 
-const DEFAULT_PROFILE: Profile = { name: 'Abdul Moeed' }
+const DEFAULT_PROFILE: Profile = { name: 'Pocket Ledger user' }
 
 export function getProfile(): Profile {
   try {

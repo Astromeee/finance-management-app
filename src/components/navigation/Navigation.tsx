@@ -11,7 +11,7 @@ export function Sidebar({ activePage, setActivePage }: { activePage: string; set
   return (
     <aside className="hidden min-h-screen w-72 shrink-0 border-r border-white/8 bg-[var(--bg-deep)]/88 p-5 backdrop-blur-xl lg:block">
       <div className="flex items-center gap-3">
-        <div className="grid h-12 w-12 place-items-center rounded-[1.25rem] bg-[var(--accent)] font-bold text-[#171910] shadow-lg shadow-[rgba(221,255,69,.12)]">PL</div>
+        <img className="h-12 w-12 rounded-[1.25rem] shadow-lg shadow-black/25" src="/pocket-ledger-icon.png" alt="" aria-hidden="true" />
         <div>
           <h1 className="text-xl font-semibold text-white">Pocket Ledger</h1>
           <p className="text-sm text-[var(--muted)]">Personal finance</p>

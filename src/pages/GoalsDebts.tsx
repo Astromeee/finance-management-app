@@ -1,6 +1,6 @@
 import { ArrowRight, CalendarClock, CheckCircle2, Landmark, PencilLine, Plus, Repeat2, Target, Trash2, WalletCards, X, type LucideIcon } from 'lucide-react'
 import { animate, motion } from 'framer-motion'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { BottomSheet as Sheet } from '../components/BottomSheet'
 import { expenseCategories } from '../data/mockData'
@@ -92,7 +92,7 @@ function ProgressRing({
   const clamped = Math.max(0, Math.min(100, progress))
   const radius = (size - stroke) / 2
   const circumference = 2 * Math.PI * radius
-  const id = useRef(`ring-${Math.random().toString(36).slice(2, 8)}`).current
+  const id = useId().replaceAll(':', '')
   return (
     <div className="relative flex-none" style={{ width: size, height: size }}>
       <svg width={size} height={size} className="-rotate-90">
@@ -786,38 +786,36 @@ function AddSavingsModal({
   onSubmit: (payload: SavingsPayload) => void
 }) {
   const [amount, setAmount] = useState('')
+  const [accountId, setAccountId] = useState(accounts[0]?.id ?? '')
   const [date, setDate] = useState(today())
   const [notes, setNotes] = useState('')
   const [showInsufficient, setShowInsufficient] = useState(false)
 
   if (!goal) return null
 
-  const savings = accounts.find((account) => account.id === 'savings') ?? { id: 'savings', name: 'Savings', balance: 0 }
+  const selectedAccount = accounts.find((account) => account.id === accountId)
   const parsedAmount = Number(amount)
   const remaining = Math.max(0, goal.target - goal.saved)
-  const invalid = parsedAmount <= 0 || parsedAmount > remaining || !date
+  const invalid = parsedAmount <= 0 || parsedAmount > remaining || !date || !selectedAccount
 
   return (
     <Sheet title="Add savings" eyebrow={goal.name} open={Boolean(goal)} onClose={onClose}>
       <form className="mt-5 grid gap-4" onSubmit={(event) => {
         event.preventDefault()
         if (invalid) return
-        if (parsedAmount > savings.balance) {
+        if (!selectedAccount || parsedAmount > selectedAccount.balance) {
           setShowInsufficient(true)
           return
         }
-        onSubmit({ goalId: goal.id, amount: parsedAmount, accountId: 'savings', date, notes: notes.trim() || undefined })
+        onSubmit({ goalId: goal.id, amount: parsedAmount, accountId: selectedAccount.id, date, notes: notes.trim() || undefined })
         onClose()
       }}>
         <Field label="Savings amount" type="number" value={amount} onChange={setAmount} placeholder="Rs. 5,000" />
-        <div className="rounded-2xl border border-[rgba(255,92,0,.2)] bg-[rgba(255,92,0,.06)] p-3">
-          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--muted)]">Current Savings Balance</p>
-          <p className="mt-1 text-2xl font-semibold text-white">{formatPKR(savings.balance)}</p>
-        </div>
+        <Select label="Pay from account" value={accountId} onChange={setAccountId} options={accounts.map((account) => ({ value: account.id, label: `${account.name} · ${formatPKR(account.balance)}` }))} />
         <Field label="Date" type="date" value={date} onChange={setDate} />
         <TextArea label="Notes optional" value={notes} onChange={setNotes} />
         <div className="rounded-2xl border border-[rgba(255,92,0,.2)] bg-[rgba(255,92,0,.06)] p-3 text-sm text-[var(--muted)]">
-          Remaining target: {formatPKR(remaining)}. Saving will only reduce your Savings balance. Transfer money to Savings first if needed.
+          Remaining target: {formatPKR(remaining)}. This contribution will reduce the selected account balance.
         </div>
         <button className="btn-primary justify-center disabled:opacity-60" disabled={invalid}>Add savings</button>
       </form>
@@ -826,7 +824,7 @@ function AddSavingsModal({
           <div className="w-full max-w-sm rounded-[1.5rem] border border-[rgba(232,105,74,.24)] bg-[var(--surface)] p-5 shadow-2xl">
             <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--negative)]">Not enough savings</p>
             <h3 className="mt-2 text-xl font-semibold text-white">Savings balance is too low</h3>
-            <p className="mt-2 text-sm text-[var(--muted)]">You have {formatPKR(savings.balance)} in Savings. Transfer money into Savings first, then add it to this goal.</p>
+            <p className="mt-2 text-sm text-[var(--muted)]">{selectedAccount?.name ?? 'The selected account'} has {formatPKR(selectedAccount?.balance ?? 0)} available.</p>
             <button className="btn-primary mt-5 w-full justify-center" type="button" onClick={() => setShowInsufficient(false)}>Got it</button>
           </div>
         </div>
@@ -943,7 +941,8 @@ function Select({ label, value, onChange, options }: { label: string; value: str
 }
 
 function today() {
-  return new Date().toISOString().slice(0, 10)
+  const date = new Date()
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
 }
 
 function formatDate(date: string) {

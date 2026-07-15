@@ -2,15 +2,27 @@ import { useState, type ReactNode } from 'react'
 import { BottomSheet as Sheet } from '../BottomSheet'
 import type { Account, Debt } from '../../types/finance'
 import { formatPKR } from '../../utils/financeCalculations'
+import { localDateKey } from '../../lib/date'
+import { parseWholePkr } from '../../lib/money'
 
 type SubmitButtonProps = { children: ReactNode; disabled?: boolean }
 
 function today() {
-  return new Date().toISOString().slice(0, 10)
+  return localDateKey()
 }
 
 function numeric(value: string) {
-  return Number(value)
+  return parseWholePkr(value) ?? 0
+}
+
+function rememberedAccount(accounts: Account[]) {
+  const saved = localStorage.getItem('pl-last-account')
+  return accounts.some((account) => account.id === saved) ? saved! : accounts[0]?.id ?? ''
+}
+
+function rememberAccount(id: string, onChange: (value: string) => void) {
+  localStorage.setItem('pl-last-account', id)
+  onChange(id)
 }
 
 function SubmitButton({ children, disabled }: SubmitButtonProps) {
@@ -34,26 +46,21 @@ export function AddIncomeModal({
   open,
   accounts,
   incomeCategories,
-  siblingNames,
   onClose,
   onSubmit,
 }: {
   open: boolean
   accounts: Account[]
   incomeCategories: string[]
-  siblingNames: string[]
   onClose: () => void
   onSubmit: (payload: { amount: number; source: string; accountId: string; date: string; notes?: string }) => void
 }) {
   const [amount, setAmount] = useState('')
   const [source, setSource] = useState(incomeCategories[0] ?? 'Other Income')
-  const [sibling, setSibling] = useState(siblingNames[0] ?? '')
-  const [accountId, setAccountId] = useState('')
+  const [accountId, setAccountId] = useState(() => rememberedAccount(accounts))
   const [date, setDate] = useState(today())
   const [notes, setNotes] = useState('')
-  const ublAccount = accounts.find((account) => account.name.toLowerCase().includes('ubl'))
-  const selectedAccountId = accountId || ublAccount?.id || accounts[0]?.id || ''
-  const needsSibling = source === 'Siblings Support' && siblingNames.length > 0
+  const selectedAccountId = accountId || accounts[0]?.id || ''
   const invalid = numeric(amount) <= 0 || !source || !selectedAccountId || !date
 
   return (
@@ -61,14 +68,13 @@ export function AddIncomeModal({
       <form className="mt-5 grid gap-4" onSubmit={(event) => {
         event.preventDefault()
         if (!invalid) {
-          onSubmit({ amount: numeric(amount), source: needsSibling && sibling ? `${source} - ${sibling}` : source, accountId: selectedAccountId, date, notes })
+          onSubmit({ amount: numeric(amount), source, accountId: selectedAccountId, date, notes })
           onClose()
         }
       }}>
         <Field label="Amount" type="number" value={amount} onChange={setAmount} placeholder="Rs. 5,000" />
         <Select label="Source" value={source} onChange={setSource} options={incomeCategories} />
-        {needsSibling && <Select label="Sibling" value={sibling} onChange={setSibling} options={siblingNames} />}
-        <Select label="Account received in" value={selectedAccountId} onChange={setAccountId} options={accounts.map((account) => ({ value: account.id, label: account.name }))} />
+        <Select label="Account received in" value={selectedAccountId} onChange={(id) => rememberAccount(id, setAccountId)} options={accounts.map((account) => ({ value: account.id, label: account.name }))} />
         <Field label="Date" type="date" value={date} onChange={setDate} />
         <TextArea label="Notes" value={notes} onChange={setNotes} />
         <ActionFooter submit="Add income" disabled={invalid} onCancel={onClose} />
@@ -91,12 +97,11 @@ export function AddExpenseModal({
   onSubmit: (payload: { amount: number; category: string; accountId: string; date: string; notes?: string }) => void
 }) {
   const [amount, setAmount] = useState('')
-  const [category, setCategory] = useState('Food and Groceries')
-  const [accountId, setAccountId] = useState('')
+  const [category, setCategory] = useState(categories[0] ?? 'Miscellaneous')
+  const [accountId, setAccountId] = useState(() => rememberedAccount(accounts))
   const [date, setDate] = useState(today())
   const [notes, setNotes] = useState('')
-  const ublAccount = accounts.find((account) => account.name.toLowerCase().includes('ubl'))
-  const selectedAccountId = accountId || ublAccount?.id || accounts[0]?.id || ''
+  const selectedAccountId = accountId || accounts[0]?.id || ''
   const account = accounts.find((item) => item.id === selectedAccountId)
   const parsedAmount = numeric(amount)
   const invalid = parsedAmount <= 0 || !category || !selectedAccountId || !date
@@ -107,7 +112,7 @@ export function AddExpenseModal({
       <form className="mt-5 grid gap-4" onSubmit={(event) => { event.preventDefault(); if (!invalid) { onSubmit({ amount: parsedAmount, category, accountId: selectedAccountId, date, notes }); onClose() } }}>
         <Field label="Amount" type="number" value={amount} onChange={setAmount} placeholder="Rs. 2,500" />
         <Select label="Category" value={category} onChange={setCategory} options={categories} />
-        <Select label="Account paid from" value={selectedAccountId} onChange={setAccountId} options={accounts.map((item) => ({ value: item.id, label: `${item.name} · ${formatPKR(item.balance)}` }))} />
+        <Select label="Account paid from" value={selectedAccountId} onChange={(id) => rememberAccount(id, setAccountId)} options={accounts.map((item) => ({ value: item.id, label: `${item.name} · ${formatPKR(item.balance)}` }))} />
         <Field label="Date" type="date" value={date} onChange={setDate} />
         <TextArea label="Notes" value={notes} onChange={setNotes} />
         <ErrorText>{warning}</ErrorText>
@@ -128,10 +133,10 @@ export function TransferModal({
   onClose: () => void
   onSubmit: (payload: { amount: number; fromAccountId: string; toAccountId: string; date: string; notes?: string }) => void
 }) {
-  const fromAccounts = accounts.filter((account) => account.id !== 'savings')
+  const fromAccounts = accounts
   const [amount, setAmount] = useState('')
-  const [fromAccountId, setFromAccountId] = useState(fromAccounts[0]?.id ?? '')
-  const [toAccountId, setToAccountId] = useState(accounts.find((account) => account.id === 'savings')?.id ?? accounts.find((account) => account.id !== fromAccounts[0]?.id)?.id ?? '')
+  const [fromAccountId, setFromAccountId] = useState(() => rememberedAccount(fromAccounts))
+  const [toAccountId, setToAccountId] = useState(accounts.find((account) => account.id !== rememberedAccount(fromAccounts))?.id ?? '')
   const [date, setDate] = useState(today())
   const [notes, setNotes] = useState('')
   const selectedFromAccountId = fromAccountId || fromAccounts[0]?.id || ''
@@ -145,10 +150,10 @@ export function TransferModal({
   return (
     <Sheet title="Transfer money" eyebrow="Move between accounts" open={open} onClose={onClose}>
       <form className="mt-5 grid gap-4" onSubmit={(event) => { event.preventDefault(); if (!invalid) { onSubmit({ amount: parsedAmount, fromAccountId: selectedFromAccountId, toAccountId: selectedToAccountId, date, notes }); onClose() } }}>
-        {fromAccounts.length < 1 && <ErrorText>Add at least one cash, bank, or wallet account before transferring to savings.</ErrorText>}
+        {fromAccounts.length < 2 && <ErrorText>Add at least two accounts before transferring money.</ErrorText>}
         <Field label="Amount" type="number" value={amount} onChange={setAmount} placeholder="Rs. 10,000" />
-        <Select label="From account" value={selectedFromAccountId} onChange={setFromAccountId} options={fromAccounts.map((item) => ({ value: item.id, label: `${item.name} · ${formatPKR(item.balance)}` }))} />
-        <Select label="To account" value={selectedToAccountId} onChange={setToAccountId} options={accounts.map((item) => ({ value: item.id, label: item.id === 'savings' ? `${item.name} · ${formatPKR(item.balance)}` : item.name }))} />
+        <Select label="From account" value={selectedFromAccountId} onChange={(id) => rememberAccount(id, setFromAccountId)} options={fromAccounts.map((item) => ({ value: item.id, label: `${item.name} · ${formatPKR(item.balance)}` }))} />
+        <Select label="To account" value={selectedToAccountId} onChange={setToAccountId} options={accounts.map((item) => ({ value: item.id, label: item.name }))} />
         <Field label="Date" type="date" value={date} onChange={setDate} />
         <TextArea label="Notes" value={notes} onChange={setNotes} />
         <ErrorText>{sameAccount ? 'From and To account cannot be the same.' : insufficient ? 'Insufficient balance in selected account.' : ''}</ErrorText>
@@ -204,7 +209,7 @@ export function DebtPaymentModal({
 }) {
   const [debtId, setDebtId] = useState(initialDebtId ?? debts[0]?.id ?? '')
   const [amount, setAmount] = useState('')
-  const [accountId, setAccountId] = useState(accounts[0]?.id ?? '')
+  const [accountId, setAccountId] = useState(() => rememberedAccount(accounts))
   const [date, setDate] = useState(today())
   const [notes, setNotes] = useState('')
   const parsedAmount = numeric(amount)

@@ -1,9 +1,10 @@
-import { ArrowRightLeft, ChevronDown, MoreVertical, PencilLine, Plus, ShoppingCart, WalletCards, X } from 'lucide-react'
+import { ArrowRightLeft, ChevronDown, MoreVertical, PencilLine, Plus, ShoppingCart, Trash2, WalletCards, X } from 'lucide-react'
 import { motion } from 'framer-motion'
-import { useEffect, useMemo, useRef, useState, type Dispatch, type SetStateAction, type UIEvent } from 'react'
+import { useMemo, useRef, useState, type Dispatch, type SetStateAction, type UIEvent } from 'react'
 import type { Account, Transaction } from '../types/finance'
 import { formatPKR, totalBalance } from '../utils/financeCalculations'
 import { cn } from '../utils/ui'
+import { localDateKey, localMonthKey } from '../lib/date'
 
 /* ============================================================
    Accounts — V3 redesign (mock 5a)
@@ -65,6 +66,9 @@ interface AccountsProps {
   transactions?: Transaction[]
   /** optional — "Details →" on the top-category row opens the Transactions page */
   onOpenTransactions?: () => void
+  onSaveAccount?: (account: Account, openingBalance?: number) => Promise<void>
+  onAdjustBalance?: (account: Account, transaction: Transaction) => Promise<void>
+  onArchiveAccount?: (id: string) => Promise<void>
 }
 
 const makeAccountId = (name: string) => `${name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'account'}-${Date.now().toString(36)}`
@@ -134,7 +138,7 @@ function accountMonthStats(account: Account, transactions: Transaction[], key: s
 
 /* ============================================================ */
 
-export function Accounts({ accounts, setAccounts, setTransactions, onTransfer, onOpenTransactions, transactions = [] }: AccountsProps) {
+export function Accounts({ accounts, setAccounts, setTransactions, onTransfer, onOpenTransactions, onSaveAccount, onAdjustBalance, onArchiveAccount, transactions = [] }: AccountsProps) {
   const [addingAccount, setAddingAccount] = useState(false)
   const [selectedAccount, setSelectedAccount] = useState<Account | null>(null)
   const [editingAccount, setEditingAccount] = useState<Account | null>(null)
@@ -147,7 +151,7 @@ export function Accounts({ accounts, setAccounts, setTransactions, onTransfer, o
   const activeAccount = accounts[Math.min(activeIndex, Math.max(0, accounts.length - 1))] ?? null
 
   const now = new Date()
-  const thisMonthKey = now.toISOString().slice(0, 7)
+  const [thisMonthKey] = useState(() => localMonthKey(now))
   const [selectedMonthKey, setSelectedMonthKey] = useState(thisMonthKey)
 
   const monthOptions = useMemo(() => {
@@ -202,10 +206,10 @@ export function Accounts({ accounts, setAccounts, setTransactions, onTransfer, o
   const weeksToShow = viewingCurrentMonth
     ? (now.getDate() > 28 ? 5 : 4)
     : (stats && stats.weeklySpend[4] > 0 ? 5 : 4)
-  const [selectedWeek, setSelectedWeek] = useState<number | null>(null)
-  // reset the selected week when the visible account or month changes
-  useEffect(() => setSelectedWeek(null), [activeAccount?.id, selectedMonthKey])
-  const displayWeek = selectedWeek ?? highlightWeek
+  const selectionScope = `${activeAccount?.id ?? 'none'}:${selectedMonthKey}`
+  const [selectedWeek, setSelectedWeek] = useState<{ scope: string; week: number } | null>(null)
+  const selectedWeekNumber = selectedWeek?.scope === selectionScope ? selectedWeek.week : null
+  const displayWeek = selectedWeekNumber ?? highlightWeek
 
   return (
     <div className="space-y-5">
@@ -346,7 +350,7 @@ export function Accounts({ accounts, setAccounts, setTransactions, onTransfer, o
           <div className="rounded-[22px] border border-white/10 bg-white/[.055] px-4.5 py-4 backdrop-blur-xl">
             <div className="mb-3 flex items-baseline justify-between">
               <p className="text-[12px] text-[var(--muted-2)]">
-                {selectedWeek === null ? 'Weekly spend from this card' : `Week ${selectedWeek + 1} · ${formatPKR(stats.weeklySpend[selectedWeek])}`}
+                {selectedWeekNumber === null ? 'Weekly spend from this card' : `Week ${selectedWeekNumber + 1} · ${formatPKR(stats.weeklySpend[selectedWeekNumber])}`}
               </p>
               {spendDelta !== null && (
                 <p className={cn('text-[12px] font-semibold', spendDelta > 0 ? 'text-[var(--negative)]' : 'text-[var(--positive)]')}>
@@ -363,7 +367,7 @@ export function Accounts({ accounts, setAccounts, setTransactions, onTransfer, o
                     type="button"
                     aria-label={`Week ${week + 1}: ${formatPKR(amount)}`}
                     className="flex h-full flex-1 flex-col items-center justify-end gap-1.5"
-                    onClick={() => setSelectedWeek((current) => (current === week ? null : week))}
+                    onClick={() => setSelectedWeek((current) => (current?.scope === selectionScope && current.week === week ? null : { scope: selectionScope, week }))}
                   >
                     <span
                       className="w-full rounded-[7px] transition-all"
@@ -436,6 +440,23 @@ export function Accounts({ accounts, setAccounts, setTransactions, onTransfer, o
               >
                 <ArrowRightLeft size={17} className="text-[var(--accent)]" /> Transfer money
               </button>
+              <button
+                className="flex items-center gap-3 rounded-2xl border border-[rgba(232,105,74,.25)] bg-[rgba(232,105,74,.06)] px-4 py-3.5 text-sm font-semibold text-[var(--negative)] disabled:cursor-not-allowed disabled:opacity-45"
+                disabled={accounts.length < 2}
+                onClick={async () => {
+                  if (!menuAccount || accounts.length < 2) return
+                  try {
+                    await onArchiveAccount?.(menuAccount.id)
+                    setAccounts((current) => current.filter((item) => item.id !== menuAccount.id))
+                    setNotice(`${menuAccount.name} archived.`)
+                    setMenuAccount(null)
+                  } catch (error) {
+                    setNotice(error instanceof Error ? error.message : 'Could not archive account.')
+                  }
+                }}
+              >
+                <Trash2 size={17} /> Archive account
+              </button>
             </div>
             <button className="mt-3 w-full rounded-2xl bg-[var(--surface-2)] px-4 py-3 text-sm font-semibold text-white" onClick={() => setMenuAccount(null)}>
               Cancel
@@ -448,6 +469,7 @@ export function Accounts({ accounts, setAccounts, setTransactions, onTransfer, o
         open={addingAccount}
         onClose={() => setAddingAccount(false)}
         onNotice={setNotice}
+        onSaveAccount={onSaveAccount}
         setAccounts={setAccounts}
       />
       <AdjustBalanceModal
@@ -455,6 +477,7 @@ export function Accounts({ accounts, setAccounts, setTransactions, onTransfer, o
         account={selectedAccount}
         onClose={() => setSelectedAccount(null)}
         onNotice={setNotice}
+        onAdjustBalance={onAdjustBalance}
         setAccounts={setAccounts}
         setTransactions={setTransactions}
       />
@@ -463,6 +486,8 @@ export function Accounts({ accounts, setAccounts, setTransactions, onTransfer, o
         account={editingAccount}
         onClose={() => setEditingAccount(null)}
         onNotice={setNotice}
+        onAdjustBalance={onAdjustBalance}
+        onSaveAccount={onSaveAccount}
         setAccounts={setAccounts}
         setTransactions={setTransactions}
       />
@@ -478,11 +503,13 @@ function AddAccountModal({
   open,
   onClose,
   onNotice,
+  onSaveAccount,
   setAccounts,
 }: {
   open: boolean
   onClose: () => void
   onNotice: (message: string) => void
+  onSaveAccount?: (account: Account, openingBalance?: number) => Promise<void>
   setAccounts: Dispatch<SetStateAction<Account[]>>
 }) {
   const [name, setName] = useState('')
@@ -513,7 +540,7 @@ function AddAccountModal({
     setColor(normalized)
   }
 
-  const saveAccount = () => {
+  const saveAccount = async () => {
     const parsedBalance = Number(balance || 0)
     if (!name.trim() || !Number.isFinite(parsedBalance) || !isValidHex(color)) return
     const label = cardLabel.trim().toUpperCase() || name.trim().slice(0, 5).toUpperCase()
@@ -527,6 +554,12 @@ function AddAccountModal({
       cardLabel: label,
     }
 
+    try {
+      await onSaveAccount?.(account, parsedBalance)
+    } catch (error) {
+      onNotice(error instanceof Error ? error.message : 'Could not add account.')
+      return
+    }
     setAccounts((current) => [account, ...current])
     onNotice(`${account.name} added.`)
     onClose()
@@ -587,12 +620,16 @@ function EditAccountModal({
   account,
   onClose,
   onNotice,
+  onAdjustBalance,
+  onSaveAccount,
   setAccounts,
   setTransactions,
 }: {
   account: Account | null
   onClose: () => void
   onNotice: (message: string) => void
+  onAdjustBalance?: (account: Account, transaction: Transaction) => Promise<void>
+  onSaveAccount?: (account: Account, openingBalance?: number) => Promise<void>
   setAccounts: Dispatch<SetStateAction<Account[]>>
   setTransactions: Dispatch<SetStateAction<Transaction[]>>
 }) {
@@ -624,7 +661,7 @@ function EditAccountModal({
     setColor(normalized)
   }
 
-  const saveAccount = () => {
+  const saveAccount = async () => {
     const parsedBalance = Number(balance)
     if (!name.trim() || !Number.isFinite(parsedBalance) || !isValidHex(color)) return
     const balanceDifference = parsedBalance - account.balance
@@ -632,25 +669,18 @@ function EditAccountModal({
     const adjustmentLabel = balanceDifference > 0 ? 'Unexplained Income' : 'Unexplained Expense'
     const updatedName = name.trim()
 
-    setAccounts((current) =>
-      current.map((item) =>
-        item.id === account.id
-          ? {
-              ...item,
-              name: updatedName,
-              type,
-              balance: parsedBalance,
-              color,
-              cardLabel: cardLabel.trim().toUpperCase() || item.cardLabel,
-              activity: balanceDifference === 0 ? item.activity : `${adjustmentLabel}: ${formatPKR(absoluteDifference)}`,
-            }
-          : item,
-      ),
-    )
-
+    const updatedAccount: Account = {
+      ...account,
+      name: updatedName,
+      type,
+      balance: parsedBalance,
+      color,
+      cardLabel: cardLabel.trim().toUpperCase() || account.cardLabel,
+      activity: balanceDifference === 0 ? account.activity : `${adjustmentLabel}: ${formatPKR(absoluteDifference)}`,
+    }
+    let adjustment: Transaction | undefined
     if (balanceDifference !== 0) {
-      setTransactions((current) => [
-        {
+      adjustment = {
           id: `edit-adj-${account.id}-${Date.now().toString(36)}`,
           title: adjustmentLabel,
           amount: absoluteDifference,
@@ -659,13 +689,21 @@ function EditAccountModal({
           source: balanceDifference > 0 ? adjustmentLabel : undefined,
           account: updatedName,
           accountId: account.id,
-          date: new Date().toISOString().slice(0, 10),
+          date: localDateKey(),
           notes: `Balance edited from ${formatPKR(account.balance)} to ${formatPKR(parsedBalance)}`,
           createdAt: new Date().toISOString(),
-        },
-        ...current,
-      ])
+        }
     }
+
+    try {
+      if (adjustment) await onAdjustBalance?.(updatedAccount, adjustment)
+      else await onSaveAccount?.(updatedAccount)
+    } catch (error) {
+      onNotice(error instanceof Error ? error.message : 'Could not update account.')
+      return
+    }
+    setAccounts((current) => current.map((item) => item.id === account.id ? updatedAccount : item))
+    if (adjustment) setTransactions((current) => [adjustment, ...current])
 
     onNotice(balanceDifference === 0 ? `${updatedName} updated. Card carousel is synced.` : `${adjustmentLabel} recorded for ${updatedName}.`)
     onClose()
@@ -775,17 +813,19 @@ function AdjustBalanceModal({
   account,
   onClose,
   onNotice,
+  onAdjustBalance,
   setAccounts,
   setTransactions,
 }: {
   account: Account | null
   onClose: () => void
   onNotice: (message: string) => void
+  onAdjustBalance?: (account: Account, transaction: Transaction) => Promise<void>
   setAccounts: Dispatch<SetStateAction<Account[]>>
   setTransactions: Dispatch<SetStateAction<Transaction[]>>
 }) {
   const [actualBalance, setActualBalance] = useState('')
-  const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10))
+  const [date, setDate] = useState(() => localDateKey())
   const [note, setNote] = useState('Balance adjusted manually')
 
   if (!account) return null
@@ -798,24 +838,16 @@ function AdjustBalanceModal({
   const absoluteDifference = Math.abs(difference)
   const adjustmentLabel = isIncrease ? 'Unexplained Income' : isDecrease ? 'Unexplained Expense' : 'No adjustment needed'
 
-  const confirmAdjustment = () => {
+  const confirmAdjustment = async () => {
     if (!hasValue || difference === 0) {
       onNotice('No adjustment needed.')
       onClose()
       return
     }
 
-    setAccounts((current) =>
-      current.map((item) =>
-        item.id === account.id
-          ? { ...item, balance: parsedBalance, activity: `${adjustmentLabel}: ${formatPKR(absoluteDifference)}` }
-          : item,
-      ),
-    )
-
-    setTransactions((current) => [
-      {
-        id: `adj-${account.id}-${current.length + 1}`,
+    const updatedAccount = { ...account, balance: parsedBalance, activity: `${adjustmentLabel}: ${formatPKR(absoluteDifference)}` }
+    const adjustment: Transaction = {
+        id: crypto.randomUUID(),
         title: adjustmentLabel,
         amount: absoluteDifference,
         type: isIncrease ? 'income' : 'expense',
@@ -825,9 +857,15 @@ function AdjustBalanceModal({
         date,
         notes: note || 'Balance adjusted manually',
         createdAt: new Date().toISOString(),
-      },
-      ...current,
-    ])
+      }
+    try {
+      await onAdjustBalance?.(updatedAccount, adjustment)
+    } catch (error) {
+      onNotice(error instanceof Error ? error.message : 'Could not adjust balance.')
+      return
+    }
+    setAccounts((current) => current.map((item) => item.id === account.id ? updatedAccount : item))
+    setTransactions((current) => [adjustment, ...current])
     onNotice(`${adjustmentLabel} recorded for ${account.name}.`)
     onClose()
   }

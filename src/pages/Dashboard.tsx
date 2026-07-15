@@ -3,6 +3,7 @@ import { motion, useReducedMotion } from 'framer-motion'
 import { useEffect, useMemo, useRef, useState, type UIEvent } from 'react'
 import { CategoryIcon } from '../components/icons/CategoryIcon'
 import { firstNameOf, getProfile, initialsOf, onProfileChange } from '../lib/profile'
+import { localMonthKey } from '../lib/date'
 import { getTheme, toggleTheme, type Theme } from '../lib/theme'
 import { formatPKR, totalBalance } from '../utils/financeCalculations'
 import type { Account, Budget, Debt, Goal, Transaction, UpcomingExpense } from '../types/finance'
@@ -56,10 +57,10 @@ export function Dashboard({
   const activeAccount = accounts[Math.min(activeIndex, Math.max(0, accounts.length - 1))] ?? null
 
   const now = new Date()
-  const monthKey = now.toISOString().slice(0, 7)
+  const monthKey = localMonthKey(now)
   const monthName = now.toLocaleDateString('en-US', { month: 'long' })
 
-  const month = useMemo(() => {
+  const month = (() => {
     let income = 0
     let spent = 0
     let netFlow = 0
@@ -86,7 +87,7 @@ export function Dashboard({
       if (!topCategory || amount > topCategory.amount) topCategory = { name, amount }
     }
     return { income, spent, netFlow, weeks, topCategory }
-  }, [transactions, monthKey])
+  })()
 
   const lastMonthEnd = total - month.netFlow
   const delta = lastMonthEnd > 0 && month.netFlow !== 0 ? ((total - lastMonthEnd) / lastMonthEnd) * 100 : null

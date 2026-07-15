@@ -5,6 +5,7 @@ import { CategoryIcon } from '../components/icons/CategoryIcon'
 import { formatPKR } from '../utils/financeCalculations'
 import { cn } from '../utils/ui'
 import type { Account, Transaction, TransactionType } from '../types/finance'
+import { localDateKey } from '../lib/date'
 
 const editableTypes: TransactionType[] = ['income', 'expense', 'transfer', 'goal_saving', 'debt_payment']
 type TransactionFilterChip = 'All' | 'Income' | 'Expense' | 'Transfer' | 'Goal' | 'Debt'
@@ -264,7 +265,7 @@ function EditTransactionModal({ transaction, accounts, expenseCategories, income
   const [accountId, setAccountId] = useState(transaction?.accountId ?? accounts[0]?.id ?? '')
   const [fromAccountId, setFromAccountId] = useState(transaction?.fromAccountId ?? accounts[0]?.id ?? '')
   const [toAccountId, setToAccountId] = useState(transaction?.toAccountId ?? accounts.find((account) => account.id !== fromAccountId)?.id ?? '')
-  const [date, setDate] = useState(transaction?.date ?? new Date().toISOString().slice(0, 10))
+  const [date, setDate] = useState(transaction?.date ?? localDateKey())
   const [notes, setNotes] = useState(transaction?.notes ?? '')
 
   if (!transaction) return null
