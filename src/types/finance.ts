@@ -95,6 +95,13 @@ export interface CycleStory {
   headline: string
 }
 
+export interface WeeklyReveal {
+  title: string
+  detail: string
+  metric: number
+  kind: 'category' | 'day' | 'no_spend'
+}
+
 export type QuestType = 'no_spend_days' | 'category_limit' | 'tracking_days' | 'goal_contribution'
 export type QuestStatus = 'active' | 'completed' | 'expired' | 'cancelled'
 

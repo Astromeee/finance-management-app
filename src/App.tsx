@@ -3,14 +3,14 @@ import type { ReactNode } from 'react'
 import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
 import { AppShell } from './components/layout/AppShell'
 import { accounts as initialAccounts, budgets as initialBudgets, debts as initialDebts, expenseCategories as initialExpenseCategories, goals as initialGoals, incomeSources as initialIncomeSources, transactions as initialTransactions, upcomingExpenses as initialUpcomingExpenses } from './data/mockData'
-import { adjustAccountBalance, archiveAccount, archiveCategory, deleteBudget, deleteDebt, deleteFinanceTransaction, deleteGoal, deleteUpcomingExpense, loadFinanceData, markUpcomingExpensePaid, recordFinanceAction, saveAccount, saveBudget, saveCategory, saveDebt, saveGoal, saveJourneySettings, saveUpcomingExpense, saveUserSettings, updateFinanceTransaction } from './lib/financeRepository'
+import { adjustAccountBalance, archiveAccount, archiveCategory, deleteBudget, deleteDebt, deleteFinanceTransaction, deleteGoal, deleteUpcomingExpense, deleteWishlistItem, loadFinanceData, markUpcomingExpensePaid, recordFinanceAction, saveAccount, saveBudget, saveCategory, saveDebt, saveGoal, saveJourneySettings, saveMoneyQuest, saveUpcomingExpense, saveUserSettings, saveWishlistItem, updateFinanceTransaction } from './lib/financeRepository'
 import { addRecurringDate } from './lib/date'
 import { getProfile, onProfileChange, setProfile, type Profile } from './lib/profile'
 import { isSupabaseConfigured, supabase } from './lib/supabase'
 import { AuthCallback, AuthPage } from './pages/Auth'
 import { LegalPage } from './pages/Legal'
 import { Onboarding } from './pages/Onboarding'
-import type { Budget, Category, Debt, DebtCategory, DebtStatus, Goal, JourneySettings, RecurringFrequency, Transaction, UpcomingExpense } from './types/finance'
+import type { Budget, Category, Debt, DebtCategory, DebtStatus, Goal, JourneySettings, MoneyQuest, MoneyWin, RecurringFrequency, Transaction, UpcomingExpense, WishlistItem } from './types/finance'
 import { calculateSafeSpend } from './utils/journeyCalculations'
 
 const AddExpenseModal = lazy(() => import('./components/forms/FinanceActionModals').then((module) => ({ default: module.AddExpenseModal })))
@@ -51,6 +51,7 @@ type DebtPayload = {
   status: DebtStatus
   notes?: string
 }
+type UpcomingPayload = Omit<UpcomingExpense, 'id' | 'status' | 'createdAt' | 'paidTransactionId'>
 
 function nextRecurringDate(dueDate: string, frequency: RecurringFrequency) {
   return addRecurringDate(dueDate, frequency)
@@ -113,7 +114,7 @@ function App() {
   const activePage = routePage
   const [activeModal, setActiveModal] = useState<ActionModal>(null)
   const [activeDebtId, setActiveDebtId] = useState<string | undefined>()
-  const [expenseDraft, setExpenseDraft] = useState<{ amount: number; category: string }>()
+  const [expenseDraft, setExpenseDraft] = useState<{ amount: number; category: string; wishlistId?: string }>()
   const [toast, setToast] = useState('')
   const [authReady, setAuthReady] = useState(!isSupabaseConfigured)
   const [dataReady, setDataReady] = useState(!isSupabaseConfigured)
@@ -130,6 +131,9 @@ function App() {
   const [budgets, setBudgets] = useState<Budget[]>(initialBudgets)
   const [upcomingExpenses, setUpcomingExpenses] = useState<UpcomingExpense[]>(initialUpcomingExpenses)
   const [categories, setCategories] = useState<Category[]>(() => [...initialIncomeSources, ...initialExpenseCategories])
+  const [moneyQuests, setMoneyQuests] = useState<MoneyQuest[]>([])
+  const [wishlistItems, setWishlistItems] = useState<WishlistItem[]>([])
+  const [moneyWins, setMoneyWins] = useState<MoneyWin[]>([])
   const [profile, setProfileState] = useState<Profile>(getProfile)
   const expenseCategoryNames = categories.filter((category) => category.kind === 'expense').map((category) => category.name)
   const incomeCategoryNames = categories.filter((category) => category.kind === 'income').map((category) => category.name)
@@ -195,6 +199,9 @@ function App() {
         setBudgets(remoteState.budgets)
         setUpcomingExpenses(remoteState.upcomingExpenses)
         setCategories(remoteState.categories)
+        setMoneyQuests(remoteState.moneyQuests)
+        setWishlistItems(remoteState.wishlistItems)
+        setMoneyWins(remoteState.moneyWins)
         setProfile(remoteState.profile)
         setProfileState(remoteState.profile)
         setOnboardingCompleted(remoteState.onboardingCompleted)
@@ -291,6 +298,48 @@ function App() {
   }
 
   const accountsWithSavings = accounts
+
+  const addUpcoming = (payload: UpcomingPayload) => {
+    const expense: UpcomingExpense = { ...payload, id: makeId(), status: 'upcoming', createdAt: new Date().toISOString() }
+    setUpcomingExpenses((current) => [expense, ...current])
+    void saveUpcomingExpense(expense).catch((error) => showToast(error.message))
+    showToast('Upcoming bill added')
+  }
+
+  const updateUpcoming = (expenseId: string, payload: UpcomingPayload) => {
+    const expense = upcomingExpenses.find((item) => item.id === expenseId)
+    if (expense) void saveUpcomingExpense({ ...expense, ...payload, status: expense.status === 'paid' ? 'paid' : 'upcoming' }).catch((error) => showToast(error.message))
+    setUpcomingExpenses((current) => current.map((item) => item.id === expenseId ? { ...item, ...payload, status: item.status === 'paid' ? 'paid' : 'upcoming' } : item))
+    showToast('Upcoming bill updated')
+  }
+
+  const removeUpcoming = (expenseId: string) => {
+    void deleteUpcomingExpense(expenseId).catch((error) => showToast(error.message))
+    setUpcomingExpenses((current) => current.filter((expense) => expense.id !== expenseId))
+    showToast('Upcoming bill deleted')
+  }
+
+  const payUpcoming = async (expense: UpcomingExpense, { accountId, paymentDate, notes }: { accountId: string; paymentDate: string; notes?: string }) => {
+    const account = accounts.find((item) => item.id === accountId)
+    if (!account) return
+    const transactionId = makeId()
+    const nextDueDate = expense.isRecurring && expense.recurringFrequency ? nextRecurringDate(expense.dueDate, expense.recurringFrequency) : undefined
+    const nextExpense = nextDueDate && (!expense.repeatEndDate || nextDueDate <= expense.repeatEndDate) ? { ...expense, id: makeId(), dueDate: nextDueDate, status: 'upcoming' as const, createdAt: new Date().toISOString(), paidTransactionId: undefined } : undefined
+    try {
+      await markUpcomingExpensePaid(expense.id, { id: transactionId, title: expense.title, type: 'expense', amount: expense.amount, category: expense.category, account: account.name, accountId, date: paymentDate, notes: notes ?? expense.notes }, nextExpense)
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : 'Could not record the payment')
+      return
+    }
+    updateAccountBalance(accountId, -expense.amount)
+    setBudgets((current) => current.map((budget) => budget.category === expense.category ? { ...budget, used: budget.used + expense.amount } : budget))
+    addTransaction({ id: transactionId, title: expense.title, type: 'expense', amount: expense.amount, category: expense.category, account: account.name, accountId, date: paymentDate, notes: notes ?? expense.notes })
+    setUpcomingExpenses((current) => {
+      const paidItems = current.map((item) => item.id === expense.id ? { ...item, status: 'paid' as const, paidTransactionId: transactionId } : item)
+      return nextExpense ? [nextExpense, ...paidItems] : paidItems
+    })
+    showToast(expense.isRecurring ? 'Bill paid and next item created' : 'Bill paid and recorded')
+  }
 
   const pages: Record<string, { title: string; subtitle: string; component: ReactNode }> = {
     dashboard: { title: 'Home', subtitle: 'Your payday journey', component: <Dashboard accounts={accountsWithSavings} transactions={transactions} goals={goals} debts={debts} budgets={budgets} upcomingExpenses={upcomingExpenses} categories={categories} journeySettings={journeySettings} onAction={setActiveModal} onNavigate={setActivePage} onPlanPurchase={() => setActiveModal('simulator')} onSetupJourney={() => navigate('/onboarding')} onTourComplete={() => { const next = { ...journeySettings, tourCompleted: true }; setJourneySettings(next); void saveJourneySettings(next, true) }} /> },
@@ -428,7 +477,7 @@ function App() {
         />
       ),
     },
-    budgets: { title: 'Budgets', subtitle: 'Monthly limits and usage', component: <Budgets budgets={budgets} /> },
+    budgets: { title: 'Plan', subtitle: 'Budgets, bills, and considered purchases', component: <Budgets budgets={budgets} upcomingExpenses={upcomingExpenses} accounts={accounts} categories={categories} transactions={transactions} wishlistItems={wishlistItems} activeQuest={moneyQuests.find((item) => item.status === 'active')} goals={goals} onNavigateSettings={() => setActivePage('settings')} onAddUpcoming={addUpcoming} onUpdateUpcoming={updateUpcoming} onDeleteUpcoming={removeUpcoming} onMarkUpcomingPaid={payUpcoming} onSaveWishlist={(item) => { void saveWishlistItem(item).catch((error) => showToast(error.message)); setWishlistItems((current) => [item, ...current.filter((entry) => entry.id !== item.id)]) }} onDeleteWishlist={(id) => { void deleteWishlistItem(id).catch((error) => showToast(error.message)); setWishlistItems((current) => current.filter((item) => item.id !== id)) }} onBuyWishlist={(item) => { setExpenseDraft({ amount: item.amount, category: categories.find((category) => category.id === item.categoryId)?.name ?? 'Miscellaneous', wishlistId: item.id }); setActiveModal('expense') }} onMoveWishlistToGoal={(item) => { const goal: Goal = { id: makeId(), name: item.name, target: item.amount, saved: 0, status: 'Active' }; const next = { ...item, goalId: goal.id, status: 'moved_to_goal' as const }; void saveGoal(goal).catch((error) => showToast(error.message)); void saveWishlistItem(next).catch((error) => showToast(error.message)); setGoals((current) => [goal, ...current]); setWishlistItems((current) => current.map((entry) => entry.id === item.id ? next : entry)); showToast('Wishlist item moved to a savings goal') }} onSaveQuest={(quest) => { void saveMoneyQuest(quest).catch((error) => showToast(error.message)); setMoneyQuests((current) => [quest, ...current.filter((item) => item.id !== quest.id && item.status !== 'active')]) }} onCancelQuest={(quest) => { const next = { ...quest, status: 'cancelled' as const }; void saveMoneyQuest(next).catch((error) => showToast(error.message)); setMoneyQuests((current) => current.map((item) => item.id === quest.id ? next : item)) }} /> },
     reports: {
       title: 'Analytics',
       subtitle: 'Spending trends and insights',
@@ -439,6 +488,8 @@ function App() {
           goals={goals}
           debts={debts}
           upcomingExpenses={upcomingExpenses}
+          journeySettings={journeySettings}
+          moneyWins={moneyWins}
         />
       ),
     },
@@ -494,6 +545,14 @@ function App() {
           updateAccountBalance(accountId, -amount)
           setBudgets((current) => current.map((budget) => budget.category === category ? { ...budget, used: budget.used + amount } : budget))
           addTransaction({ id: transactionId, title: category, type: 'expense', amount, category, account: account.name, accountId, date, notes })
+          if (expenseDraft?.wishlistId) {
+            setWishlistItems((current) => current.map((item) => {
+              if (item.id !== expenseDraft.wishlistId) return item
+              const next = { ...item, status: 'bought' as const, transactionId }
+              void saveWishlistItem(next).catch((error) => showToast(error.message))
+              return next
+            }))
+          }
           showToast('Expense recorded')
           setExpenseDraft(undefined)
         }}

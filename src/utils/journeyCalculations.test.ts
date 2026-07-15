@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { Account, Budget, Category, JourneySettings, Transaction, UpcomingExpense } from '../types/finance'
-import { calculateAffordability, calculateIncomeCycle, calculateSafeSpend, detectMoneyLeak } from './journeyCalculations'
+import { buildPreviousCycleStory, buildWeeklyReveal, calculateAffordability, calculateIncomeCycle, calculateSafeSpend, detectMoneyLeak } from './journeyCalculations'
 
 const settings: JourneySettings = {
   incomeSourceType: 'salary', incomeCadence: 'monthly', typicalIncome: 60_000,
@@ -59,5 +59,23 @@ describe('money leak detector', () => {
     expect(insight?.amount).toBe(1_600)
     expect(insight?.transactionCount).toBe(4)
     expect(insight?.confidence).toBe('medium')
+  })
+})
+
+describe('retention stories', () => {
+  const history: Transaction[] = [
+    { id: 'income', title: 'Salary', amount: 50_000, type: 'income', account: 'Cash', date: '2026-06-02' },
+    { id: 'food', title: 'Groceries', amount: 8_000, type: 'expense', category: 'Food', account: 'Cash', date: '2026-06-05' },
+    { id: 'save', title: 'Goal Saving', amount: 5_000, type: 'goal_saving', account: 'Cash', date: '2026-06-08' },
+  ]
+
+  it('builds a four-part story for the previous completed income cycle', () => {
+    const story = buildPreviousCycleStory(settings, history, '2026-07-15')
+    expect(story).toMatchObject({ openingMoney: 50_000, spent: 8_000, protected: 5_000, closingMoney: 37_000, strongestCategory: 'Food' })
+  })
+
+  it('reveals one useful pattern for the last seven days', () => {
+    const reveal = buildWeeklyReveal([{ id: '1', title: 'Bus', amount: 500, type: 'expense', category: 'Transport', account: 'Cash', date: '2026-07-14' }], '2026-07-15')
+    expect(reveal?.title).toContain('no-spend days')
   })
 })

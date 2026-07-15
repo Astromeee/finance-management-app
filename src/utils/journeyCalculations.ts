@@ -3,6 +3,7 @@ import type {
   AffordabilityResult,
   Budget,
   Category,
+  CycleStory,
   IncomeCycle,
   IncomeCadence,
   JourneySettings,
@@ -10,6 +11,7 @@ import type {
   SafeSpendResult,
   Transaction,
   UpcomingExpense,
+  WeeklyReveal,
 } from '../types/finance'
 import { localDateKey } from '../lib/date'
 
@@ -163,5 +165,49 @@ export function detectMoneyLeak(transactions: Transaction[], today = localDateKe
     transactionCount: candidate.count,
     categoryId: candidate.categoryId,
     confidence: candidate.count >= 6 ? 'high' : candidate.count >= 4 ? 'medium' : 'low',
+  }
+}
+
+export function buildWeeklyReveal(transactions: Transaction[], today = localDateKey()): WeeklyReveal | null {
+  const start = midday(today)
+  start.setDate(start.getDate() - 6)
+  const startKey = localDateKey(start)
+  const expenses = transactions.filter((item) => item.type === 'expense' && item.date >= startKey && item.date <= today)
+  if (!expenses.length) return { title: 'A quiet spending week', detail: 'No expenses were recorded in the last seven days.', metric: 7, kind: 'no_spend' }
+  const categories = new Map<string, number>()
+  const days = new Set<string>()
+  for (const item of expenses) {
+    const category = item.category ?? item.title
+    categories.set(category, (categories.get(category) ?? 0) + item.amount)
+    days.add(item.date)
+  }
+  const [category, amount] = [...categories.entries()].sort((a, b) => b[1] - a[1])[0]
+  const noSpendDays = 7 - days.size
+  return noSpendDays >= 3
+    ? { title: `${noSpendDays} no-spend days`, detail: `${category} was still the week’s largest flexible pattern at PKR ${amount.toLocaleString('en-PK')}.`, metric: noSpendDays, kind: 'no_spend' }
+    : { title: `${category} led this week`, detail: `It accounted for PKR ${amount.toLocaleString('en-PK')} across the last seven days.`, metric: amount, kind: 'category' }
+}
+
+export function buildPreviousCycleStory(settings: JourneySettings, transactions: Transaction[], today = localDateKey()): CycleStory | null {
+  const current = calculateIncomeCycle(settings, today)
+  if (!current || !settings.incomeCadence) return null
+  const startDate = previousCycleDate(current.startDate, settings.incomeCadence)
+  const endDate = current.startDate
+  const cycleTransactions = transactions.filter((item) => item.date >= startDate && item.date < endDate)
+  if (!cycleTransactions.length) return null
+  const openingMoney = cycleTransactions.filter((item) => item.type === 'income').reduce((sum, item) => sum + item.amount, 0)
+  const spent = cycleTransactions.filter((item) => item.type === 'expense').reduce((sum, item) => sum + item.amount, 0)
+  const protectedMoney = cycleTransactions.filter((item) => item.type === 'goal_saving' || item.type === 'debt_payment').reduce((sum, item) => sum + item.amount, 0)
+  const categoryTotals = new Map<string, number>()
+  for (const item of cycleTransactions.filter((entry) => entry.type === 'expense')) {
+    const category = item.category ?? item.title
+    categoryTotals.set(category, (categoryTotals.get(category) ?? 0) + item.amount)
+  }
+  const strongestCategory = [...categoryTotals.entries()].sort((a, b) => b[1] - a[1])[0]?.[0]
+  const closingMoney = openingMoney - spent - protectedMoney
+  return {
+    cycle: { startDate, endDate, totalDays: Math.max(1, daysBetween(startDate, endDate)), daysElapsed: Math.max(1, daysBetween(startDate, endDate)), daysRemaining: 0 },
+    openingMoney, spent, protected: protectedMoney, closingMoney, strongestCategory,
+    headline: closingMoney >= 0 ? `You kept ${Math.round((closingMoney / Math.max(1, openingMoney)) * 100)}% of incoming money.` : 'Spending ran ahead of income in this cycle.',
   }
 }

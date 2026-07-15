@@ -1,4 +1,5 @@
 import { act } from 'react'
+import type { ComponentProps } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { JourneySettings } from '../types/finance'
@@ -58,8 +59,8 @@ describe('personalized onboarding', () => {
 
     expect(onProgress).toHaveBeenCalledTimes(5)
     expect(onComplete).toHaveBeenCalledTimes(1)
-    const [, account, settings] = onComplete.mock.calls[0]
-    expect(account.balance).toBe(0)
+    const [, account, settings] = onComplete.mock.calls[0] as unknown as Parameters<ComponentProps<typeof Onboarding>['onComplete']>
+    expect(account?.balance).toBe(0)
     expect(settings).toMatchObject({ incomeSourceType: 'allowance', incomeCadence: 'monthly', typicalIncome: 30_000, safetyReserve: 5_000, onboardingStep: 6 })
   })
 

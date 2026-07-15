@@ -1,4 +1,4 @@
-import { ArrowRight, CalendarClock, CheckCircle2, Landmark, PencilLine, Plus, Repeat2, Target, Trash2, WalletCards, X, type LucideIcon } from 'lucide-react'
+import { ArrowRight, CheckCircle2, Landmark, PencilLine, Plus, Repeat2, Trash2, WalletCards, X, type LucideIcon } from 'lucide-react'
 import { animate, motion } from 'framer-motion'
 import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
@@ -187,7 +187,6 @@ export function GoalsDebts({
     () => [...upcomingExpenses].sort((a, b) => a.status === 'paid' && b.status !== 'paid' ? 1 : b.status === 'paid' && a.status !== 'paid' ? -1 : a.dueDate.localeCompare(b.dueDate)),
     [upcomingExpenses],
   )
-  const summary = upcomingSummary(upcomingExpenses)
   const totalSavings = goals.reduce((sum, goal) => sum + goal.saved, 0)
   const totalGoalTarget = goals.reduce((sum, goal) => sum + goal.target, 0)
   const totalDebt = debts.reduce((sum, debt) => sum + debtTotal(debt), 0)
@@ -195,14 +194,12 @@ export function GoalsDebts({
   const totalDebtToPay = debts.reduce((sum, debt) => sum + debtRemaining(debt), 0)
   const activeGoals = goals.filter((goal) => goal.status !== 'Completed').length
   const activeDebts = debts.filter((debt) => debtDisplayStatus(debt) !== 'Paid').length
-  const activeUpcoming = sortedUpcoming.filter((expense) => expense.status !== 'paid').length
   const goalProgress = percent(totalSavings, totalGoalTarget)
   const debtProgress = totalDebt > 0 ? Math.round((totalDebtPaid / totalDebt) * 100) : 100
 
   const tabs: Array<{ key: GoalsDebtsTab; label: string; count: number }> = [
     { key: 'goals', label: 'Goals', count: activeGoals },
     { key: 'debts', label: 'Debts', count: activeDebts },
-    { key: 'upcoming', label: 'Upcoming', count: activeUpcoming },
   ]
 
   return (
@@ -227,7 +224,7 @@ export function GoalsDebts({
       </section>
 
       {/* ---- Overview: animated glass stats ---- */}
-      <section className="grid grid-cols-2 gap-3 xl:grid-cols-4">
+      <section className="grid grid-cols-2 gap-3">
         <OverviewCard
           label="Total savings"
           value={totalSavings}
@@ -244,8 +241,6 @@ export function GoalsDebts({
           ring={debtProgress}
           ringLabel={totalDebt > 0 ? `${debtProgress}% paid` : 'All clear'}
         />
-        <OverviewCard label="Upcoming this month" value={summary.thisMonth} icon={CalendarClock} color="#5FB8BC" />
-        <OverviewCard label="Due next 7 days" value={summary.nextSevenDays} icon={Target} color="#9AA3B2" />
       </section>
 
       {/* ---- Segmented pill tabs ---- */}
@@ -884,7 +879,7 @@ function ConfirmDeleteModal({
   )
 }
 
-function RecordUpcomingExpensePaidModal({
+export function RecordUpcomingExpensePaidModal({
   expense,
   accounts,
   onClose,
@@ -986,22 +981,6 @@ function upcomingDisplayStatus(expense: UpcomingExpense): UpcomingExpenseStatus 
   if (daysUntilDue < 0) return 'overdue'
   if (daysUntilDue <= 7) return 'due_soon'
   return 'upcoming'
-}
-
-function upcomingSummary(expenses: UpcomingExpense[]) {
-  const now = new Date(today())
-  const currentMonth = now.getMonth()
-  const currentYear = now.getFullYear()
-  return expenses.reduce((summary, expense) => {
-    const displayStatus = upcomingDisplayStatus(expense)
-    const dueDate = new Date(expense.dueDate)
-    const unpaid = displayStatus !== 'paid'
-    if (unpaid && dueDate.getMonth() === currentMonth && dueDate.getFullYear() === currentYear) summary.thisMonth += expense.amount
-    if (unpaid && displayStatus === 'due_soon') summary.nextSevenDays += expense.amount
-    if (unpaid && displayStatus === 'overdue') summary.overdue += expense.amount
-    if (unpaid && expense.isRecurring) summary.recurring += 1
-    return summary
-  }, { thisMonth: 0, nextSevenDays: 0, overdue: 0, recurring: 0 })
 }
 
 function startOfDay(date: string) {

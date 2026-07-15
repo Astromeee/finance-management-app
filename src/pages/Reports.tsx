@@ -15,11 +15,12 @@ import {
   YAxis,
 } from 'recharts'
 import { motion } from 'framer-motion'
-import { ArrowDownLeft, ArrowUpRight, Landmark, PercentCircle, PieChart as PieChartIcon, TrendingUp, WalletCards, ChevronDown, type LucideIcon } from 'lucide-react'
+import { ArrowDownLeft, ArrowUpRight, ChevronDown, Landmark, Medal, PercentCircle, PieChart as PieChartIcon, Share2, Sparkles, TrendingUp, WalletCards, type LucideIcon } from 'lucide-react'
 import { formatPKR, percent } from '../utils/financeCalculations'
-import type { Account, Debt, Goal, Transaction, UpcomingExpense } from '../types/finance'
+import type { Account, Debt, Goal, JourneySettings, MoneyWin, Transaction, UpcomingExpense } from '../types/finance'
 import { cn } from '../utils/ui'
 import { localDateKey } from '../lib/date'
+import { buildPreviousCycleStory, buildWeeklyReveal, detectMoneyLeak } from '../utils/journeyCalculations'
 
 /* ============================================================
    Reports (Analytics) — V3 redesign
@@ -74,17 +75,22 @@ export function Reports({
   goals,
   debts,
   upcomingExpenses,
+  journeySettings,
+  moneyWins,
 }: {
   accounts: Account[]
   transactions: Transaction[]
   goals: Goal[]
   debts: Debt[]
   upcomingExpenses: UpcomingExpense[]
+  journeySettings: JourneySettings
+  moneyWins: MoneyWin[]
 }) {
   const [period, setPeriod] = useState<PeriodSelection>('this-month')
   const [customStart, setCustomStart] = useState(localDateKey(monthStart(new Date())))
   const [customEnd, setCustomEnd] = useState(localDateKey())
   const [showMoreAnalytics, setShowMoreAnalytics] = useState(false)
+  const [showStory, setShowStory] = useState(false)
 
   const range = useMemo(() => getRange(period, customStart, customEnd), [period, customEnd, customStart])
   const periodTransactions = useMemo(
@@ -113,6 +119,9 @@ export function Reports({
   const spendingMix = spendingByCategory.length ? spendingByCategory.slice(0, 5) : [{ name: 'No spending', value: 1, percent: 100 }]
   const debtProgress = goalDebt.debtTotal > 0 ? Math.round((goalDebt.debtPaid / goalDebt.debtTotal) * 100) : 0
   const monthChips = availableMonthOptions(transactions)
+  const moneyLeak = useMemo(() => detectMoneyLeak(transactions), [transactions])
+  const weeklyReveal = useMemo(() => buildWeeklyReveal(transactions), [transactions])
+  const cycleStory = useMemo(() => buildPreviousCycleStory(journeySettings, transactions), [journeySettings, transactions])
 
   return (
     <div className="space-y-5 pb-28">
@@ -124,6 +133,17 @@ export function Reports({
         </div>
         <p className="pb-1.5 text-[14px] font-semibold text-[var(--accent)]">{range.label}</p>
       </section>
+
+      <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5">
+        <div className="flex items-start gap-4"><span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-[var(--accent-soft)] text-[var(--accent)]"><Sparkles size={20} /></span><div><p className="text-xs font-bold uppercase tracking-[.16em] text-[var(--accent)]">Money leak check</p>{moneyLeak ? <><h3 className="mt-2 text-lg font-semibold">{moneyLeak.title}</h3><p className="mt-1 text-sm leading-6 text-[var(--muted)]">{moneyLeak.explanation}</p><p className="mt-3 text-sm font-semibold text-[var(--positive)]">{moneyLeak.action}</p></> : <><h3 className="mt-2 text-lg font-semibold">Keep tracking for a clearer pattern</h3><p className="mt-1 text-sm leading-6 text-[var(--muted)]">We need at least three repeated purchases and enough recent history before naming a leak. No guesses and no shame.</p></>}</div></div>
+      </section>
+
+      <section className="grid gap-3 lg:grid-cols-2">
+        <article className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5"><p className="text-xs font-bold uppercase tracking-[.16em] text-[var(--positive)]">Weekly reveal</p><h3 className="mt-2 text-xl font-semibold">{weeklyReveal?.title ?? 'Your first reveal is forming'}</h3><p className="mt-2 text-sm leading-6 text-[var(--muted)]">{weeklyReveal?.detail ?? 'Record a few expenses this week and we will surface one useful pattern here.'}</p></article>
+        <article className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5"><button aria-expanded={showStory} className="flex w-full items-start justify-between gap-4 text-left" onClick={() => setShowStory((value) => !value)}><span><span className="text-xs font-bold uppercase tracking-[.16em] text-[var(--accent)]">Money Story</span><span className="mt-2 block text-xl font-semibold">{cycleStory?.headline ?? 'Complete an income cycle'}</span><span className="mt-2 block text-sm leading-6 text-[var(--muted)]">A four-part recap appears after Pocket Ledger has a full cycle of entries.</span></span><ChevronDown className={cn('mt-1 shrink-0 transition-transform', showStory && 'rotate-180')} size={18} /></button>{showStory && cycleStory && <div className="mt-5 border-t border-[var(--border)] pt-4"><div className="grid grid-cols-2 gap-3"><StoryMetric label="Money in" value={cycleStory.openingMoney} /><StoryMetric label="Spent" value={cycleStory.spent} /><StoryMetric label="Protected" value={cycleStory.protected} /><StoryMetric label="Left from flow" value={cycleStory.closingMoney} /></div><div className="mt-4 flex items-center justify-between"><p className="text-sm text-[var(--muted)]">{cycleStory.strongestCategory ? `Largest spending area: ${cycleStory.strongestCategory}` : 'No spending category dominated.'}</p><button aria-label="Share story card" className="icon-button" onClick={() => navigator.share?.({ title: 'My Pocket Ledger Money Story', text: cycleStory.headline })}><Share2 size={17} /></button></div></div>}</article>
+      </section>
+
+      <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5"><div className="flex items-center gap-3"><span className="grid h-10 w-10 place-items-center rounded-xl bg-[var(--accent-soft)] text-[var(--accent)]"><Medal size={18} /></span><div><p className="font-semibold">Tiny Wins</p><p className="text-sm text-[var(--muted)]">Quiet progress, kept away from competitive scores.</p></div></div><div className="mt-4 grid gap-3">{moneyWins.length ? moneyWins.slice(0, 5).map((win) => <div className="flex gap-3 border-l-2 border-[var(--positive)] pl-3" key={win.id}><div><p className="text-sm font-semibold">{win.title}</p><p className="mt-0.5 text-xs text-[var(--muted)]">{win.detail ?? new Date(win.earnedAt).toLocaleDateString('en-PK', { day: 'numeric', month: 'short' })}</p></div></div>) : <p className="rounded-xl bg-[var(--surface-2)] px-4 py-3 text-sm leading-6 text-[var(--muted)]">Your first win can be a completed quest, a goal milestone, a recovered budget, or a purchase you chose to skip.</p>}</div></section>
 
       {/* ---- Period chip rail ---- */}
       <section className="rounded-[26px] border border-[var(--glass-border)] bg-[var(--glass-bg)] p-4 backdrop-blur-xl">
@@ -309,6 +329,10 @@ export function Reports({
 
     </div>
   )
+}
+
+function StoryMetric({ label, value }: { label: string; value: number }) {
+  return <div className="rounded-xl bg-[var(--surface-2)] p-3"><p className="text-xs text-[var(--muted)]">{label}</p><p className="mt-1 font-semibold tabular-nums">{formatPKR(value)}</p></div>
 }
 
 /* ============ presentational pieces ============ */

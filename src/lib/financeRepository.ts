@@ -427,6 +427,16 @@ export async function saveWishlistItem(item: WishlistItem) {
   if (error) throw error
 }
 
+export async function deleteWishlistItem(id: string) {
+  const { error } = await client().from('wishlist_items').delete().eq('id', id)
+  if (error) throw error
+}
+
+export async function deleteMoneyQuest(id: string) {
+  const { error } = await client().from('money_quests').delete().eq('id', id)
+  if (error) throw error
+}
+
 export async function saveMoneyWin(win: MoneyWin) {
   const userId = await requireUserId()
   const { error } = await client().from('money_wins').upsert({
