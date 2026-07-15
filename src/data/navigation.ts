@@ -3,10 +3,10 @@ import type { NavItem } from '../types/finance'
 
 export const navItems: NavItem[] = [
   { id: 'dashboard', label: 'Home', icon: Home },
-  { id: 'transactions', label: 'Transactions', icon: List },
+  { id: 'transactions', label: 'Activity', icon: List },
   { id: 'accounts', label: 'Cards', icon: CreditCard },
   { id: 'goals', label: 'Goals', icon: Target },
-  { id: 'budgets', label: 'Budgets', icon: Wallet },
-  { id: 'reports', label: 'Analytics', icon: PieChart },
+  { id: 'budgets', label: 'Plan', icon: Wallet },
+  { id: 'reports', label: 'Insights', icon: PieChart },
   { id: 'settings', label: 'Settings', icon: Settings },
 ]

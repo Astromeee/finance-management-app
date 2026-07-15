@@ -9,9 +9,9 @@ function navigate(setActivePage: (page: string) => void, page: string) {
 
 export function Sidebar({ activePage, setActivePage }: { activePage: string; setActivePage: (page: string) => void }) {
   return (
-    <aside className="hidden min-h-screen w-72 shrink-0 border-r border-white/8 bg-[var(--bg-deep)]/88 p-5 backdrop-blur-xl lg:block">
+    <aside className="hidden min-h-screen w-72 shrink-0 border-r border-[var(--border)] bg-[var(--bg-deep)] p-5 lg:block">
       <div className="flex items-center gap-3">
-        <img className="h-12 w-12 rounded-[1.25rem] shadow-lg shadow-black/25" src="/pocket-ledger-icon.png" alt="" aria-hidden="true" />
+        <img className="h-12 w-12 rounded-2xl" src="/pocket-ledger-icon.png" alt="" aria-hidden="true" />
         <div>
           <h1 className="text-xl font-semibold text-white">Pocket Ledger</h1>
           <p className="text-sm text-[var(--muted)]">Personal finance</p>
@@ -25,7 +25,7 @@ export function Sidebar({ activePage, setActivePage }: { activePage: string; set
           </button>
         ))}
       </nav>
-      <div className="mt-8 rounded-3xl border border-white/8 bg-[var(--surface)] p-4 text-sm text-[var(--muted)]">
+      <div className="mt-8 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4 text-sm text-[var(--muted)]">
         <p className="font-medium text-white">Moeed</p>
         <p>PKR · Local data</p>
       </div>
@@ -36,7 +36,7 @@ export function Sidebar({ activePage, setActivePage }: { activePage: string; set
 /* Floating pill dock (home mock): active item = label + light circle icon,
    inactive items = plain circular icon buttons. */
 export function BottomNav({ activePage, setActivePage }: { activePage: string; setActivePage: (page: string) => void }) {
-  const order = ['dashboard', 'accounts', 'transactions', 'goals', 'reports']
+  const order = ['dashboard', 'transactions', 'budgets', 'goals', 'reports']
   const mobileItems = order
     .map((id) => navItems.find((item) => item.id === id))
     .filter((item): item is NavItem => Boolean(item))
