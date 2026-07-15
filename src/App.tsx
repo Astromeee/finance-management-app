@@ -10,7 +10,6 @@ import { getProfile, onProfileChange, setProfile, type Profile } from './lib/pro
 import { isSupabaseConfigured, supabase } from './lib/supabase'
 import { AuthCallback, AuthPage } from './pages/Auth'
 import { LegalPage } from './pages/Legal'
-import { Onboarding } from './pages/Onboarding'
 import type { Budget, Category, Debt, DebtCategory, DebtStatus, Goal, JourneySettings, MoneyQuest, MoneyWin, RecurringFrequency, Transaction, UpcomingExpense, WishlistItem } from './types/finance'
 import { calculateSafeSpend } from './utils/journeyCalculations'
 
@@ -28,6 +27,7 @@ const ProfilePage = lazy(() => import('./pages/Profile').then((module) => ({ def
 const Reports = lazy(() => import('./pages/Reports').then((module) => ({ default: module.Reports })))
 const Settings = lazy(() => import('./pages/Settings').then((module) => ({ default: module.Settings })))
 const Transactions = lazy(() => import('./pages/Transactions').then((module) => ({ default: module.Transactions })))
+const Onboarding = lazy(() => import('./pages/Onboarding').then((module) => ({ default: module.Onboarding })))
 
 type ActionModal = 'income' | 'expense' | 'transfer' | 'goal' | 'debt' | 'simulator' | null
 
@@ -664,7 +664,7 @@ function App() {
 
   if (!onboardingCompleted) {
     return <Routes>
-      <Route path="/onboarding" element={<Onboarding email={authEmail} initialName={authDisplayName} initialSettings={journeySettings} onProgress={async (settings) => { await saveJourneySettings(settings, false); setJourneySettings(settings) }} onComplete={async (nextProfile, account, settings) => {
+      <Route path="/onboarding" element={<Suspense fallback={<LoadingScreen message="Preparing your journey…" />}><Onboarding email={authEmail} initialName={authDisplayName} initialSettings={journeySettings} onProgress={async (settings) => { await saveJourneySettings(settings, false); setJourneySettings(settings) }} onComplete={async (nextProfile, account, settings) => {
         if (account) await saveAccount(account, account.balance)
         await saveUserSettings(nextProfile, true)
         await saveJourneySettings(settings, true)
@@ -675,7 +675,7 @@ function App() {
         setOnboardingCompleted(true)
         trackEvent('onboarding_completed', { surface: 'onboarding', action: 'complete' })
         navigate('/app', { replace: true })
-      }} />} />
+      }} /></Suspense>} />
       <Route path="/privacy" element={<LegalPage kind="privacy" />} />
       <Route path="/terms" element={<LegalPage kind="terms" />} />
       <Route path="*" element={<Navigate replace to="/onboarding" />} />
@@ -685,7 +685,7 @@ function App() {
   return <Routes>
     <Route path="/privacy" element={<LegalPage kind="privacy" />} />
     <Route path="/terms" element={<LegalPage kind="terms" />} />
-    <Route path="/onboarding" element={<Onboarding email={authEmail} initialName={profile.name} initialSettings={{ ...journeySettings, onboardingStep: 0 }} existingAccount={accounts[0]} onCancel={() => navigate('/app')} onProgress={async (settings) => { await saveJourneySettings(settings, true); setJourneySettings(settings) }} onComplete={async (nextProfile, _account, settings) => { await saveUserSettings(nextProfile, true); await saveJourneySettings(settings, true); setProfile(nextProfile); setProfileState(nextProfile); setJourneySettings(settings); navigate('/app', { replace: true }) }} />} />
+    <Route path="/onboarding" element={<Suspense fallback={<LoadingScreen message="Preparing your journey…" />}><Onboarding email={authEmail} initialName={profile.name} initialSettings={{ ...journeySettings, onboardingStep: 0 }} existingAccount={accounts[0]} onCancel={() => navigate('/app')} onProgress={async (settings) => { await saveJourneySettings(settings, true); setJourneySettings(settings) }} onComplete={async (nextProfile, _account, settings) => { await saveUserSettings(nextProfile, true); await saveJourneySettings(settings, true); setProfile(nextProfile); setProfileState(nextProfile); setJourneySettings(settings); navigate('/app', { replace: true }) }} /></Suspense>} />
     <Route path="/app/*" element={ledger} />
     <Route path="*" element={<Navigate replace to="/app" />} />
   </Routes>
