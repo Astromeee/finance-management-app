@@ -11,12 +11,14 @@ import { AuthCallback, AuthPage } from './pages/Auth'
 import { LegalPage } from './pages/Legal'
 import { Onboarding } from './pages/Onboarding'
 import type { Budget, Category, Debt, DebtCategory, DebtStatus, Goal, JourneySettings, RecurringFrequency, Transaction, UpcomingExpense } from './types/finance'
+import { calculateSafeSpend } from './utils/journeyCalculations'
 
 const AddExpenseModal = lazy(() => import('./components/forms/FinanceActionModals').then((module) => ({ default: module.AddExpenseModal })))
 const AddGoalModal = lazy(() => import('./components/forms/FinanceActionModals').then((module) => ({ default: module.AddGoalModal })))
 const AddIncomeModal = lazy(() => import('./components/forms/FinanceActionModals').then((module) => ({ default: module.AddIncomeModal })))
 const DebtPaymentModal = lazy(() => import('./components/forms/FinanceActionModals').then((module) => ({ default: module.DebtPaymentModal })))
 const TransferModal = lazy(() => import('./components/forms/FinanceActionModals').then((module) => ({ default: module.TransferModal })))
+const PurchaseSimulator = lazy(() => import('./components/PurchaseSimulator').then((module) => ({ default: module.PurchaseSimulator })))
 const Accounts = lazy(() => import('./pages/Accounts').then((module) => ({ default: module.Accounts })))
 const Budgets = lazy(() => import('./pages/Budgets').then((module) => ({ default: module.Budgets })))
 const Dashboard = lazy(() => import('./pages/Dashboard').then((module) => ({ default: module.Dashboard })))
@@ -26,7 +28,7 @@ const Reports = lazy(() => import('./pages/Reports').then((module) => ({ default
 const Settings = lazy(() => import('./pages/Settings').then((module) => ({ default: module.Settings })))
 const Transactions = lazy(() => import('./pages/Transactions').then((module) => ({ default: module.Transactions })))
 
-type ActionModal = 'income' | 'expense' | 'transfer' | 'goal' | 'debt' | null
+type ActionModal = 'income' | 'expense' | 'transfer' | 'goal' | 'debt' | 'simulator' | null
 
 const defaultJourneySettings: JourneySettings = {
   typicalIncome: 0,
@@ -111,6 +113,7 @@ function App() {
   const activePage = routePage
   const [activeModal, setActiveModal] = useState<ActionModal>(null)
   const [activeDebtId, setActiveDebtId] = useState<string | undefined>()
+  const [expenseDraft, setExpenseDraft] = useState<{ amount: number; category: string }>()
   const [toast, setToast] = useState('')
   const [authReady, setAuthReady] = useState(!isSupabaseConfigured)
   const [dataReady, setDataReady] = useState(!isSupabaseConfigured)
@@ -290,7 +293,7 @@ function App() {
   const accountsWithSavings = accounts
 
   const pages: Record<string, { title: string; subtitle: string; component: ReactNode }> = {
-    dashboard: { title: 'Dashboard', subtitle: 'Your financial overview', component: <Dashboard accounts={accountsWithSavings} transactions={transactions} goals={goals} debts={debts} budgets={budgets} upcomingExpenses={upcomingExpenses} onAction={setActiveModal} onNavigate={setActivePage} /> },
+    dashboard: { title: 'Home', subtitle: 'Your payday journey', component: <Dashboard accounts={accountsWithSavings} transactions={transactions} goals={goals} debts={debts} budgets={budgets} upcomingExpenses={upcomingExpenses} categories={categories} journeySettings={journeySettings} onAction={setActiveModal} onNavigate={setActivePage} onPlanPurchase={() => setActiveModal('simulator')} onSetupJourney={() => navigate('/onboarding')} onTourComplete={() => { const next = { ...journeySettings, tourCompleted: true }; setJourneySettings(next); void saveJourneySettings(next, true) }} /> },
     transactions: { title: 'Transactions', subtitle: 'Track income, spending, and transfers', component: <Transactions transactions={transactions} accounts={accountsWithSavings} expenseCategories={expenseCategoryNames} incomeCategories={incomeCategoryNames} onUpdateTransaction={updateTransaction} onDeleteTransaction={deleteTransaction} /> },
     accounts: {
       title: 'Accounts',
@@ -453,7 +456,7 @@ function App() {
         accounts={accountsWithSavings}
         incomeCategories={incomeCategoryNames}
         onManageCategories={() => { setActiveModal(null); setActivePage('settings') }}
-        onClose={() => setActiveModal(null)}
+        onClose={() => { setActiveModal(null); setExpenseDraft(undefined) }}
         onSubmit={async ({ amount, source, accountId, date, notes }) => {
           const account = accountsWithSavings.find((item) => item.id === accountId)
           if (!account) return
@@ -470,11 +473,14 @@ function App() {
         }}
       />}
       {activeModal === 'expense' && <AddExpenseModal
+        key={expenseDraft ? `${expenseDraft.amount}-${expenseDraft.category}` : 'new-expense'}
         open={activeModal === 'expense'}
         accounts={accountsWithSavings}
         categories={expenseCategoryNames}
+        initialAmount={expenseDraft?.amount}
+        initialCategory={expenseDraft?.category}
         onManageCategories={() => { setActiveModal(null); setActivePage('settings') }}
-        onClose={() => setActiveModal(null)}
+        onClose={() => { setActiveModal(null); setExpenseDraft(undefined) }}
         onSubmit={async ({ amount, category, accountId, date, notes }) => {
           const account = accountsWithSavings.find((item) => item.id === accountId)
           if (!account) return
@@ -489,8 +495,10 @@ function App() {
           setBudgets((current) => current.map((budget) => budget.category === category ? { ...budget, used: budget.used + amount } : budget))
           addTransaction({ id: transactionId, title: category, type: 'expense', amount, category, account: account.name, accountId, date, notes })
           showToast('Expense recorded')
+          setExpenseDraft(undefined)
         }}
       />}
+      {activeModal === 'simulator' && <PurchaseSimulator open safeSpend={calculateSafeSpend({ accounts, budgets, categories, upcomingExpenses, settings: journeySettings })} categories={categories} onClose={() => setActiveModal(null)} onManageCategories={() => { setActiveModal(null); setActivePage('settings') }} onRecordExpense={(draft) => { setExpenseDraft(draft); setActiveModal('expense') }} />}
       {activeModal === 'transfer' && <TransferModal
         open={activeModal === 'transfer'}
         accounts={accountsWithSavings}

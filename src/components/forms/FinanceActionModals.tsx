@@ -90,6 +90,8 @@ export function AddExpenseModal({
   open,
   accounts,
   categories,
+  initialAmount,
+  initialCategory,
   onManageCategories,
   onClose,
   onSubmit,
@@ -97,12 +99,14 @@ export function AddExpenseModal({
   open: boolean
   accounts: Account[]
   categories: string[]
+  initialAmount?: number
+  initialCategory?: string
   onManageCategories: () => void
   onClose: () => void
   onSubmit: (payload: { amount: number; category: string; accountId: string; date: string; notes?: string }) => void
 }) {
-  const [amount, setAmount] = useState('')
-  const [category, setCategory] = useState(categories[0] ?? 'Miscellaneous')
+  const [amount, setAmount] = useState(initialAmount ? String(initialAmount) : '')
+  const [category, setCategory] = useState(initialCategory ?? categories[0] ?? 'Miscellaneous')
   const [accountId, setAccountId] = useState(() => rememberedAccount(accounts))
   const [date, setDate] = useState(today())
   const [notes, setNotes] = useState('')

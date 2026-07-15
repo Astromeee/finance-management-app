@@ -316,3 +316,42 @@ p { text-wrap: pretty; }
     transition-duration: 1ms !important;
   }
 }
+
+/* Payday Journey semantic surfaces */
+.journey-hero {
+  position: relative;
+  background: linear-gradient(145deg, color-mix(in srgb, var(--surface-raised) 92%, transparent), var(--surface));
+  box-shadow: 0 24px 70px rgb(0 0 0 / 24%);
+}
+
+.journey-hero::after {
+  content: '';
+  position: absolute;
+  inset: -35% -15% auto auto;
+  width: 17rem;
+  height: 17rem;
+  border-radius: 999px;
+  background: var(--journey-glow, color-mix(in srgb, var(--accent) 16%, transparent));
+  filter: blur(48px);
+  pointer-events: none;
+}
+
+.journey-hero > * { position: relative; z-index: 1; }
+.journey-hero-comfortable { --journey-glow: color-mix(in srgb, var(--positive) 18%, transparent); }
+.journey-hero-watchful { --journey-glow: color-mix(in srgb, var(--warning) 18%, transparent); }
+.journey-hero-protect { --journey-glow: color-mix(in srgb, var(--negative) 18%, transparent); }
+
+.journey-status {
+  display: inline-flex;
+  align-items: center;
+  gap: .4rem;
+  min-height: 1.9rem;
+  padding: 0 .7rem;
+  border-radius: 999px;
+  font-size: .75rem;
+  font-weight: 700;
+}
+
+.journey-status-positive { color: var(--positive); background: color-mix(in srgb, var(--positive) 12%, transparent); }
+.journey-status-warning { color: var(--warning); background: color-mix(in srgb, var(--warning) 12%, transparent); }
+.journey-status-negative { color: var(--negative); background: color-mix(in srgb, var(--negative) 12%, transparent); }
