@@ -13,6 +13,7 @@ type Props = {
   transactions: Transaction[]; upcomingExpenses: UpcomingExpense[]
   expenseCategories: string[]; incomeCategories: string[]; profile: Profile
   onNavigate: (page: string) => void
+  onRestartTour: () => void
   onProfileChange: (profile: Profile) => void
   onSaveCategory: (category: Category) => Promise<void>
   onArchiveCategory: (id: string) => Promise<void>
@@ -25,6 +26,7 @@ export function Settings(props: Props) {
   const [theme, setThemeState] = useState<Theme>(() => getTheme())
   const [categoryName, setCategoryName] = useState('')
   const [categoryKind, setCategoryKind] = useState<Category['kind']>('expense')
+  const [categoryNature, setCategoryNature] = useState<Category['spendingNature']>('flexible')
   const [budgetCategoryId, setBudgetCategoryId] = useState(() => props.categories.find((item) => item.kind === 'expense')?.id ?? '')
   const [budgetAmount, setBudgetAmount] = useState('')
   const [notice, setNotice] = useState('')
@@ -43,7 +45,7 @@ export function Settings(props: Props) {
     const name = categoryName.trim()
     if (!name) return
     if (props.categories.some((item) => item.kind === categoryKind && item.name.toLowerCase() === name.toLowerCase())) return notify('That category already exists.')
-    await props.onSaveCategory({ id: crypto.randomUUID(), name, kind: categoryKind, color: categoryKind === 'income' ? '#77D6A3' : '#FF6B3D', spendingNature: 'flexible' })
+    await props.onSaveCategory({ id: crypto.randomUUID(), name, kind: categoryKind, color: categoryKind === 'income' ? '#77D6A3' : '#FF6B3D', spendingNature: categoryKind === 'income' ? 'flexible' : categoryNature })
     setCategoryName('')
     notify('Category added.')
   }
@@ -104,18 +106,21 @@ export function Settings(props: Props) {
         <SettingsRow detail="PKR / Rs. · Asia/Karachi" icon={Wallet} title="Currency and timezone" />
         <SettingsRow detail={theme === 'dark' ? 'Dark — orange on black' : 'Light — orange on white'} icon={theme === 'dark' ? Moon : Sun} title="Theme" trailing={<button aria-checked={theme === 'light'} aria-label="Toggle light theme" className="relative h-8 w-14 flex-none rounded-full transition-colors" onClick={() => setThemeState(toggleTheme())} role="switch" style={{ background: theme === 'light' ? '#FF5C00' : 'var(--surface-3)' }}><span className="absolute top-1 h-6 w-6 rounded-full bg-white shadow-md transition-all" style={{ left: theme === 'light' ? 'calc(100% - 1.75rem)' : '0.25rem' }} /></button>} />
         <SettingsRow detail={`${props.accounts.length} active account${props.accounts.length === 1 ? '' : 's'}`} icon={Wallet} title="Manage accounts" trailing={<button className="text-sm font-semibold text-[var(--accent)]" onClick={() => props.onNavigate('accounts')}>Open</button>} />
+        <SettingsRow detail="Replay setup and learn where key features live" icon={BookOpen} title="Help & Tour" trailing={<button className="text-sm font-semibold text-[var(--accent)]" onClick={props.onRestartTour}>Restart</button>} />
       </SettingsGroup>
 
-      <section>
+      <section id="categories">
         <p className="mb-2 px-1 text-xs font-semibold uppercase tracking-[.16em] text-[var(--muted-2)]">Categories</p>
         <div className="card p-4">
-          <form className="grid gap-3 sm:grid-cols-[130px_1fr_auto]" onSubmit={addCategory}>
+          <p className="mb-4 text-sm leading-6 text-[var(--muted)]">Essential categories are protected before your daily safe-to-spend amount is calculated.</p>
+          <form className="grid gap-3 sm:grid-cols-[120px_1fr_130px_auto]" onSubmit={addCategory}>
             <select className="form-input" value={categoryKind} onChange={(event) => setCategoryKind(event.target.value as Category['kind'])}><option value="expense">Expense</option><option value="income">Income</option></select>
             <input className="form-input" value={categoryName} onChange={(event) => setCategoryName(event.target.value)} placeholder="Category name" />
+            <select aria-label="Spending nature" className="form-input" disabled={categoryKind === 'income'} value={categoryNature} onChange={(event) => setCategoryNature(event.target.value as Category['spendingNature'])}><option value="essential">Essential</option><option value="flexible">Flexible</option></select>
             <button className="btn-primary justify-center"><Plus size={16} /> Add</button>
           </form>
           <div className="mt-4 grid gap-2">
-            {props.categories.map((category) => <div className="flex items-center gap-3 rounded-2xl bg-[var(--surface-2)] px-3 py-2.5" key={category.id}><span className="h-3 w-3 rounded-full" style={{ background: category.color }} /><span className="min-w-0 flex-1 text-sm font-medium text-white">{category.name}</span><span className="text-xs capitalize text-[var(--muted-2)]">{category.kind}</span><button aria-label={`Edit ${category.name}`} className="grid h-9 w-9 place-items-center text-[var(--muted)]" onClick={() => void editCategory(category)}><PencilLine size={15} /></button><button aria-label={`Archive ${category.name}`} className="grid h-9 w-9 place-items-center text-[var(--negative)]" onClick={() => void props.onArchiveCategory(category.id)}><Trash2 size={15} /></button></div>)}
+            {props.categories.map((category) => <div className="flex items-center gap-3 rounded-2xl bg-[var(--surface-2)] px-3 py-2.5" key={category.id}><span className="h-3 w-3 rounded-full" style={{ background: category.color }} /><span className="min-w-0 flex-1 text-sm font-medium text-white">{category.name}</span>{category.kind === 'expense' && <button aria-label={`Mark ${category.name} as ${category.spendingNature === 'essential' ? 'flexible' : 'essential'}`} className="rounded-full border border-[var(--border)] px-2.5 py-1 text-xs capitalize text-[var(--muted)]" onClick={() => void props.onSaveCategory({ ...category, spendingNature: category.spendingNature === 'essential' ? 'flexible' : 'essential' })}>{category.spendingNature}</button>}<span className="text-xs capitalize text-[var(--muted-2)]">{category.kind}</span><button aria-label={`Edit ${category.name}`} className="grid h-9 w-9 place-items-center text-[var(--muted)]" onClick={() => void editCategory(category)}><PencilLine size={15} /></button><button aria-label={`Archive ${category.name}`} className="grid h-9 w-9 place-items-center text-[var(--negative)]" onClick={() => void props.onArchiveCategory(category.id)}><Trash2 size={15} /></button></div>)}
           </div>
         </div>
       </section>

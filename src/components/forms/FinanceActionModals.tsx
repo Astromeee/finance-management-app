@@ -46,12 +46,14 @@ export function AddIncomeModal({
   open,
   accounts,
   incomeCategories,
+  onManageCategories,
   onClose,
   onSubmit,
 }: {
   open: boolean
   accounts: Account[]
   incomeCategories: string[]
+  onManageCategories: () => void
   onClose: () => void
   onSubmit: (payload: { amount: number; source: string; accountId: string; date: string; notes?: string }) => void
 }) {
@@ -74,6 +76,7 @@ export function AddIncomeModal({
       }}>
         <Field label="Amount" type="number" value={amount} onChange={setAmount} placeholder="Rs. 5,000" />
         <Select label="Source" value={source} onChange={setSource} options={incomeCategories} />
+        <ManageCategories onClick={onManageCategories} />
         <Select label="Account received in" value={selectedAccountId} onChange={(id) => rememberAccount(id, setAccountId)} options={accounts.map((account) => ({ value: account.id, label: account.name }))} />
         <Field label="Date" type="date" value={date} onChange={setDate} />
         <TextArea label="Notes" value={notes} onChange={setNotes} />
@@ -87,12 +90,14 @@ export function AddExpenseModal({
   open,
   accounts,
   categories,
+  onManageCategories,
   onClose,
   onSubmit,
 }: {
   open: boolean
   accounts: Account[]
   categories: string[]
+  onManageCategories: () => void
   onClose: () => void
   onSubmit: (payload: { amount: number; category: string; accountId: string; date: string; notes?: string }) => void
 }) {
@@ -112,6 +117,7 @@ export function AddExpenseModal({
       <form className="mt-5 grid gap-4" onSubmit={(event) => { event.preventDefault(); if (!invalid) { onSubmit({ amount: parsedAmount, category, accountId: selectedAccountId, date, notes }); onClose() } }}>
         <Field label="Amount" type="number" value={amount} onChange={setAmount} placeholder="Rs. 2,500" />
         <Select label="Category" value={category} onChange={setCategory} options={categories} />
+        <ManageCategories onClick={onManageCategories} />
         <Select label="Account paid from" value={selectedAccountId} onChange={(id) => rememberAccount(id, setAccountId)} options={accounts.map((item) => ({ value: item.id, label: `${item.name} · ${formatPKR(item.balance)}` }))} />
         <Field label="Date" type="date" value={date} onChange={setDate} />
         <TextArea label="Notes" value={notes} onChange={setNotes} />
@@ -246,4 +252,8 @@ function Select({ label, value, onChange, options }: { label: string; value: str
       </select>
     </label>
   )
+}
+
+function ManageCategories({ onClick }: { onClick: () => void }) {
+  return <button className="-mt-2 w-fit text-xs font-semibold text-[var(--accent)] hover:underline" onClick={onClick} type="button">Manage categories in Settings</button>
 }

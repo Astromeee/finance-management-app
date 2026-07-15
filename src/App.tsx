@@ -3,14 +3,14 @@ import type { ReactNode } from 'react'
 import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
 import { AppShell } from './components/layout/AppShell'
 import { accounts as initialAccounts, budgets as initialBudgets, debts as initialDebts, expenseCategories as initialExpenseCategories, goals as initialGoals, incomeSources as initialIncomeSources, transactions as initialTransactions, upcomingExpenses as initialUpcomingExpenses } from './data/mockData'
-import { adjustAccountBalance, archiveAccount, archiveCategory, deleteBudget, deleteDebt, deleteFinanceTransaction, deleteGoal, deleteUpcomingExpense, loadFinanceData, markUpcomingExpensePaid, recordFinanceAction, saveAccount, saveBudget, saveCategory, saveDebt, saveGoal, saveUpcomingExpense, saveUserSettings, updateFinanceTransaction } from './lib/financeRepository'
+import { adjustAccountBalance, archiveAccount, archiveCategory, deleteBudget, deleteDebt, deleteFinanceTransaction, deleteGoal, deleteUpcomingExpense, loadFinanceData, markUpcomingExpensePaid, recordFinanceAction, saveAccount, saveBudget, saveCategory, saveDebt, saveGoal, saveJourneySettings, saveUpcomingExpense, saveUserSettings, updateFinanceTransaction } from './lib/financeRepository'
 import { addRecurringDate } from './lib/date'
 import { getProfile, onProfileChange, setProfile, type Profile } from './lib/profile'
 import { isSupabaseConfigured, supabase } from './lib/supabase'
 import { AuthCallback, AuthPage } from './pages/Auth'
 import { LegalPage } from './pages/Legal'
 import { Onboarding } from './pages/Onboarding'
-import type { Budget, Category, Debt, DebtCategory, DebtStatus, Goal, RecurringFrequency, Transaction, UpcomingExpense } from './types/finance'
+import type { Budget, Category, Debt, DebtCategory, DebtStatus, Goal, JourneySettings, RecurringFrequency, Transaction, UpcomingExpense } from './types/finance'
 
 const AddExpenseModal = lazy(() => import('./components/forms/FinanceActionModals').then((module) => ({ default: module.AddExpenseModal })))
 const AddGoalModal = lazy(() => import('./components/forms/FinanceActionModals').then((module) => ({ default: module.AddGoalModal })))
@@ -27,6 +27,15 @@ const Settings = lazy(() => import('./pages/Settings').then((module) => ({ defau
 const Transactions = lazy(() => import('./pages/Transactions').then((module) => ({ default: module.Transactions })))
 
 type ActionModal = 'income' | 'expense' | 'transfer' | 'goal' | 'debt' | null
+
+const defaultJourneySettings: JourneySettings = {
+  typicalIncome: 0,
+  safetyReserve: 0,
+  onboardingVersion: 2,
+  onboardingStep: 0,
+  tourCompleted: false,
+  analyticsConsent: false,
+}
 
 const makeId = () => crypto.randomUUID()
 
@@ -110,6 +119,7 @@ function App() {
   const [authDisplayName, setAuthDisplayName] = useState<string>()
   const [authProvider, setAuthProvider] = useState<string>()
   const [onboardingCompleted, setOnboardingCompleted] = useState(!isSupabaseConfigured)
+  const [journeySettings, setJourneySettings] = useState<JourneySettings>(defaultJourneySettings)
   const [accounts, setAccounts] = useState(initialAccounts)
   const [transactions, setTransactions] = useState(initialTransactions)
   const [goals, setGoals] = useState<Goal[]>(initialGoals)
@@ -185,6 +195,7 @@ function App() {
         setProfile(remoteState.profile)
         setProfileState(remoteState.profile)
         setOnboardingCompleted(remoteState.onboardingCompleted)
+        setJourneySettings(remoteState.journeySettings)
         setDataReady(true)
       } catch (error) {
         console.warn('Supabase load failed:', error)
@@ -428,7 +439,7 @@ function App() {
         />
       ),
     },
-    settings: { title: 'Settings', subtitle: 'Preferences and data tools', component: <Settings accounts={accounts} authEmail={authEmail} authProvider={authProvider} budgets={budgets} categories={categories} debts={debts} expenseCategories={expenseCategoryNames} goals={goals} incomeCategories={incomeCategoryNames} profile={profile} transactions={transactions} upcomingExpenses={upcomingExpenses} onNavigate={setActivePage} onProfileChange={(next) => { setProfile(next); setProfileState(next); void saveUserSettings(next, true) }} onSaveCategory={async (category) => { await saveCategory(category); setCategories((current) => [...current.filter((item) => item.id !== category.id), category]) }} onArchiveCategory={async (id) => { await archiveCategory(id); setCategories((current) => current.filter((item) => item.id !== id)) }} onSaveBudget={async (budget) => { await saveBudget(budget); setBudgets((current) => [...current.filter((item) => item.id !== budget.id), budget]) }} onDeleteBudget={async (id) => { await deleteBudget(id); setBudgets((current) => current.filter((item) => item.id !== id)) }} onSignOut={() => supabase?.auth.signOut()} /> },
+    settings: { title: 'Settings', subtitle: 'Preferences and data tools', component: <Settings accounts={accounts} authEmail={authEmail} authProvider={authProvider} budgets={budgets} categories={categories} debts={debts} expenseCategories={expenseCategoryNames} goals={goals} incomeCategories={incomeCategoryNames} profile={profile} transactions={transactions} upcomingExpenses={upcomingExpenses} onNavigate={setActivePage} onRestartTour={() => navigate('/onboarding')} onProfileChange={(next) => { setProfile(next); setProfileState(next); void saveUserSettings(next, true) }} onSaveCategory={async (category) => { await saveCategory(category); setCategories((current) => [...current.filter((item) => item.id !== category.id), category]) }} onArchiveCategory={async (id) => { await archiveCategory(id); setCategories((current) => current.filter((item) => item.id !== id)) }} onSaveBudget={async (budget) => { await saveBudget(budget); setBudgets((current) => [...current.filter((item) => item.id !== budget.id), budget]) }} onDeleteBudget={async (id) => { await deleteBudget(id); setBudgets((current) => current.filter((item) => item.id !== id)) }} onSignOut={() => supabase?.auth.signOut()} /> },
     profile: { title: 'Profile', subtitle: 'Your name and photo', component: <ProfilePage onBack={() => setActivePage('dashboard')} /> },
   }
 
@@ -441,6 +452,7 @@ function App() {
         open={activeModal === 'income'}
         accounts={accountsWithSavings}
         incomeCategories={incomeCategoryNames}
+        onManageCategories={() => { setActiveModal(null); setActivePage('settings') }}
         onClose={() => setActiveModal(null)}
         onSubmit={async ({ amount, source, accountId, date, notes }) => {
           const account = accountsWithSavings.find((item) => item.id === accountId)
@@ -461,6 +473,7 @@ function App() {
         open={activeModal === 'expense'}
         accounts={accountsWithSavings}
         categories={expenseCategoryNames}
+        onManageCategories={() => { setActiveModal(null); setActivePage('settings') }}
         onClose={() => setActiveModal(null)}
         onSubmit={async ({ amount, category, accountId, date, notes }) => {
           const account = accountsWithSavings.find((item) => item.id === accountId)
@@ -572,10 +585,12 @@ function App() {
 
   if (!onboardingCompleted) {
     return <Routes>
-      <Route path="/onboarding" element={<Onboarding email={authEmail} initialName={authDisplayName} onComplete={async (nextProfile, account) => {
-        await saveAccount(account, account.balance)
+      <Route path="/onboarding" element={<Onboarding email={authEmail} initialName={authDisplayName} initialSettings={journeySettings} onProgress={async (settings) => { await saveJourneySettings(settings, false); setJourneySettings(settings) }} onComplete={async (nextProfile, account, settings) => {
+        if (account) await saveAccount(account, account.balance)
         await saveUserSettings(nextProfile, true)
-        setAccounts([account])
+        await saveJourneySettings(settings, true)
+        if (account) setAccounts([account])
+        setJourneySettings(settings)
         setProfile(nextProfile)
         setProfileState(nextProfile)
         setOnboardingCompleted(true)
@@ -590,6 +605,7 @@ function App() {
   return <Routes>
     <Route path="/privacy" element={<LegalPage kind="privacy" />} />
     <Route path="/terms" element={<LegalPage kind="terms" />} />
+    <Route path="/onboarding" element={<Onboarding email={authEmail} initialName={profile.name} initialSettings={{ ...journeySettings, onboardingStep: 0 }} existingAccount={accounts[0]} onCancel={() => navigate('/app')} onProgress={async (settings) => { await saveJourneySettings(settings, true); setJourneySettings(settings) }} onComplete={async (nextProfile, _account, settings) => { await saveUserSettings(nextProfile, true); await saveJourneySettings(settings, true); setProfile(nextProfile); setProfileState(nextProfile); setJourneySettings(settings); navigate('/app', { replace: true }) }} />} />
     <Route path="/app/*" element={ledger} />
     <Route path="*" element={<Navigate replace to="/app" />} />
   </Routes>
