@@ -1,4 +1,4 @@
-import { ArrowDown, ArrowRightLeft, ArrowUpRight, Eye, EyeOff, Moon, Plus, Sun, Target, UserRound } from 'lucide-react'
+import { ArrowDown, ArrowRightLeft, ArrowUpRight, Eye, EyeOff, Moon, Plus, Settings as SettingsIcon, Sun, Target, UserRound } from 'lucide-react'
 import { motion, useReducedMotion } from 'framer-motion'
 import { useEffect, useMemo, useRef, useState, type UIEvent } from 'react'
 import { CategoryIcon } from '../components/icons/CategoryIcon'
@@ -159,6 +159,7 @@ export function Dashboard({
         <div className="relative">
           <button
             aria-expanded={menuOpen}
+            aria-haspopup="menu"
             aria-label="Profile menu"
             className="relative grid h-11 w-11 place-items-center overflow-hidden rounded-full bg-[var(--accent)] text-[13px] font-extrabold text-[#16130F]"
             onClick={() => setMenuOpen((current) => !current)}
@@ -173,6 +174,7 @@ export function Dashboard({
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 className="absolute right-0 top-[calc(100%+0.6rem)] z-50 w-60 rounded-[20px] border border-white/10 bg-[var(--surface)] p-2 shadow-[0_24px_60px_rgba(0,0,0,.5)]"
                 initial={reduceMotion ? false : { opacity: 0, y: -6, scale: 0.98 }}
+                role="menu"
               >
                 <button
                   className="flex w-full items-center gap-3 rounded-[14px] px-3.5 py-3 text-left text-[14px] font-semibold text-white transition hover:bg-white/[.05]"
@@ -180,12 +182,24 @@ export function Dashboard({
                     setMenuOpen(false)
                     onNavigate('profile')
                   }}
+                  role="menuitem"
                 >
                   <UserRound size={17} className="text-[var(--accent)]" /> Edit profile
                 </button>
                 <button
                   className="flex w-full items-center gap-3 rounded-[14px] px-3.5 py-3 text-left text-[14px] font-semibold text-white transition hover:bg-white/[.05]"
+                  onClick={() => {
+                    setMenuOpen(false)
+                    onNavigate('settings')
+                  }}
+                  role="menuitem"
+                >
+                  <SettingsIcon size={17} className="text-[var(--accent)]" /> Settings
+                </button>
+                <button
+                  className="flex w-full items-center gap-3 rounded-[14px] px-3.5 py-3 text-left text-[14px] font-semibold text-white transition hover:bg-white/[.05]"
                   onClick={() => setThemeState(toggleTheme())}
+                  role="menuitem"
                 >
                   {theme === 'dark' ? <Sun size={17} className="text-[var(--accent)]" /> : <Moon size={17} className="text-[var(--accent)]" />}
                   Switch to {theme === 'dark' ? 'light' : 'dark'} mode
