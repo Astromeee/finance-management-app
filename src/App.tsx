@@ -107,6 +107,7 @@ function App() {
   const [dataReady, setDataReady] = useState(!isSupabaseConfigured)
   const [financeUserId, setFinanceUserId] = useState<string | null>(null)
   const [authEmail, setAuthEmail] = useState<string>()
+  const [authDisplayName, setAuthDisplayName] = useState<string>()
   const [authProvider, setAuthProvider] = useState<string>()
   const [onboardingCompleted, setOnboardingCompleted] = useState(!isSupabaseConfigured)
   const [accounts, setAccounts] = useState(initialAccounts)
@@ -144,6 +145,7 @@ function App() {
       if (error) console.warn('Supabase session check failed:', error)
       setFinanceUserId(data.session?.user.id ?? null)
       setAuthEmail(data.session?.user.email)
+      setAuthDisplayName((data.session?.user.user_metadata.display_name ?? data.session?.user.user_metadata.full_name) as string | undefined)
       setAuthProvider(data.session?.user.app_metadata.provider as string | undefined)
       setAuthReady(true)
     })
@@ -151,6 +153,7 @@ function App() {
     const { data } = supabase.auth.onAuthStateChange((_event, session) => {
       setFinanceUserId(session?.user.id ?? null)
       setAuthEmail(session?.user.email)
+      setAuthDisplayName((session?.user.user_metadata.display_name ?? session?.user.user_metadata.full_name) as string | undefined)
       setAuthProvider(session?.user.app_metadata.provider as string | undefined)
       setAuthReady(true)
       if (!session?.user) setDataReady(false)
@@ -569,7 +572,7 @@ function App() {
 
   if (!onboardingCompleted) {
     return <Routes>
-      <Route path="/onboarding" element={<Onboarding email={authEmail} onComplete={async (nextProfile, account) => {
+      <Route path="/onboarding" element={<Onboarding email={authEmail} initialName={authDisplayName} onComplete={async (nextProfile, account) => {
         await saveAccount(account, account.balance)
         await saveUserSettings(nextProfile, true)
         setAccounts([account])

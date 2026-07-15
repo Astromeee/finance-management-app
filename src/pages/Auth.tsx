@@ -1,6 +1,6 @@
 import { Turnstile } from '@marsidev/react-turnstile'
 import { ArrowLeft, CheckCircle2, Eye, EyeOff } from 'lucide-react'
-import { useState, type FormEvent } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { passwordRequirements, passwordValidationMessage } from '../lib/password'
 import { supabase } from '../lib/supabase'
@@ -9,6 +9,7 @@ type AuthMode = 'login' | 'signup' | 'forgot' | 'reset'
 
 export function AuthPage({ mode }: { mode: AuthMode }) {
   const navigate = useNavigate()
+  const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
@@ -42,7 +43,11 @@ export function AuthPage({ mode }: { mode: AuthMode }) {
       } else if (mode === 'signup') {
         const { error } = await supabase.auth.signUp({
           email: email.trim(), password,
-          options: { emailRedirectTo: `${window.location.origin}/auth/callback`, captchaToken },
+          options: {
+            data: { display_name: name.trim() },
+            emailRedirectTo: `${window.location.origin}/auth/callback`,
+            captchaToken,
+          },
         })
         if (error) throw error
         setSuccess(true)
@@ -115,6 +120,7 @@ export function AuthPage({ mode }: { mode: AuthMode }) {
         {googleEnabled && (mode === 'login' || mode === 'signup') && <div className="my-4 flex items-center gap-3 text-xs text-[var(--muted-2)]"><span className="h-px flex-1 bg-[var(--border)]" />or use email<span className="h-px flex-1 bg-[var(--border)]" /></div>}
 
         <form className="grid gap-4" onSubmit={submit}>
+          {mode === 'signup' && <label><span className="form-label">Your name</span><input autoComplete="name" className="form-input" maxLength={80} minLength={2} type="text" value={name} onChange={(event) => setName(event.target.value)} placeholder="How should we greet you?" required /></label>}
           {mode !== 'reset' && <label><span className="form-label">Email address</span><input autoComplete="email" className="form-input" type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="you@example.com" required /></label>}
           {(mode === 'login' || mode === 'signup' || mode === 'reset') && <label><span className="form-label">Password</span><span className="relative block"><input autoComplete={mode === 'login' ? 'current-password' : 'new-password'} className="form-input pr-12" minLength={mode === 'login' ? undefined : 12} type={showPassword ? 'text' : 'password'} value={password} onChange={(event) => setPassword(event.target.value)} required /><button aria-label={showPassword ? 'Hide password' : 'Show password'} className="absolute inset-y-0 right-1 grid w-11 place-items-center text-[var(--muted)]" type="button" onClick={() => setShowPassword((current) => !current)}>{showPassword ? <EyeOff size={17} /> : <Eye size={17} />}</button></span>{(mode === 'signup' || mode === 'reset') && <span className="mt-2 block text-xs leading-5 text-[var(--muted-2)]">{passwordRequirements}</span>}</label>}
           {(mode === 'signup' || mode === 'reset') && <label><span className="form-label">Confirm password</span><input autoComplete="new-password" className="form-input" type="password" value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} required /></label>}
@@ -132,5 +138,49 @@ export function AuthPage({ mode }: { mode: AuthMode }) {
 }
 
 export function AuthCallback() {
-  return <main className="grid min-h-screen place-items-center bg-[var(--bg-deep)] p-5"><p className="text-sm font-semibold text-[var(--muted)]" role="status">Completing secure sign-in…</p></main>
+  const navigate = useNavigate()
+  const [errorMessage, setErrorMessage] = useState(() => {
+    const params = new URLSearchParams(window.location.search)
+    const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ''))
+    return params.get('error_description') ?? hashParams.get('error_description') ?? params.get('error') ?? hashParams.get('error') ?? ''
+  })
+  const effectiveError = errorMessage || (!supabase ? 'Secure sign-in is not configured.' : '')
+
+  useEffect(() => {
+    if (effectiveError || !supabase) return
+
+    let mounted = true
+    let timeoutId: number | undefined
+    const finish = () => navigate('/app', { replace: true })
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session?.user) finish()
+    })
+
+    void supabase.auth.getSession().then(({ data, error }) => {
+      if (!mounted) return
+      if (error) {
+        setErrorMessage(error.message)
+      } else if (data.session?.user) {
+        finish()
+      } else {
+        timeoutId = window.setTimeout(() => {
+          if (mounted) setErrorMessage('We could not finish sign-in. Please return to login and try again.')
+        }, 5000)
+      }
+    })
+
+    return () => {
+      mounted = false
+      if (timeoutId) window.clearTimeout(timeoutId)
+      listener.subscription.unsubscribe()
+    }
+  }, [effectiveError, navigate])
+
+  return (
+    <main className="grid min-h-screen place-items-center bg-[var(--bg-deep)] p-5">
+      <section className="w-full max-w-md rounded-[2rem] border border-[var(--glass-border)] bg-[var(--surface)] p-6 text-center shadow-2xl shadow-black/35">
+        {effectiveError ? <><h1 className="text-xl font-semibold text-white">Sign-in could not be completed</h1><p className="mt-3 text-sm leading-6 text-[var(--muted)]" role="alert">{effectiveError}</p><Link className="btn-primary mt-6 justify-center" to="/login">Back to login</Link></> : <p className="text-sm font-semibold text-[var(--muted)]" role="status">Completing secure sign-in…</p>}
+      </section>
+    </main>
+  )
 }

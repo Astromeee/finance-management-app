@@ -2,8 +2,8 @@ import { useState, type FormEvent } from 'react'
 import type { Account, AccountType } from '../types/finance'
 import { parseWholePkr } from '../lib/money'
 
-export function Onboarding({ email, onComplete }: { email?: string; onComplete: (profile: { name: string }, account: Account) => Promise<void> }) {
-  const [name, setName] = useState('')
+export function Onboarding({ email, initialName, onComplete }: { email?: string; initialName?: string; onComplete: (profile: { name: string }, account: Account) => Promise<void> }) {
+  const [name, setName] = useState(initialName ?? '')
   const [accountName, setAccountName] = useState('Cash')
   const [accountType, setAccountType] = useState<AccountType>('cash')
   const [balance, setBalance] = useState('0')
