@@ -47,7 +47,7 @@ export function Settings(props: Props) {
     const name = categoryName.trim()
     if (!name) return
     if (props.categories.some((item) => item.kind === categoryKind && item.name.toLowerCase() === name.toLowerCase())) return notify('That category already exists.')
-    await props.onSaveCategory({ id: crypto.randomUUID(), name, kind: categoryKind, color: categoryKind === 'income' ? '#77D6A3' : '#FF6B3D', spendingNature: categoryKind === 'income' ? 'flexible' : categoryNature })
+    await props.onSaveCategory({ id: crypto.randomUUID(), name, kind: categoryKind, color: categoryKind === 'income' ? '#FF9A5C' : '#FF6B3D', spendingNature: categoryKind === 'income' ? 'flexible' : categoryNature })
     setCategoryName('')
     notify('Category added.')
   }
@@ -100,8 +100,10 @@ export function Settings(props: Props) {
     window.location.assign('/login')
   }
 
+  // [&>*]:min-w-0 stops grid items inheriting min-width:auto, which let a wide
+  // row blow the page out horizontally on narrow screens.
   return (
-    <div className="mx-auto grid max-w-2xl gap-6">
+    <div className="mx-auto grid max-w-2xl gap-6 [&>*]:min-w-0">
       {notice && <div className="rounded-2xl border border-[var(--glass-border)] bg-[var(--surface-2)] px-4 py-3 text-sm text-[var(--accent)]" role="status">{notice}</div>}
 
       <SettingsGroup heading="Preferences">
@@ -123,7 +125,7 @@ export function Settings(props: Props) {
             <button className="btn-primary justify-center"><Plus size={16} /> Add</button>
           </form>
           <div className="mt-4 grid gap-2">
-            {props.categories.map((category) => <div className="flex items-center gap-3 rounded-2xl bg-[var(--surface-2)] px-3 py-2.5" key={category.id}><span className="h-3 w-3 rounded-full" style={{ background: category.color }} /><span className="min-w-0 flex-1 text-sm font-medium text-white">{category.name}</span>{category.kind === 'expense' && <button aria-label={`Mark ${category.name} as ${category.spendingNature === 'essential' ? 'flexible' : 'essential'}`} className="rounded-full border border-[var(--border)] px-2.5 py-1 text-xs capitalize text-[var(--muted)]" onClick={() => void props.onSaveCategory({ ...category, spendingNature: category.spendingNature === 'essential' ? 'flexible' : 'essential' })}>{category.spendingNature}</button>}<span className="text-xs capitalize text-[var(--muted-2)]">{category.kind}</span><button aria-label={`Edit ${category.name}`} className="grid h-9 w-9 place-items-center text-[var(--muted)]" onClick={() => void editCategory(category)}><PencilLine size={15} /></button><button aria-label={`Archive ${category.name}`} className="grid h-9 w-9 place-items-center text-[var(--negative)]" onClick={() => void props.onArchiveCategory(category.id)}><Trash2 size={15} /></button></div>)}
+            {props.categories.map((category) => <div className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-2xl bg-[var(--surface-2)] px-3 py-2.5" key={category.id}><span className="h-3 w-3 shrink-0 rounded-full" style={{ background: category.color }} /><span className="min-w-0 flex-1 truncate text-sm font-medium text-white">{category.name}</span>{category.kind === 'expense' && <button aria-label={`Mark ${category.name} as ${category.spendingNature === 'essential' ? 'flexible' : 'essential'}`} className="rounded-full border border-[var(--border)] px-2.5 py-1 text-xs capitalize text-[var(--muted)]" onClick={() => void props.onSaveCategory({ ...category, spendingNature: category.spendingNature === 'essential' ? 'flexible' : 'essential' })}>{category.spendingNature}</button>}<span className="text-xs capitalize text-[var(--muted-2)]">{category.kind}</span><button aria-label={`Edit ${category.name}`} className="grid h-9 w-9 place-items-center text-[var(--muted)]" onClick={() => void editCategory(category)}><PencilLine size={15} /></button><button aria-label={`Archive ${category.name}`} className="grid h-9 w-9 place-items-center text-[var(--negative)]" onClick={() => void props.onArchiveCategory(category.id)}><Trash2 size={15} /></button></div>)}
           </div>
         </div>
       </section>
@@ -136,7 +138,7 @@ export function Settings(props: Props) {
             <input className="form-input" inputMode="numeric" min="1" step="1" type="number" value={budgetAmount} onChange={(event) => setBudgetAmount(event.target.value)} placeholder="PKR limit" />
             <button className="btn-primary justify-center">Save</button>
           </form>
-          <div className="mt-4 grid gap-2">{props.budgets.map((budget) => <div className="flex items-center gap-3 rounded-2xl bg-[var(--surface-2)] px-3 py-2.5" key={budget.id}><span className="min-w-0 flex-1 text-sm font-medium text-white">{budget.category}</span><span className="text-sm text-[var(--muted)]">Rs. {budget.amount.toLocaleString('en-PK')}</span><button aria-label={`Archive ${budget.category} budget`} className="grid h-9 w-9 place-items-center text-[var(--negative)]" onClick={() => void props.onDeleteBudget(budget.id)}><Trash2 size={15} /></button></div>)}</div>
+          <div className="mt-4 grid gap-2">{props.budgets.map((budget) => <div className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-2xl bg-[var(--surface-2)] px-3 py-2.5" key={budget.id}><span className="min-w-0 flex-1 truncate text-sm font-medium text-white">{budget.category}</span><span className="text-sm text-[var(--muted)]">Rs. {budget.amount.toLocaleString('en-PK')}</span><button aria-label={`Archive ${budget.category} budget`} className="grid h-9 w-9 place-items-center text-[var(--negative)]" onClick={() => void props.onDeleteBudget(budget.id)}><Trash2 size={15} /></button></div>)}</div>
         </div>
       </section>
 

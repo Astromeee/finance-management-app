@@ -8,6 +8,7 @@ type AnalyticsEvent =
   | 'simulator_expense_handoff'
   | 'category_management_opened'
   | 'quest_started'
+  | 'quest_completed'
   | 'quest_ended'
   | 'wishlist_item_added'
   | 'wishlist_decision'
@@ -17,7 +18,7 @@ type AnalyticsEvent =
 type SafeParameters = {
   surface?: 'home' | 'activity' | 'plan' | 'goals' | 'insights' | 'settings' | 'onboarding'
   state?: 'comfortable' | 'watchful' | 'protect' | 'needs_setup' | 'safe' | 'caution' | 'risky' | 'empty' | 'available'
-  action?: 'open' | 'complete' | 'cancel' | 'buy' | 'skip' | 'wait' | 'move_to_goal'
+  action?: 'open' | 'complete' | 'cancel' | 'expire' | 'buy' | 'skip' | 'wait' | 'move_to_goal'
 }
 
 declare global {

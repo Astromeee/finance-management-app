@@ -1,5 +1,5 @@
 import { DEFAULT_EXPENSE_CATEGORIES, DEFAULT_INCOME_CATEGORIES, generalizeCategory } from '../data/defaultCategories'
-import type { Account, Budget, Category, Debt, Goal, JourneySettings, MoneyQuest, MoneyWin, Transaction, UpcomingExpense, WishlistItem } from '../types/finance'
+import type { Account, Budget, Category, Debt, Goal, IncomeSourceType, JourneySettings, MoneyPriority, MoneyQuest, MoneyWin, Transaction, UpcomingExpense, WishlistItem } from '../types/finance'
 import type { Json, TablesInsert } from '../types/database'
 import { localMonthKey } from './date'
 import type { Profile } from './profile'
@@ -123,7 +123,7 @@ export async function ensureDefaultCategories() {
     id: `${kind}-${crypto.randomUUID()}`,
     name,
     kind,
-    color: kind === 'income' ? '#77D6A3' : '#FF6B3D',
+    color: kind === 'income' ? '#FF9A5C' : '#FF6B3D',
     spending_nature: kind === 'expense' && ['Food & Essentials', 'Transport', 'Education'].includes(name) ? 'essential' : 'flexible',
     sort_order: index,
     archived: false,
@@ -179,10 +179,12 @@ export async function loadFinanceData(): Promise<FinanceData> {
     onboardingCompleted: Boolean(settingsRow?.onboarding_completed),
     journeySettings: {
       incomeSourceType: settingsRow?.income_source_type as JourneySettings['incomeSourceType'],
+      incomeSourceTypes: settingsRow?.income_source_type ? [settingsRow.income_source_type as IncomeSourceType] : [],
       incomeCadence: settingsRow?.income_cadence as JourneySettings['incomeCadence'],
       typicalIncome: Number(settingsRow?.typical_income_amount ?? 0),
       nextIncomeDate: settingsRow?.next_income_date as string | undefined,
       primaryPriority: settingsRow?.primary_money_priority as JourneySettings['primaryPriority'],
+      moneyPriorities: settingsRow?.primary_money_priority ? [settingsRow.primary_money_priority as MoneyPriority] : [],
       safetyReserve: Number(settingsRow?.safety_reserve ?? 0),
       onboardingVersion: Number(settingsRow?.onboarding_version ?? 1),
       onboardingStep: Number(settingsRow?.onboarding_step ?? 0),

@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { navItems } from '../../data/navigation'
 import type { NavItem } from '../../types/finance'
 import { cn } from '../../utils/ui'
@@ -33,28 +34,41 @@ export function Sidebar({ activePage, setActivePage }: { activePage: string; set
   )
 }
 
-/* Floating pill dock (home mock): active item = label + light circle icon,
-   inactive items = plain circular icon buttons. */
+/* Floating pill dock: the active tab is a compact "menu button" (a light circle)
+   that expands into a labeled pill revealing the current page name when tapped.
+   Inactive items are plain circular icon buttons. */
 export function BottomNav({ activePage, setActivePage }: { activePage: string; setActivePage: (page: string) => void }) {
   const order = ['dashboard', 'transactions', 'budgets', 'goals', 'reports']
   const mobileItems = order
     .map((id) => navItems.find((item) => item.id === id))
     .filter((item): item is NavItem => Boolean(item))
+  // Track which page's pill is expanded; deriving `expanded` from the active
+  // page means it auto-collapses on navigation without a state-syncing effect.
+  const [expandedPage, setExpandedPage] = useState<string | null>(null)
 
   return (
     <nav className="dock-v3" aria-label="Primary navigation">
       {mobileItems.map(({ id, label, icon: Icon }) => {
         const active = activePage === id
         if (active) {
+          const expanded = expandedPage === id
           return (
-            <button key={id} className="dock-v3-active" onClick={() => navigate(setActivePage, id)}>
-              <span>{label}</span>
+            <button
+              key={id}
+              type="button"
+              className={cn('dock-v3-active', expanded && 'dock-v3-active-expanded')}
+              aria-current="page"
+              aria-expanded={expanded}
+              aria-label={expanded ? `${label} — current page` : `${label} — current page, show name`}
+              onClick={() => setExpandedPage(expanded ? null : id)}
+            >
+              <span className="dock-v3-label">{label}</span>
               <span className="dock-v3-circle"><Icon size={19} /></span>
             </button>
           )
         }
         return (
-          <button key={id} aria-label={label} className="dock-v3-icon" onClick={() => navigate(setActivePage, id)}>
+          <button key={id} type="button" aria-label={label} className="dock-v3-icon" onClick={() => navigate(setActivePage, id)}>
             <Icon size={20} />
           </button>
         )

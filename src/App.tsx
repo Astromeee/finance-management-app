@@ -3,8 +3,8 @@ import type { ReactNode } from 'react'
 import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
 import { AppShell } from './components/layout/AppShell'
 import { accounts as initialAccounts, budgets as initialBudgets, debts as initialDebts, expenseCategories as initialExpenseCategories, goals as initialGoals, incomeSources as initialIncomeSources, transactions as initialTransactions, upcomingExpenses as initialUpcomingExpenses } from './data/mockData'
-import { adjustAccountBalance, archiveAccount, archiveCategory, deleteBudget, deleteDebt, deleteFinanceTransaction, deleteGoal, deleteUpcomingExpense, deleteWishlistItem, loadFinanceData, markUpcomingExpensePaid, recordFinanceAction, saveAccount, saveBudget, saveCategory, saveDebt, saveGoal, saveJourneySettings, saveMoneyQuest, saveUpcomingExpense, saveUserSettings, saveWishlistItem, updateFinanceTransaction } from './lib/financeRepository'
-import { addRecurringDate } from './lib/date'
+import { adjustAccountBalance, archiveAccount, archiveCategory, deleteBudget, deleteDebt, deleteFinanceTransaction, deleteGoal, deleteUpcomingExpense, deleteWishlistItem, loadFinanceData, markUpcomingExpensePaid, recordFinanceAction, saveAccount, saveBudget, saveCategory, saveDebt, saveGoal, saveJourneySettings, saveMoneyQuest, saveMoneyWin, saveUpcomingExpense, saveUserSettings, saveWishlistItem, updateFinanceTransaction } from './lib/financeRepository'
+import { addRecurringDate, localDateKey } from './lib/date'
 import { setAnalyticsConsent, trackEvent } from './lib/analytics'
 import { getProfile, onProfileChange, setProfile, type Profile } from './lib/profile'
 import { isSupabaseConfigured, supabase } from './lib/supabase'
@@ -12,6 +12,7 @@ import { AuthCallback, AuthPage } from './pages/Auth'
 import { LegalPage } from './pages/Legal'
 import type { Budget, Category, Debt, DebtCategory, DebtStatus, Goal, JourneySettings, MoneyQuest, MoneyWin, RecurringFrequency, Transaction, UpcomingExpense, WishlistItem } from './types/finance'
 import { calculateSafeSpend } from './utils/journeyCalculations'
+import { resolveQuestStatus } from './utils/retention'
 
 const AddExpenseModal = lazy(() => import('./components/forms/FinanceActionModals').then((module) => ({ default: module.AddExpenseModal })))
 const AddGoalModal = lazy(() => import('./components/forms/FinanceActionModals').then((module) => ({ default: module.AddGoalModal })))
@@ -147,11 +148,18 @@ function App() {
   const [profile, setProfileState] = useState<Profile>(getProfile)
   const expenseCategoryNames = categories.filter((category) => category.kind === 'expense').map((category) => category.name)
   const incomeCategoryNames = categories.filter((category) => category.kind === 'income').map((category) => category.name)
+  const expenseCategoryIdFor = useCallback((name?: string) => categories.find((category) => category.kind === 'expense' && category.name === name)?.id, [categories])
 
   const showToast = useCallback((message: string) => {
     setToast(message)
     window.setTimeout(() => setToast(''), 2600)
   }, [])
+
+  const awardMoneyWin = useCallback((win: MoneyWin) => {
+    if (moneyWins.some((item) => item.id === win.id)) return
+    setMoneyWins((current) => current.some((item) => item.id === win.id) ? current : [win, ...current])
+    void saveMoneyWin(win).catch((error) => showToast(error instanceof Error ? error.message : 'Could not save your Tiny Win'))
+  }, [moneyWins, showToast])
 
   // expose the active page to CSS so Home gets its own "ledger paper" canvas (see theme.css §7)
   useEffect(() => { document.documentElement.dataset.page = activePage }, [activePage])
@@ -163,6 +171,31 @@ function App() {
   }, [navigate])
 
   useEffect(() => onProfileChange(setProfileState), [])
+
+  const reconcileActiveQuest = useCallback((nextTransactions: Transaction[]) => {
+    const activeQuest = moneyQuests.find((quest) => quest.status === 'active')
+    if (!activeQuest) return
+    const status = resolveQuestStatus(activeQuest, nextTransactions, localDateKey())
+    if (!status) return
+
+    const settledQuest = { ...activeQuest, status }
+    setMoneyQuests((current) => current.map((quest) => quest.id === activeQuest.id ? settledQuest : quest))
+    void saveMoneyQuest(settledQuest).catch((error) => showToast(error instanceof Error ? error.message : 'Could not update your quest'))
+
+    if (status === 'completed') {
+      awardMoneyWin({
+        id: `quest-completed:${activeQuest.id}`,
+        type: 'quest_completed',
+        title: 'Weekly quest completed',
+        detail: activeQuest.title,
+        earnedAt: new Date().toISOString(),
+      })
+      trackEvent('quest_completed', { surface: 'plan', action: 'complete' })
+      showToast('Quest complete — added to Tiny Wins')
+    } else {
+      trackEvent('quest_ended', { surface: 'plan', action: 'expire' })
+    }
+  }, [awardMoneyWin, moneyQuests, showToast])
 
   useEffect(() => {
     if (!supabase) return
@@ -233,7 +266,9 @@ function App() {
   }, [financeUserId, showToast])
 
   const addTransaction = (transaction: Transaction) => {
-    setTransactions((current) => [{ ...transaction, createdAt: new Date().toISOString() }, ...current])
+    const nextTransaction = { ...transaction, createdAt: new Date().toISOString() }
+    setTransactions((current) => [nextTransaction, ...current])
+    reconcileActiveQuest([nextTransaction, ...transactions])
   }
 
   const updateAccountBalance = (accountId: string, delta: number) => {
@@ -283,15 +318,18 @@ function App() {
   const updateTransaction = async (nextTransaction: Transaction) => {
     const previous = transactions.find((transaction) => transaction.id === nextTransaction.id)
     if (!previous) return
+    const normalizedTransaction = nextTransaction.categoryId || nextTransaction.type !== 'expense'
+      ? nextTransaction
+      : { ...nextTransaction, categoryId: expenseCategoryIdFor(nextTransaction.category) }
     try {
-      await updateFinanceTransaction(nextTransaction)
+      await updateFinanceTransaction(normalizedTransaction)
     } catch (error) {
       showToast(error instanceof Error ? error.message : 'Could not update transaction')
       return
     }
     applyTransactionEffect(previous, -1)
-    applyTransactionEffect(nextTransaction, 1)
-    setTransactions((current) => current.map((transaction) => transaction.id === nextTransaction.id ? { ...nextTransaction, createdAt: transaction.createdAt } : transaction))
+    applyTransactionEffect(normalizedTransaction, 1)
+    setTransactions((current) => current.map((transaction) => transaction.id === normalizedTransaction.id ? { ...normalizedTransaction, createdAt: transaction.createdAt } : transaction))
     showToast('Transaction updated')
   }
 
@@ -338,14 +376,14 @@ function App() {
     const nextDueDate = expense.isRecurring && expense.recurringFrequency ? nextRecurringDate(expense.dueDate, expense.recurringFrequency) : undefined
     const nextExpense = nextDueDate && (!expense.repeatEndDate || nextDueDate <= expense.repeatEndDate) ? { ...expense, id: makeId(), dueDate: nextDueDate, status: 'upcoming' as const, createdAt: new Date().toISOString(), paidTransactionId: undefined } : undefined
     try {
-      await markUpcomingExpensePaid(expense.id, { id: transactionId, title: expense.title, type: 'expense', amount: expense.amount, category: expense.category, account: account.name, accountId, date: paymentDate, notes: notes ?? expense.notes }, nextExpense)
+      await markUpcomingExpensePaid(expense.id, { id: transactionId, title: expense.title, type: 'expense', amount: expense.amount, category: expense.category, categoryId: expenseCategoryIdFor(expense.category), account: account.name, accountId, date: paymentDate, notes: notes ?? expense.notes }, nextExpense)
     } catch (error) {
       showToast(error instanceof Error ? error.message : 'Could not record the payment')
       return
     }
     updateAccountBalance(accountId, -expense.amount)
     setBudgets((current) => current.map((budget) => budget.category === expense.category ? { ...budget, used: budget.used + expense.amount } : budget))
-    addTransaction({ id: transactionId, title: expense.title, type: 'expense', amount: expense.amount, category: expense.category, account: account.name, accountId, date: paymentDate, notes: notes ?? expense.notes })
+    addTransaction({ id: transactionId, title: expense.title, type: 'expense', amount: expense.amount, category: expense.category, categoryId: expenseCategoryIdFor(expense.category), account: account.name, accountId, date: paymentDate, notes: notes ?? expense.notes })
     setUpcomingExpenses((current) => {
       const paidItems = current.map((item) => item.id === expense.id ? { ...item, status: 'paid' as const, paidTransactionId: transactionId } : item)
       return nextExpense ? [nextExpense, ...paidItems] : paidItems
@@ -425,6 +463,15 @@ function App() {
               return { ...item, saved, status: saved >= item.target ? 'Completed' : item.status }
             }))
             addTransaction({ id: transactionId, title: 'Goal Saving', type: 'goal_saving', amount, category: goal.name, account: account.name, accountId, goalId, date, notes })
+            if (goal.saved < goal.target && goal.saved + amount >= goal.target) {
+              awardMoneyWin({
+                id: `goal-milestone:${goal.id}:complete`,
+                type: 'goal_milestone',
+                title: `${goal.name} is fully funded`,
+                detail: 'You reached a savings goal through recorded contributions.',
+                earnedAt: new Date().toISOString(),
+              })
+            }
             showToast('Savings added')
           }}
           onAddUpcomingExpense={(payload) => {
@@ -460,7 +507,7 @@ function App() {
             try {
               await markUpcomingExpensePaid(
                 expense.id,
-                { id: transactionId, title: expense.title, type: 'expense', amount: expense.amount, category: expense.category, account: account.name, accountId, date: paymentDate, notes: notes ?? expense.notes },
+                { id: transactionId, title: expense.title, type: 'expense', amount: expense.amount, category: expense.category, categoryId: expenseCategoryIdFor(expense.category), account: account.name, accountId, date: paymentDate, notes: notes ?? expense.notes },
                 nextExpense,
               )
             } catch (error) {
@@ -475,6 +522,7 @@ function App() {
               type: 'expense',
               amount: expense.amount,
               category: expense.category,
+              categoryId: expenseCategoryIdFor(expense.category),
               account: account.name,
               accountId,
               date: paymentDate,
@@ -489,7 +537,70 @@ function App() {
         />
       ),
     },
-    budgets: { title: 'Plan', subtitle: 'Budgets, bills, and considered purchases', component: <Budgets budgets={budgets} upcomingExpenses={upcomingExpenses} accounts={accounts} categories={categories} transactions={transactions} wishlistItems={wishlistItems} activeQuest={moneyQuests.find((item) => item.status === 'active')} goals={goals} onNavigateSettings={() => setActivePage('settings')} onAddUpcoming={addUpcoming} onUpdateUpcoming={updateUpcoming} onDeleteUpcoming={removeUpcoming} onMarkUpcomingPaid={payUpcoming} onSaveWishlist={(item) => { void saveWishlistItem(item).catch((error) => showToast(error.message)); setWishlistItems((current) => [item, ...current.filter((entry) => entry.id !== item.id)]); if (item.status === 'skipped' || item.status === 'waiting') trackEvent('wishlist_decision', { surface: 'plan', action: item.status === 'skipped' ? 'skip' : 'wait' }) }} onDeleteWishlist={(id) => { void deleteWishlistItem(id).catch((error) => showToast(error.message)); setWishlistItems((current) => current.filter((item) => item.id !== id)) }} onBuyWishlist={(item) => { setExpenseDraft({ amount: item.amount, category: categories.find((category) => category.id === item.categoryId)?.name ?? 'Miscellaneous', wishlistId: item.id }); setActiveModal('expense'); trackEvent('wishlist_decision', { surface: 'plan', action: 'buy' }) }} onMoveWishlistToGoal={(item) => { const goal: Goal = { id: makeId(), name: item.name, target: item.amount, saved: 0, status: 'Active' }; const next = { ...item, goalId: goal.id, status: 'moved_to_goal' as const }; void saveGoal(goal).catch((error) => showToast(error.message)); void saveWishlistItem(next).catch((error) => showToast(error.message)); setGoals((current) => [goal, ...current]); setWishlistItems((current) => current.map((entry) => entry.id === item.id ? next : entry)); showToast('Wishlist item moved to a savings goal'); trackEvent('wishlist_decision', { surface: 'plan', action: 'move_to_goal' }) }} onSaveQuest={(quest) => { void saveMoneyQuest(quest).catch((error) => showToast(error.message)); setMoneyQuests((current) => [quest, ...current.filter((item) => item.id !== quest.id && item.status !== 'active')]) }} onCancelQuest={(quest) => { const next = { ...quest, status: 'cancelled' as const }; void saveMoneyQuest(next).catch((error) => showToast(error.message)); setMoneyQuests((current) => current.map((item) => item.id === quest.id ? next : item)); trackEvent('quest_ended', { surface: 'plan', action: 'cancel' }) }} /> },
+    budgets: {
+      title: 'Plan',
+      subtitle: 'Budgets, bills, and considered purchases',
+      component: <Budgets
+        budgets={budgets}
+        upcomingExpenses={upcomingExpenses}
+        accounts={accounts}
+        categories={categories}
+        transactions={transactions}
+        wishlistItems={wishlistItems}
+        activeQuest={moneyQuests.find((item) => item.status === 'active')}
+        goals={goals}
+        onNavigateSettings={() => setActivePage('settings')}
+        onAddUpcoming={addUpcoming}
+        onUpdateUpcoming={updateUpcoming}
+        onDeleteUpcoming={removeUpcoming}
+        onMarkUpcomingPaid={payUpcoming}
+        onSaveWishlist={(item) => {
+          void saveWishlistItem(item).catch((error) => showToast(error.message))
+          setWishlistItems((current) => [item, ...current.filter((entry) => entry.id !== item.id)])
+          if (item.status === 'skipped') {
+            awardMoneyWin({
+              id: `wishlist-skipped:${item.id}`,
+              type: 'wishlist_skipped',
+              title: `You chose not to buy ${item.name}`,
+              detail: `${item.amount.toLocaleString('en-PK')} PKR remains unspent. It becomes saved only if you move it to a goal.`,
+              earnedAt: new Date().toISOString(),
+            })
+            trackEvent('wishlist_decision', { surface: 'plan', action: 'skip' })
+          } else if (item.status === 'waiting') {
+            trackEvent('wishlist_decision', { surface: 'plan', action: 'wait' })
+          }
+        }}
+        onDeleteWishlist={(id) => {
+          void deleteWishlistItem(id).catch((error) => showToast(error.message))
+          setWishlistItems((current) => current.filter((item) => item.id !== id))
+        }}
+        onBuyWishlist={(item) => {
+          setExpenseDraft({ amount: item.amount, category: categories.find((category) => category.id === item.categoryId)?.name ?? 'Miscellaneous', wishlistId: item.id })
+          setActiveModal('expense')
+          trackEvent('wishlist_decision', { surface: 'plan', action: 'buy' })
+        }}
+        onMoveWishlistToGoal={(item) => {
+          const goal: Goal = { id: makeId(), name: item.name, target: item.amount, saved: 0, status: 'Active' }
+          const next = { ...item, goalId: goal.id, status: 'moved_to_goal' as const }
+          void saveGoal(goal).catch((error) => showToast(error.message))
+          void saveWishlistItem(next).catch((error) => showToast(error.message))
+          setGoals((current) => [goal, ...current])
+          setWishlistItems((current) => current.map((entry) => entry.id === item.id ? next : entry))
+          showToast('Wishlist item moved to a savings goal')
+          trackEvent('wishlist_decision', { surface: 'plan', action: 'move_to_goal' })
+        }}
+        onSaveQuest={(quest) => {
+          void saveMoneyQuest(quest).catch((error) => showToast(error.message))
+          setMoneyQuests((current) => [quest, ...current.filter((item) => item.id !== quest.id && item.status !== 'active')])
+        }}
+        onCancelQuest={(quest) => {
+          const next = { ...quest, status: 'cancelled' as const }
+          void saveMoneyQuest(next).catch((error) => showToast(error.message))
+          setMoneyQuests((current) => current.map((item) => item.id === quest.id ? next : item))
+          trackEvent('quest_ended', { surface: 'plan', action: 'cancel' })
+        }}
+      />,
+    },
     reports: {
       title: 'Analytics',
       subtitle: 'Spending trends and insights',
@@ -511,7 +622,7 @@ function App() {
 
   const ledger = (
     <AppShell activePage={activePage} setActivePage={setActivePage}>
-      {toast && <div aria-live="polite" className="fixed left-1/2 top-4 z-[60] -translate-x-1/2 rounded-full border border-[rgba(221,255,69,.25)] bg-[var(--surface)]/95 px-4 py-2 text-sm font-semibold text-[var(--accent)] shadow-2xl shadow-black/30 backdrop-blur-xl" role="status">{toast}</div>}
+      {toast && <div aria-live="polite" className="fixed left-1/2 top-4 z-[60] -translate-x-1/2 rounded-full border border-[rgba(255,92,0,.28)] bg-[var(--surface-raised)] px-4 py-2 text-sm font-semibold text-[var(--accent-2)] shadow-2xl shadow-black/40" role="status">{toast}</div>}
       <Suspense fallback={<div className="card p-6 text-sm text-[var(--muted)]" role="status">Loading screen…</div>}>{(pages[activePage] ?? pages.dashboard).component}</Suspense>
       <Suspense fallback={null}>
       {activeModal === 'income' && <AddIncomeModal
@@ -549,14 +660,14 @@ function App() {
           if (!account) return
           const transactionId = makeId()
           try {
-            await recordFinanceAction({ id: transactionId, title: category, type: 'expense', amount, category, account: account.name, accountId, date, notes })
+            await recordFinanceAction({ id: transactionId, title: category, type: 'expense', amount, category, categoryId: expenseCategoryIdFor(category), account: account.name, accountId, date, notes })
           } catch (error) {
             showToast(error instanceof Error ? error.message : 'Could not record expense')
             return
           }
           updateAccountBalance(accountId, -amount)
           setBudgets((current) => current.map((budget) => budget.category === category ? { ...budget, used: budget.used + amount } : budget))
-          addTransaction({ id: transactionId, title: category, type: 'expense', amount, category, account: account.name, accountId, date, notes })
+          addTransaction({ id: transactionId, title: category, type: 'expense', amount, category, categoryId: expenseCategoryIdFor(category), account: account.name, accountId, date, notes })
           if (expenseDraft?.wishlistId) {
             setWishlistItems((current) => current.map((item) => {
               if (item.id !== expenseDraft.wishlistId) return item

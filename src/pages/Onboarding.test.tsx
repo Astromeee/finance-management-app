@@ -39,35 +39,36 @@ describe('personalized onboarding', () => {
     container.remove()
   })
 
-  it('moves through the complete setup and returns a personalized plan', async () => {
+  it('moves through the trimmed setup and returns a personalized plan', async () => {
     const onProgress = vi.fn(async () => undefined)
     const onComplete = vi.fn(async () => undefined)
     await act(async () => root.render(<Onboarding initialSettings={baseSettings} onProgress={onProgress} onComplete={onComplete} />))
 
     await click('Set up my journey')
     await click('Pocket money')
+    await click('Salary')
     await click('Continue')
-    await click('Monthly')
     await change('Typical amount (PKR)', '30000')
     await click('Continue')
+    await change('Amount you have (PKR)', '2000')
     await click('Continue')
     await click('Make my money last')
-    await click('Continue')
-    expect(container.textContent).toContain('Settings → Categories')
-    await change('Safety reserve (PKR)', '5000')
+    await click('Understand where it goes')
     await click('Start my journey')
 
-    expect(onProgress).toHaveBeenCalledTimes(5)
+    expect(onProgress).toHaveBeenCalledTimes(4)
     expect(onComplete).toHaveBeenCalledTimes(1)
     const [, account, settings] = onComplete.mock.calls[0] as unknown as Parameters<ComponentProps<typeof Onboarding>['onComplete']>
-    expect(account?.balance).toBe(0)
-    expect(settings).toMatchObject({ incomeSourceType: 'allowance', incomeCadence: 'monthly', typicalIncome: 30_000, safetyReserve: 5_000, onboardingStep: 6 })
+    expect(account?.balance).toBe(2_000)
+    expect(settings).toMatchObject({ incomeSourceType: 'allowance', incomeCadence: 'monthly', typicalIncome: 30_000, primaryPriority: 'stretch', onboardingStep: 5 })
+    expect(settings.incomeSourceTypes).toEqual(['allowance', 'salary'])
+    expect(settings.moneyPriorities).toEqual(['stretch', 'understand'])
   })
 
   it('resumes from a persisted progress step', async () => {
     await act(async () => root.render(<Onboarding initialSettings={{ ...baseSettings, onboardingStep: 3 }} onProgress={async () => undefined} onComplete={async () => undefined} />))
-    expect(container.textContent).toContain('Add your first money place')
-    expect(container.textContent).toContain('Current balance (PKR)')
+    expect(container.textContent).toContain('What’s in your pocket now?')
+    expect(container.textContent).toContain('Amount you have (PKR)')
   })
 
   async function click(label: string) {

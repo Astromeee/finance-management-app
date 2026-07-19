@@ -53,7 +53,7 @@ const periodOptions: Array<{ value: PeriodKey; label: string }> = [
 
 const ORANGE = '#FF5C00'
 const ORANGE_SOFT = '#FF8A47'
-const GREEN = '#7DC98F'
+const GREEN = '#FF9A5C'
 const GREY_AXIS = '#8D8A85'
 const GRID = 'rgba(246,243,239,.07)'
 
@@ -533,7 +533,7 @@ function EmptyInsight({ title, note }: { title: string; note: string }) {
 
 function RankedBars({ items, empty, accent = 'accent', showCount }: { items: Array<{ name: string; value: number; percent: number; count?: number }>; empty: string; accent?: 'accent' | 'positive'; showCount?: boolean }) {
   if (!items.length) return <p className="rounded-2xl bg-white/[.035] p-4 text-sm text-[var(--muted)]">{empty}</p>
-  const fill = accent === 'positive' ? 'linear-gradient(90deg,#7DC98F,#4E9A66)' : 'linear-gradient(90deg,#FF5C00,#D14E0C)'
+  const fill = accent === 'positive' ? 'linear-gradient(90deg,#D9541A,#FF8A47)' : 'linear-gradient(90deg,#FF5C00,#FF8A47)'
   return (
     <div className="grid gap-3">
       {items.map((item, index) => (

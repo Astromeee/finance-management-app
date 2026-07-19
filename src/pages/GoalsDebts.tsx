@@ -229,7 +229,7 @@ export function GoalsDebts({
           label="Total savings"
           value={totalSavings}
           icon={WalletCards}
-          color="#7DC98F"
+          color="#FF9A5C"
           ring={goalProgress}
           ringLabel={totalGoalTarget > 0 ? `${goalProgress}% of goals` : 'No goals yet'}
         />
@@ -468,7 +468,7 @@ function GoalRingCard({ goal, index, onAddSavings, onEdit, onDelete }: { goal: G
       className="rounded-[26px] border border-[var(--glass-border)] bg-[var(--glass-bg)] p-5 backdrop-blur-xl"
     >
       <div className="flex items-start gap-4">
-        <ProgressRing progress={progress} size={92} stroke={9} from={done ? '#7DC98F' : '#FF5C00'} to={done ? '#4E9A66' : '#FF8A47'}>
+        <ProgressRing progress={progress} size={92} stroke={9} from={done ? '#D9541A' : '#FF5C00'} to={done ? '#FF9A5C' : '#FF8A47'}>
           <strong className="text-lg font-semibold tracking-tight text-white"><CountUp value={progress} format={(v) => `${Math.round(v)}%`} /></strong>
           <span className="text-[10px] text-[var(--muted-2)]">saved</span>
         </ProgressRing>
@@ -507,7 +507,7 @@ function DebtGlowCard({ debt, index, onPayDebt, onEdit, onDelete }: { debt: Debt
   const overdue = status === 'Overdue'
   const paidOff = status === 'Paid'
   const category = debt.category ?? 'Debt'
-  const barColor = overdue ? '#E8694A' : paidOff ? '#7DC98F' : '#FF5C00'
+  const barColor = overdue ? '#E8481C' : paidOff ? '#FF9A5C' : '#FF5C00'
 
   return (
     <motion.article

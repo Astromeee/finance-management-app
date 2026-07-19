@@ -15,9 +15,9 @@
   --muted-2: #777c84;
   --accent: #ff5a1f;
   --accent-soft: rgba(255, 90, 31, 0.14);
-  --positive: #65c98a;
-  --negative: #ff7164;
-  --info: #a9b0ba;
+  --positive: #ff9a5c;
+  --negative: #e8481c;
+  --info: #8d8a85;
   color-scheme: dark;
   font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   background: var(--bg);
@@ -57,6 +57,59 @@ body.reorder-scroll-locked {
     radial-gradient(circle at 16% 0%, rgba(255, 90, 31, 0.055), transparent 24rem),
     linear-gradient(180deg, #111316 0%, #070809 100%);
 }
+
+/* Auth: charcoal ledger-paper canvas + ember bloom + frosted glass card,
+   matching the app's V3 orange-glass system (see theme.css). */
+.auth-shell {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+  background-color: #171716;
+  background-image:
+    repeating-linear-gradient(0deg, transparent 0 43px, rgba(255, 255, 255, 0.045) 43px 44px),
+    repeating-linear-gradient(90deg, transparent 0 43px, rgba(255, 255, 255, 0.03) 43px 44px),
+    radial-gradient(80% 42rem at 50% -6rem, rgba(242, 100, 25, 0.30), rgba(209, 78, 12, 0.12) 42%, transparent 70%);
+  background-size: 44px 44px, 44px 44px, 100% 100%;
+}
+
+.auth-shell::after {
+  position: absolute;
+  z-index: 0;
+  inset: auto 0 0;
+  height: 52%;
+  content: '';
+  pointer-events: none;
+  background: linear-gradient(180deg, rgba(23, 23, 22, 0), #171716 92%);
+}
+
+.auth-card {
+  position: relative;
+  z-index: 1;
+  border: 1px solid #272624;
+  background: linear-gradient(160deg, #1b1a19, #141413);
+  box-shadow: 0 28px 64px rgba(0, 0, 0, 0.46);
+}
+
+.auth-card .form-input,
+.auth-card .auth-translucent-control {
+  border: 1px solid #272624;
+  background: #201f1e;
+  box-shadow: none;
+}
+
+.auth-card .form-input { color: var(--text); }
+.auth-card .form-input:focus,
+.auth-card .auth-translucent-control:focus-visible {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.auth-card .btn-primary {
+  background: linear-gradient(160deg, #ff5c00, #d14e0c);
+  box-shadow: 0 12px 28px rgba(255, 92, 0, 0.22);
+}
+
+.auth-card .btn-primary:hover { filter: brightness(1.06); }
 
 button,
 input,

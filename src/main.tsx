@@ -9,7 +9,7 @@ import '@fontsource/sora/600.css'
 import '@fontsource/sora/700.css'
 import '@fontsource/sora/800.css'
 import './index.css'
-import './theme.css' // ← V3 redesign layer (must come after index.css)
+import './theme.css' // ← V3 orange-glass redesign layer (must come after index.css)
 import App from './App.tsx'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import { OfflineBanner } from './components/OfflineBanner'

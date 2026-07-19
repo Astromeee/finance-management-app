@@ -35,10 +35,15 @@ export interface Category {
 
 export interface JourneySettings {
   incomeSourceType?: IncomeSourceType
+  /** All income sources the user selected during onboarding (multi-select).
+   *  incomeSourceType stays the primary (first) choice for storage/back-compat. */
+  incomeSourceTypes?: IncomeSourceType[]
   incomeCadence?: IncomeCadence
   typicalIncome: number
   nextIncomeDate?: string
   primaryPriority?: MoneyPriority
+  /** All focuses the user selected (multi-select); primaryPriority = first choice. */
+  moneyPriorities?: MoneyPriority[]
   safetyReserve: number
   onboardingVersion: number
   onboardingStep: number

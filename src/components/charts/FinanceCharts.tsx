@@ -26,20 +26,20 @@ import type { Transaction } from '../../types/finance'
 
 const ORANGE = '#FF5C00'
 const ORANGE_DIM = '#B23F02'
-const GREEN = '#7DC98F'
+const GREEN = '#FF9A5C' // income/positive series — warm, no green in the V4 palette
 const GREY_AXIS = '#8D8A85'
 const GRID = 'rgba(246,243,239,.07)'
 
 /* warm sequential palette for the donut — orange leads, warm greys follow */
-const DONUT_PALETTE = ['#FF5C00', '#FF8A47', '#C9743F', '#8D8A85', '#5E5B57', '#3A3A3E', '#7DC98F', '#5FB8BC']
+const DONUT_PALETTE = ['#FF5C00', '#FF8A47', '#C9743F', '#FF9A5C', '#8D8A85', '#5E5B57', '#A8642F', '#3A3A3E']
 
+/* solid ink tooltip — glass retired in V4 */
 const tooltipStyle = {
-  background: 'rgba(28,28,30,.92)',
-  border: '1px solid rgba(255,255,255,.12)',
-  borderRadius: 16,
+  background: '#1C1B1A',
+  border: '1px solid #272624',
+  borderRadius: 14,
   color: '#F2EFEA',
-  backdropFilter: 'blur(12px)',
-  boxShadow: '0 12px 32px rgba(0,0,0,.4)',
+  boxShadow: '0 12px 32px rgba(0,0,0,.45)',
   fontFamily: 'Outfit, sans-serif',
   fontSize: 13,
 }
