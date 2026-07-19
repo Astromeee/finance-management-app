@@ -226,6 +226,8 @@ article.rounded-2xl {
   position: relative;
   flex: 0 0 calc(100% - 34px);
   scroll-snap-align: start;
+  /* stop on every card so a fast flick can't skip past one */
+  scroll-snap-stop: always;
   overflow: hidden;
   min-height: 268px;
   padding: 22px;
@@ -457,6 +459,8 @@ button.bg-\[var\(--accent\)\]:not(.rounded-full) {
   z-index: 40;
   display: flex;
   align-items: center;
+  /* the active pill sizes to its label; space-between spreads the rest */
+  justify-content: space-between;
   gap: 6px;
   max-width: 430px;
   margin: 0 auto;
@@ -474,8 +478,8 @@ button.bg-\[var\(--accent\)\]:not(.rounded-full) {
   flex: 0 0 auto;
   display: grid;
   place-items: center;
-  width: 46px;
-  height: 46px;
+  width: 44px;
+  height: 44px;
   border: 0;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.045);
@@ -504,14 +508,16 @@ button.bg-\[var\(--accent\)\]:not(.rounded-full) {
 }
 
 .dock-v3-active-expanded {
-  flex: 1 1 auto;
+  /* 0 1 auto: hug the label, but still shrink rather than overflow the dock */
+  flex: 0 1 auto;
   justify-content: space-between;
-  padding: 5px 5px 5px 18px;
+  padding: 5px 5px 5px 16px;
 }
 
 .dock-v3-label {
   max-width: 0;
   overflow: hidden;
+  text-overflow: ellipsis;
   white-space: nowrap;
   opacity: 0;
   font-family: Sora, Outfit, sans-serif;
@@ -523,7 +529,7 @@ button.bg-\[var\(--accent\)\]:not(.rounded-full) {
 
 .dock-v3-active-expanded .dock-v3-label {
   max-width: 9.5rem;
-  margin-right: 11px;
+  margin-right: 10px;
   opacity: 1;
 }
 
@@ -531,8 +537,8 @@ button.bg-\[var\(--accent\)\]:not(.rounded-full) {
   flex: 0 0 auto;
   display: grid;
   place-items: center;
-  width: 46px;
-  height: 46px;
+  width: 44px;
+  height: 44px;
   border-radius: 999px;
   background: #ffffff;
   color: #16130f;

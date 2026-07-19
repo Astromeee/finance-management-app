@@ -56,6 +56,7 @@ export function Dashboard({
   const [menuOpen, setMenuOpen] = useState(false)
   const [coachOpen, setCoachOpen] = useState(!journeySettings.tourCompleted)
   const [slide, setSlide] = useState(0)
+  const lastSlide = useRef(0)
   const railRef = useRef<HTMLDivElement>(null)
   const profile = getProfile()
   const safeSpend = useMemo(() => calculateSafeSpend({ accounts, budgets, categories, upcomingExpenses, settings: journeySettings }), [accounts, budgets, categories, upcomingExpenses, journeySettings])
@@ -78,7 +79,14 @@ export function Dashboard({
     const rail = railRef.current
     const card = rail?.firstElementChild as HTMLElement | null
     if (!rail || !card) return
-    setSlide(Math.max(0, Math.min(slides - 1, Math.round(rail.scrollLeft / (card.offsetWidth + CARD_GAP)))))
+    const next = Math.max(0, Math.min(slides - 1, Math.round(rail.scrollLeft / (card.offsetWidth + CARD_GAP))))
+    // guard on a ref, not on `slide`: scroll fires far faster than React
+    // re-renders, so a state check would be stale and buzz several times per swipe
+    if (next === lastSlide.current) return
+    lastSlide.current = next
+    setSlide(next)
+    // a short tick as each card snaps into place (no-op where unsupported)
+    if (typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') navigator.vibrate(8)
   }
 
   const completeCoach = () => {
