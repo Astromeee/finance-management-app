@@ -205,6 +205,106 @@ article.rounded-2xl {
 .journey-hero::after { display: none; }
 .journey-hero > * { position: relative; z-index: 1; }
 
+/* ---------- Home (8a): hero snap carousel + payday rail ---------- */
+.home-rail {
+  display: flex;
+  gap: 14px;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  /* bleed to the screen edge so the next card peeks, per the mock */
+  margin: 0 -16px;
+  padding: 0 16px;
+  scroll-padding-left: 16px;
+  overscroll-behavior-x: contain;
+}
+
+.home-rail::-webkit-scrollbar { display: none; }
+
+.home-rail-card {
+  position: relative;
+  flex: 0 0 calc(100% - 34px);
+  scroll-snap-align: start;
+  overflow: hidden;
+  min-height: 268px;
+  padding: 22px;
+  border: 1px solid var(--border);
+  border-radius: 26px;
+  background:
+    radial-gradient(120% 120% at 100% -10%, rgba(255, 92, 0, 0.20), transparent 60%),
+    linear-gradient(160deg, #1b1a19, #141413);
+}
+
+.home-rail-card > * { position: relative; z-index: 1; }
+
+.home-dots {
+  display: flex;
+  gap: 6px;
+  justify-content: center;
+  align-items: center;
+  margin-top: 14px;
+}
+
+.home-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.20);
+  transition: width 240ms cubic-bezier(.22, 1, .36, 1), background 240ms ease;
+}
+
+.home-dot-active {
+  width: 22px;
+  background: var(--accent);
+}
+
+/* payday progress rail: gradient track, glowing today marker, dashed target */
+.payday-track {
+  position: relative;
+  height: 4px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.10);
+}
+
+.payday-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #d9541a, #ff8a47);
+}
+
+.payday-knob {
+  position: absolute;
+  top: 50%;
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  background: var(--accent);
+  box-shadow: 0 0 0 4px rgba(255, 92, 0, 0.18), 0 0 18px 4px rgba(255, 92, 0, 0.45);
+  transform: translate(-50%, -50%);
+}
+
+.payday-target {
+  position: absolute;
+  top: 50%;
+  right: 0;
+  width: 13px;
+  height: 13px;
+  border: 2px dashed rgba(255, 255, 255, 0.38);
+  border-radius: 999px;
+  transform: translate(50%, -50%);
+}
+
+:root[data-theme='light'] .home-rail-card {
+  background:
+    radial-gradient(120% 120% at 100% -10%, rgba(255, 92, 0, 0.12), transparent 60%),
+    #ffffff;
+}
+
+:root[data-theme='light'] .payday-track { background: rgba(25, 23, 20, 0.12); }
+:root[data-theme='light'] .payday-target { border-color: rgba(25, 23, 20, 0.32); }
+:root[data-theme='light'] .home-dot { background: rgba(25, 23, 20, 0.18); }
+
 /* Status pills — ember family */
 .journey-status {
   display: inline-flex;
@@ -236,8 +336,9 @@ article.rounded-2xl {
 }
 
 /* ---------- Buttons & inputs ---------- */
+/* :not(.rounded-full) keeps this off circular accent buttons like the avatar */
 .btn-primary,
-button.bg-\[var\(--accent\)\] {
+button.bg-\[var\(--accent\)\]:not(.rounded-full) {
   min-height: 48px;
   border: 0;
   border-radius: 14px;
@@ -261,7 +362,7 @@ button.bg-\[var\(--accent\)\] {
 .home-v2-month-stats > div,
 .home-v2-section-heading-compact button {
   border: 1px solid var(--border);
-  border-radius: 16px;
+  border-radius: 20px;
   background: linear-gradient(160deg, #1b1a19, #141413);
   box-shadow: none;
   backdrop-filter: none;
@@ -350,62 +451,62 @@ button.bg-\[var\(--accent\)\] {
    button that expands into a labeled pill revealing the page name ---------- */
 .dock-v3 {
   position: fixed;
-  right: 12px;
+  right: 10px;
   bottom: max(12px, env(safe-area-inset-bottom));
-  left: 12px;
+  left: 10px;
   z-index: 40;
   display: flex;
   align-items: center;
   gap: 6px;
-  max-width: 460px;
+  max-width: 430px;
   margin: 0 auto;
   padding: 7px;
-  border: 1px solid var(--border);
-  border-radius: 22px;
-  background: linear-gradient(160deg, #1b1a19, #141413);
-  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.46);
+  border: 1px solid #2b2a28;
+  border-radius: 34px;
+  background: linear-gradient(160deg, #1f1e1d, #161615);
+  box-shadow: 0 16px 38px rgba(0, 0, 0, 0.52);
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
 }
 
+/* inactive tabs are plain circular icon buttons */
 .dock-v3-icon {
-  flex: 1 1 0;
-  min-width: 0;
-  display: flex;
-  min-height: 50px;
-  align-items: center;
-  justify-content: center;
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
   border: 0;
-  border-radius: 15px;
-  background: transparent;
-  color: var(--muted-2);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.045);
+  color: #8d8a85;
   transition: background 180ms cubic-bezier(.22, 1, .36, 1), color 180ms cubic-bezier(.22, 1, .36, 1);
 }
 
-.dock-v3-icon:hover { background: var(--surface-2); color: var(--text); }
+.dock-v3-icon:hover { background: rgba(255, 255, 255, 0.09); color: var(--text); }
 
+/* active tab: a pill holding the page name + a white circular menu button */
 .dock-v3-active {
-  flex: 1 1 0;
+  /* collapsed: only as wide as the circle. expanded (below): fills the row. */
+  flex: 0 0 auto;
   min-width: 0;
   display: flex;
-  min-height: 50px;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-end;
   gap: 0;
-  padding: 4px;
+  height: 56px;
+  padding: 5px;
   border: 0;
   border-radius: 999px;
-  background: transparent;
-  color: var(--accent-ink);
-  transition: flex-grow 300ms cubic-bezier(.22, 1, .36, 1), background 240ms ease, padding 260ms ease, box-shadow 240ms ease;
+  background: rgba(255, 255, 255, 0.06);
+  color: #ffffff;
+  transition: flex-grow 300ms cubic-bezier(.22, 1, .36, 1), background 240ms ease, padding 260ms ease;
 }
 
 .dock-v3-active-expanded {
-  flex-grow: 2.6;
+  flex: 1 1 auto;
   justify-content: space-between;
-  padding: 4px 6px 4px 18px;
-  background: linear-gradient(160deg, #ff5c00, #d9541a);
-  box-shadow: 0 10px 26px rgba(255, 92, 0, 0.28);
+  padding: 5px 5px 5px 18px;
 }
 
 .dock-v3-label {
@@ -415,14 +516,14 @@ button.bg-\[var\(--accent\)\] {
   opacity: 0;
   font-family: Sora, Outfit, sans-serif;
   font-size: 15px;
-  font-weight: 700;
+  font-weight: 600;
   letter-spacing: -0.01em;
   transition: max-width 300ms cubic-bezier(.22, 1, .36, 1), opacity 200ms ease, margin 300ms ease;
 }
 
 .dock-v3-active-expanded .dock-v3-label {
   max-width: 9.5rem;
-  margin-right: 10px;
+  margin-right: 11px;
   opacity: 1;
 }
 
@@ -430,18 +531,12 @@ button.bg-\[var\(--accent\)\] {
   flex: 0 0 auto;
   display: grid;
   place-items: center;
-  width: 42px;
-  height: 42px;
+  width: 46px;
+  height: 46px;
   border-radius: 999px;
-  background: linear-gradient(160deg, #ff5c00, #d9541a);
-  color: var(--accent-ink);
-  box-shadow: 0 4px 14px rgba(255, 92, 0, 0.30);
-  transition: background 200ms ease, box-shadow 200ms ease;
-}
-
-.dock-v3-active-expanded .dock-v3-circle {
-  background: rgba(22, 19, 15, 0.22);
-  box-shadow: none;
+  background: #ffffff;
+  color: #16130f;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.30);
 }
 
 @media (min-width: 1024px) {
@@ -562,6 +657,24 @@ button.bg-\[var\(--accent\)\] {
   border-color: var(--border);
   background: #ffffff;
   box-shadow: 0 16px 38px rgba(25, 23, 20, 0.14);
+}
+
+:root[data-theme='light'] .dock-v3-icon {
+  background: rgba(25, 23, 20, 0.05);
+  color: #97908a;
+}
+
+:root[data-theme='light'] .dock-v3-icon:hover { background: rgba(25, 23, 20, 0.09); color: var(--text); }
+
+:root[data-theme='light'] .dock-v3-active {
+  background: rgba(25, 23, 20, 0.06);
+  color: #191714;
+}
+
+:root[data-theme='light'] .dock-v3-circle {
+  background: #191714;
+  color: #fffdfb;
+  box-shadow: 0 2px 10px rgba(25, 23, 20, 0.22);
 }
 
 :root[data-theme='light'] .home-v2-bank-card,

@@ -42,16 +42,17 @@ export function BottomNav({ activePage, setActivePage }: { activePage: string; s
   const mobileItems = order
     .map((id) => navItems.find((item) => item.id === id))
     .filter((item): item is NavItem => Boolean(item))
-  // Track which page's pill is expanded; deriving `expanded` from the active
-  // page means it auto-collapses on navigation without a state-syncing effect.
-  const [expandedPage, setExpandedPage] = useState<string | null>(null)
+  // The active pill shows its page name by default; tapping the menu button
+  // collapses it. Tracking the *collapsed* page (rather than a boolean) means
+  // navigating always lands expanded again, with no state-syncing effect.
+  const [collapsedPage, setCollapsedPage] = useState<string | null>(null)
 
   return (
     <nav className="dock-v3" aria-label="Primary navigation">
       {mobileItems.map(({ id, label, icon: Icon }) => {
         const active = activePage === id
         if (active) {
-          const expanded = expandedPage === id
+          const expanded = collapsedPage !== id
           return (
             <button
               key={id}
@@ -59,8 +60,8 @@ export function BottomNav({ activePage, setActivePage }: { activePage: string; s
               className={cn('dock-v3-active', expanded && 'dock-v3-active-expanded')}
               aria-current="page"
               aria-expanded={expanded}
-              aria-label={expanded ? `${label} — current page` : `${label} — current page, show name`}
-              onClick={() => setExpandedPage(expanded ? null : id)}
+              aria-label={expanded ? `${label} — current page, hide name` : `${label} — current page, show name`}
+              onClick={() => setCollapsedPage(expanded ? id : null)}
             >
               <span className="dock-v3-label">{label}</span>
               <span className="dock-v3-circle"><Icon size={19} /></span>
