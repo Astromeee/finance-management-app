@@ -135,7 +135,7 @@ export function AuthPage({ mode }: { mode: AuthMode }) {
             </div>
           )}
           <button className="btn-primary justify-center disabled:opacity-60" disabled={loading || Boolean(turnstileSiteKey && mode !== 'reset' && !captchaToken)}>{loading ? 'Please wait…' : mode === 'login' ? 'Log in' : mode === 'signup' ? 'Create account' : mode === 'forgot' ? 'Send reset link' : 'Update password'}</button>
-          {message && <p className={`rounded-2xl border p-3 text-sm ${success ? 'border-[rgba(45,157,120,.3)] bg-[rgba(45,157,120,.1)] text-[var(--positive)]' : 'border-[rgba(232,105,74,.25)] bg-[rgba(232,105,74,.08)] text-[var(--negative)]'}`} role="status">{success && <CheckCircle2 className="mr-2 inline" size={16} />}{message}</p>}
+          {message && <p className={`rounded-2xl border p-3 text-sm ${success ? 'border-[rgba(255,92,0,.28)] bg-[rgba(255,92,0,.13)] text-[var(--positive)]' : 'border-[rgba(232,105,74,.25)] bg-[rgba(232,105,74,.08)] text-[var(--negative)]'}`} role="status">{success && <CheckCircle2 className="mr-2 inline" size={16} />}{message}</p>}
         </form>
 
         {mode === 'login' && <div className="mt-5 flex items-center justify-between text-sm"><Link className="text-[var(--muted)]" to="/forgot-password">Forgot password?</Link>{signupEnabled && <Link className="font-semibold text-[var(--accent)]" to="/signup">Create account</Link>}</div>}

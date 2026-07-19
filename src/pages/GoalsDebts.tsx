@@ -477,7 +477,7 @@ function GoalRingCard({ goal, index, onAddSavings, onEdit, onDelete }: { goal: G
             <h4 className="truncate text-lg font-semibold text-white">{goal.name}</h4>
             <span className={cn(
               'flex-none rounded-full border px-2.5 py-0.5 text-[11px] font-semibold',
-              done ? 'border-[rgba(125,201,143,.3)] bg-[rgba(125,201,143,.1)] text-[var(--positive)]' : 'border-[rgba(255,92,0,.25)] bg-[var(--accent-soft)] text-[var(--accent)]',
+              done ? 'border-[rgba(255,92,0,.28)] bg-[rgba(255,92,0,.13)] text-[var(--positive)]' : 'border-[rgba(255,92,0,.25)] bg-[var(--accent-soft)] text-[var(--accent)]',
             )}>{goal.status}</span>
           </div>
           <p className="mt-2 text-xl font-semibold tracking-tight text-white">
@@ -529,7 +529,7 @@ function DebtGlowCard({ debt, index, onPayDebt, onEdit, onDelete }: { debt: Debt
         </div>
         <span className={cn(
           'flex-none rounded-full border px-2.5 py-0.5 text-[11px] font-semibold',
-          paidOff ? 'border-[rgba(125,201,143,.3)] bg-[rgba(125,201,143,.1)] text-[var(--positive)]'
+          paidOff ? 'border-[rgba(255,92,0,.28)] bg-[rgba(255,92,0,.13)] text-[var(--positive)]'
             : overdue ? 'border-[rgba(232,105,74,.35)] bg-[rgba(232,105,74,.12)] text-[var(--negative)]'
               : status === 'Due Soon' ? 'border-[rgba(255,92,0,.3)] bg-[var(--accent-soft)] text-[var(--accent)]'
                 : 'border-[var(--border)] bg-white/[.04] text-[var(--muted)]',
@@ -579,7 +579,7 @@ function StatusBadge({ status }: { status: UpcomingExpenseStatus }) {
     upcoming: { label: 'Upcoming', cls: 'border-[var(--border)] bg-white/[.04] text-[var(--muted)]' },
     due_soon: { label: 'Due Soon', cls: 'border-[rgba(255,92,0,.3)] bg-[var(--accent-soft)] text-[var(--accent)]' },
     overdue: { label: 'Overdue', cls: 'border-[rgba(232,105,74,.35)] bg-[rgba(232,105,74,.12)] text-[var(--negative)]' },
-    paid: { label: 'Paid', cls: 'border-[rgba(125,201,143,.3)] bg-[rgba(125,201,143,.1)] text-[var(--positive)]' },
+    paid: { label: 'Paid', cls: 'border-[rgba(255,92,0,.28)] bg-[rgba(255,92,0,.13)] text-[var(--positive)]' },
   }
   return <span className={cn('rounded-full border px-2.5 py-0.5 text-[11px] font-semibold', config[status].cls)}>{config[status].label}</span>
 }

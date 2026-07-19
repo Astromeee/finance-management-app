@@ -153,7 +153,7 @@ select option {
   border-color: rgba(255, 90, 31, 0.16);
   background:
     radial-gradient(circle at 92% 10%, rgba(255, 90, 31, 0.16), transparent 32%),
-    radial-gradient(circle at 4% 96%, rgba(139, 226, 143, 0.08), transparent 34%),
+    radial-gradient(circle at 4% 96%, rgba(255, 154, 92, 0.08), transparent 34%),
     linear-gradient(145deg, #27292f, #16181c);
   padding: 18px;
 }
@@ -166,7 +166,7 @@ select option {
   border-radius: 0 0 34px 34px;
   background:
     radial-gradient(circle at 84% 10%, rgba(255, 90, 31, 0.22), transparent 18rem),
-    radial-gradient(circle at 10% 20%, rgba(139, 226, 143, 0.1), transparent 16rem),
+    radial-gradient(circle at 10% 20%, rgba(255, 154, 92, 0.1), transparent 16rem),
     linear-gradient(155deg, #262a31 0%, #171a1f 58%, #0e1115 100%);
   box-shadow: 0 24px 70px rgba(0, 0, 0, 0.38);
 }
@@ -603,7 +603,7 @@ select option {
 }
 
 .home-account-hbl {
-  color: #35e7cc;
+  color: #c9a68a;
 }
 
 .home-account-meezan {
@@ -771,7 +771,7 @@ select option {
 }
 
 .home-account-hbl {
-  --home-accent: #35e7cc;
+  --home-accent: #c9a68a;
 }
 
 .home-account-meezan {
@@ -1134,7 +1134,7 @@ select option {
 }
 
 .type-badge.income {
-  background: rgba(139, 226, 143, 0.12);
+  background: rgba(255, 154, 92, 0.12);
   color: var(--positive);
 }
 
@@ -1469,7 +1469,7 @@ select option {
 }
 
 .upcoming-expense-paid {
-  border-color: rgba(139, 226, 143, 0.16);
+  border-color: rgba(255, 154, 92, 0.16);
   opacity: 0.78;
 }
 
@@ -2225,8 +2225,8 @@ select option {
 }
 
 .upcoming-status-paid {
-  border: 1px solid rgba(139, 226, 143, 0.24);
-  background: rgba(139, 226, 143, 0.1);
+  border: 1px solid rgba(255, 154, 92, 0.24);
+  background: rgba(255, 154, 92, 0.1);
   color: var(--positive);
 }
 
@@ -3356,7 +3356,7 @@ select option {
 }
 
 .home-v2-stat-income {
-  background: rgba(101, 201, 138, 0.12);
+  background: rgba(255, 154, 92, 0.12);
   color: var(--positive);
 }
 
@@ -3441,7 +3441,7 @@ select option {
 }
 
 .home-v2-category-income {
-  background: rgba(101, 201, 138, 0.11);
+  background: rgba(255, 154, 92, 0.11);
   color: var(--positive);
 }
 
