@@ -463,9 +463,9 @@ button.bg-\[var\(--accent\)\]:not(.rounded-full) {
   display: flex;
   align-items: center;
   justify-content: center;
-  /* Buttons sit flush against each other — no gap, ever. The pill hugs them,
-     so leftover width stays outside the dock instead of becoming spacing. */
-  gap: 0;
+  /* A hairline between buttons — nothing more. The pill hugs them, so leftover
+     width stays outside the dock instead of becoming spacing. */
+  gap: 1px;
   width: fit-content;
   max-width: 100%;
   margin: 0 auto;
