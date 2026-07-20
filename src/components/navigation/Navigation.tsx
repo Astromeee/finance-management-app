@@ -70,7 +70,7 @@ export function BottomNav({ activePage, setActivePage }: { activePage: string; s
         }
         return (
           <button key={id} type="button" aria-label={label} className="dock-v3-icon" onClick={() => navigate(setActivePage, id)}>
-            <span className="dock-v3-idle"><Icon size={20} /></span>
+            <Icon size={23} />
           </button>
         )
       })}
