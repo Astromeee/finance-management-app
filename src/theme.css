@@ -462,10 +462,11 @@ button.bg-\[var\(--accent\)\]:not(.rounded-full) {
   z-index: 40;
   display: flex;
   align-items: center;
-  justify-content: center;
-  gap: 5px;
-  width: fit-content;
-  max-width: 100%;
+  gap: 4px;
+  /* Fills the content column, but the spare width goes into equal-width icon
+     slots (below) rather than into the gaps — so it reads as a proper nav bar
+     instead of five buttons drifting apart. Capped so it can't over-stretch. */
+  max-width: 440px;
   margin: 0 auto;
   padding: 6px;
   border: 1px solid rgba(255, 255, 255, 0.10);
@@ -477,21 +478,32 @@ button.bg-\[var\(--accent\)\]:not(.rounded-full) {
   -webkit-backdrop-filter: blur(20px) saturate(1.3);
 }
 
-/* inactive tabs are plain circular icon buttons */
+/* Inactive tabs: the button is an equal-width slot, the circle inside stays a
+   fixed 44px and centres in it. Extra dock width widens the slots, so the
+   circles stay evenly spaced instead of being flung to the edges. */
 .dock-v3-icon {
-  flex: 0 0 auto;
+  flex: 1 1 0;
+  min-width: 0;
+  display: grid;
+  place-items: center;
+  height: 44px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+
+.dock-v3-idle {
   display: grid;
   place-items: center;
   width: 44px;
   height: 44px;
-  border: 0;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.045);
   color: #8d8a85;
   transition: background 180ms cubic-bezier(.22, 1, .36, 1), color 180ms cubic-bezier(.22, 1, .36, 1);
 }
 
-.dock-v3-icon:hover { background: rgba(255, 255, 255, 0.09); color: var(--text); }
+.dock-v3-icon:hover .dock-v3-idle { background: rgba(255, 255, 255, 0.09); color: var(--text); }
 
 /* active tab: a pill holding the page name + a white circular menu button */
 .dock-v3-active {
@@ -515,7 +527,9 @@ button.bg-\[var\(--accent\)\]:not(.rounded-full) {
   /* 0 1 auto: hug the label, but still shrink rather than overflow the dock */
   flex: 0 1 auto;
   justify-content: space-between;
-  padding: 0 0 0 14px;
+  /* right padding keeps the pill's circle off the edge, so the space before the
+     first icon matches the even spacing between the icon slots */
+  padding: 0 8px 0 14px;
 }
 
 .dock-v3-label {
@@ -553,8 +567,14 @@ button.bg-\[var\(--accent\)\]:not(.rounded-full) {
   .dock-v3 { display: none; }
 }
 
-@media (max-width: 390px) {
+/* Small phones: a long label ("Insights") plus five 44px circles leaves the
+   slots almost touching, so trim both to keep the icons breathing. */
+@media (max-width: 380px) {
   .dock-v3-label { font-size: 14px; }
+  .dock-v3-idle,
+  .dock-v3-circle { width: 40px; height: 40px; }
+  .dock-v3-icon,
+  .dock-v3-active { height: 40px; }
 }
 
 /* ============================================================
@@ -670,12 +690,12 @@ button.bg-\[var\(--accent\)\]:not(.rounded-full) {
   -webkit-backdrop-filter: blur(20px) saturate(1.3);
 }
 
-:root[data-theme='light'] .dock-v3-icon {
+:root[data-theme='light'] .dock-v3-idle {
   background: rgba(25, 23, 20, 0.05);
   color: #97908a;
 }
 
-:root[data-theme='light'] .dock-v3-icon:hover { background: rgba(25, 23, 20, 0.09); color: var(--text); }
+:root[data-theme='light'] .dock-v3-icon:hover .dock-v3-idle { background: rgba(25, 23, 20, 0.09); color: var(--text); }
 
 :root[data-theme='light'] .dock-v3-active {
   background: rgba(25, 23, 20, 0.06);
