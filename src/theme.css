@@ -465,7 +465,7 @@ button.bg-\[var\(--accent\)\]:not(.rounded-full) {
   justify-content: center;
   /* A hairline between buttons — nothing more. The pill hugs them, so leftover
      width stays outside the dock instead of becoming spacing. */
-  gap: 1px;
+  gap: 3px;
   width: fit-content;
   max-width: 100%;
   margin: 0 auto;
