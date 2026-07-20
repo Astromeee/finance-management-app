@@ -9,7 +9,8 @@ import '@fontsource/sora/600.css'
 import '@fontsource/sora/700.css'
 import '@fontsource/sora/800.css'
 import './index.css'
-import './theme.css' // ← V3 orange-glass redesign layer (must come after index.css)
+import './theme.css' // ← V4 "Ink & Ember" layer (must come after index.css)
+import './theme-v5.css' // ← V5 "Lifted Ink" patch (must come after theme.css)
 import App from './App.tsx'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import { OfflineBanner } from './components/OfflineBanner'

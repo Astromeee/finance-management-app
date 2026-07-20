@@ -1,0 +1,218 @@
+/* ============================================================
+   Pocket Ledger — V5 "Lifted Ink" patch (approved: plan doc 10a
+   + 10b dock). Import AFTER theme.css in main.tsx:
+     import './theme.css'
+     import './theme-v5.css'
+   What changes vs V4:
+   · Canvas: flat #0D0C0B, NO ember blooms/gradients — a two-scale
+     ledger grid instead (warm 64px lines + faint 16px lines).
+   · Cards lifted two steps (#23211E) with bright hairlines;
+     text ladder brightened (#F7F4EF / #A8A39B / #918C84).
+   · Hero: clean flat #211F1C ink card, no orange tint — orange
+     lives only in the Protect pill + slider.
+   · Hero carousel: exactly ONE card visible, no peek.
+   · Status pill: solid orange, dark text.
+   · Dock: exact 10b spec — 40px circles, orange home circle,
+     8px gaps, 6px padding.
+   Manual edits (2) — see README.
+   ============================================================ */
+
+:root {
+  --bg: #0d0c0b;
+  --bg-deep: #0d0c0b;
+  --surface: #191817;
+  --surface-2: #211f1c;
+  --surface-3: #262421;
+  --surface-raised: #1e1c1a;
+  --border: rgba(255, 255, 255, 0.10);
+  --border-strong: rgba(255, 255, 255, 0.16);
+  --text: #f7f4ef;
+  --muted: #a8a39b;
+  --muted-2: #918c84;
+}
+
+html { background: var(--bg-deep); }
+
+/* ---------- Canvas: flat near-black + two-scale ledger grid.
+   Same on every page (the 7a bloom and 7c dashboard variant are
+   both retired), so the data-page hook can stay — it's harmless. */
+body,
+#root,
+:root[data-page='dashboard'] body,
+:root[data-page='dashboard'] #root {
+  background:
+    repeating-linear-gradient(0deg, rgba(255, 122, 46, 0.045) 0 1px, transparent 1px 64px),
+    repeating-linear-gradient(90deg, rgba(255, 122, 46, 0.045) 0 1px, transparent 1px 64px),
+    repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.015) 0 1px, transparent 1px 16px),
+    repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.015) 0 1px, transparent 1px 16px),
+    #0d0c0b;
+}
+
+/* the old Home-only 44px grid overlay is replaced by the global one above */
+:root[data-page='dashboard'] body::before { content: none; }
+
+/* ---------- Ink cards, lifted two steps ---------- */
+.card,
+.balance-card,
+.content-panel,
+.insight-strip,
+.home-v2-month-card,
+.home-v2-activity,
+.home-v2-notification-panel,
+.transaction-filter-card,
+.goals-overview-card,
+.reports-filter-card,
+.reports-panel,
+.reports-summary-card,
+.reports-insight-card,
+.reports-stat-card,
+.reports-ranked-row,
+.reports-mini-metric,
+.account-card,
+.upcoming-expense-card,
+.goal-debt-card,
+.home-install-hint,
+.rounded-2xl.border,
+.rounded-\[24px\].border,
+article.rounded-2xl {
+  background: linear-gradient(165deg, #23211e, #181715);
+  border-color: rgba(255, 255, 255, 0.10);
+}
+
+.quick-action,
+.icon-button,
+.home-glass-icon,
+.home-v2-icon-button,
+.home-install-button,
+.home-v2-quick-actions button,
+.home-v2-month-stats > div,
+.home-v2-section-heading-compact button {
+  background: linear-gradient(165deg, #23211e, #181715);
+  border-color: rgba(255, 255, 255, 0.10);
+}
+
+/* ---------- Hero: clean flat ink — no ember/orange tint ---------- */
+.balance-card,
+.dashboard-hero,
+.journey-hero,
+.journey-hero-comfortable,
+.journey-hero-watchful,
+.journey-hero-protect,
+.home-rail-card {
+  background: #211f1c;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  box-shadow:
+    0 24px 48px rgba(0, 0, 0, 0.45),
+    inset 0 1.5px 0 rgba(255, 255, 255, 0.10);
+}
+
+/* The TodayMove / Money-leak section card (rounded-[22px] surface) */
+section.rounded-\[22px\].border {
+  background: #211f1c;
+  border-color: rgba(255, 255, 255, 0.14);
+  box-shadow: inset 0 1.5px 0 rgba(255, 255, 255, 0.10);
+}
+
+/* ---------- Carousel: exactly ONE card visible, no peek ---------- */
+.home-rail { gap: 16px; }
+.home-rail-card { flex: 0 0 100%; }
+
+/* ---------- Status pill: solid orange, dark text (one look) ---------- */
+.journey-status-positive,
+.journey-status-warning,
+.journey-status-negative {
+  border: 0;
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
+/* payday track a touch lighter so it reads on the flat hero */
+.payday-track { background: #38352f; }
+
+/* ============================================================
+   DOCK — 10b *treatment* only: hairline-bordered inactive circles,
+   solid-orange home circle, darker pill background.
+
+   DEVIATION FROM THE HANDOFF: 10b's dimensions (40px circles, 8px
+   gaps, 48px pill, 13px label) are deliberately NOT applied. They
+   would undo the sizing asked for directly — bigger buttons and a
+   3px gap — so sizing stays owned by theme.css. Only colour and
+   border move here. Restore 10b by re-adding the sizes below.
+   ============================================================ */
+.dock-v3 {
+  border: 1px solid #34322f;
+  border-radius: 999px;
+  background: rgba(24, 23, 22, 0.94);
+  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.65);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+}
+
+.dock-v3-icon {
+  border: 1px solid #34322f;
+  background: transparent;
+  color: #a8a39b;
+}
+
+.dock-v3-icon:hover { background: rgba(255, 255, 255, 0.06); color: var(--text); }
+
+.dock-v3-active { background: rgba(255, 255, 255, 0.08); }
+
+.dock-v3-label {
+  font-weight: 600;
+  color: #f7f4ef;
+}
+
+.dock-v3-circle {
+  background: var(--accent);
+  color: #1c0e04;
+  box-shadow: none;
+}
+
+/* ============================================================
+   LIGHT THEME — same moves on warm white
+   ============================================================ */
+:root[data-theme='light'] {
+  --bg: #fbf8f4;
+  --bg-deep: #fbf8f4;
+  --border: #e6e0d8;
+  --border-strong: #d8d1c7;
+  --text: #191714;
+  --muted: #6e675f;
+  --muted-2: #97908a;
+}
+
+:root[data-theme='light'] body,
+:root[data-theme='light'] #root,
+:root[data-theme='light'][data-page='dashboard'] body,
+:root[data-theme='light'][data-page='dashboard'] #root {
+  background:
+    repeating-linear-gradient(0deg, rgba(217, 84, 26, 0.06) 0 1px, transparent 1px 64px),
+    repeating-linear-gradient(90deg, rgba(217, 84, 26, 0.06) 0 1px, transparent 1px 64px),
+    repeating-linear-gradient(0deg, rgba(25, 23, 20, 0.02) 0 1px, transparent 1px 16px),
+    repeating-linear-gradient(90deg, rgba(25, 23, 20, 0.02) 0 1px, transparent 1px 16px),
+    #fbf8f4;
+}
+
+:root[data-theme='light'] .balance-card,
+:root[data-theme='light'] .dashboard-hero,
+:root[data-theme='light'] .journey-hero,
+:root[data-theme='light'] .journey-hero-comfortable,
+:root[data-theme='light'] .journey-hero-watchful,
+:root[data-theme='light'] .journey-hero-protect,
+:root[data-theme='light'] .home-rail-card,
+:root[data-theme='light'] section.rounded-\[22px\].border {
+  background: #ffffff;
+  border: 1px solid #e6e0d8;
+  box-shadow: 0 24px 48px rgba(25, 23, 20, 0.08);
+}
+
+:root[data-theme='light'] .dock-v3 {
+  border-color: #e6e0d8;
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow: 0 18px 44px rgba(25, 23, 20, 0.18);
+}
+
+:root[data-theme='light'] .dock-v3-icon { border-color: #e6e0d8; color: #6e675f; }
+:root[data-theme='light'] .dock-v3-active { background: rgba(25, 23, 20, 0.06); }
+:root[data-theme='light'] .dock-v3-label { color: #191714; }

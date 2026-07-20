@@ -99,7 +99,7 @@ export function Dashboard({
       <header className="flex items-center justify-between">
         <div>
           <p className="text-sm text-[var(--muted)]">Salam, {firstNameOf(profile.name)} <span aria-hidden="true">👋</span></p>
-          <h1 className="mt-0.5 font-display text-2xl font-bold">Your payday journey</h1>
+          <h1 className="mt-0.5 font-display text-2xl font-bold">Overview</h1>
         </div>
         <div className="relative">
           <button aria-expanded={menuOpen} aria-haspopup="menu" aria-label="Profile menu" className="grid h-12 w-12 place-items-center overflow-hidden rounded-full bg-[var(--accent)] text-sm font-bold text-[var(--accent-ink)]" onClick={() => setMenuOpen((current) => !current)}>{profile.avatar ? <img alt="" className="h-full w-full object-cover" src={profile.avatar} /> : initialsOf(profile.name)}</button>
@@ -205,7 +205,7 @@ function TodayMove({ insight, state, onAction }: { insight: ReturnType<typeof de
   return (
     <section className="mt-4 rounded-[22px] border border-[var(--border)] bg-[var(--surface)] p-5">
       <div className="flex items-start gap-4">
-        <span className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl bg-[rgba(255,92,0,.13)] text-[var(--accent)]"><Flag size={22} /></span>
+        <span className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl bg-[var(--accent)] text-[var(--accent-ink)]"><Flag size={22} /></span>
         <div className="min-w-0 flex-1">
           <p className="text-xs font-bold uppercase tracking-[.16em] text-[var(--accent)]">{content.eyebrow}</p>
           <h2 className="mt-1.5 font-display text-lg font-bold">{content.title}</h2>
