@@ -453,20 +453,21 @@ button.bg-\[var\(--accent\)\]:not(.rounded-full) {
    button that expands into a labeled pill revealing the page name ---------- */
 .dock-v3 {
   position: fixed;
-  /* mirror the content column (px-4 gutters, max-w-2xl cap) so the dock's
-     edges line up with the cards above it instead of floating off-grid */
+  /* A floating pill that hugs its contents and stays centered. It must NOT
+     stretch to the content column: with only five items, any extra width
+     turns into dead space between them. Gaps stay uniform at every size. */
   right: max(16px, env(safe-area-inset-right));
   bottom: max(12px, env(safe-area-inset-bottom));
   left: max(16px, env(safe-area-inset-left));
   z-index: 40;
   display: flex;
   align-items: center;
-  /* the active pill sizes to its label; space-between spreads the rest */
-  justify-content: space-between;
+  justify-content: center;
   gap: 5px;
-  max-width: 640px;
+  width: fit-content;
+  max-width: 100%;
   margin: 0 auto;
-  padding: 7px;
+  padding: 6px;
   border: 1px solid rgba(255, 255, 255, 0.10);
   border-radius: 34px;
   /* slightly translucent ink with a frosted blur — content glides under it */
@@ -481,8 +482,8 @@ button.bg-\[var\(--accent\)\]:not(.rounded-full) {
   flex: 0 0 auto;
   display: grid;
   place-items: center;
-  width: 42px;
-  height: 42px;
+  width: 44px;
+  height: 44px;
   border: 0;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.045);
@@ -501,8 +502,8 @@ button.bg-\[var\(--accent\)\]:not(.rounded-full) {
   align-items: center;
   justify-content: flex-end;
   gap: 0;
-  height: 56px;
-  padding: 5px;
+  height: 44px;
+  padding: 0;
   border: 0;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.06);
@@ -514,7 +515,7 @@ button.bg-\[var\(--accent\)\]:not(.rounded-full) {
   /* 0 1 auto: hug the label, but still shrink rather than overflow the dock */
   flex: 0 1 auto;
   justify-content: space-between;
-  padding: 5px 5px 5px 14px;
+  padding: 0 0 0 14px;
 }
 
 .dock-v3-label {
@@ -532,7 +533,7 @@ button.bg-\[var\(--accent\)\]:not(.rounded-full) {
 
 .dock-v3-active-expanded .dock-v3-label {
   max-width: 9.5rem;
-  margin-right: 10px;
+  margin-right: 8px;
   opacity: 1;
 }
 
@@ -540,8 +541,8 @@ button.bg-\[var\(--accent\)\]:not(.rounded-full) {
   flex: 0 0 auto;
   display: grid;
   place-items: center;
-  width: 42px;
-  height: 42px;
+  width: 44px;
+  height: 44px;
   border-radius: 999px;
   background: #ffffff;
   color: #16130f;
