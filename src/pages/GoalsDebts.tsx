@@ -76,8 +76,8 @@ function ProgressRing({
   progress,
   size = 96,
   stroke = 9,
-  from = '#FF5C00',
-  to = '#FF8A47',
+  from = '#ff7a1a',
+  to = '#ff7a1a',
   track = 'rgba(246,243,239,.08)',
   children,
 }: {
@@ -124,7 +124,7 @@ function ProgressRing({
 }
 
 /** Spring-animated horizontal progress bar with glow. */
-function ProgressBar({ progress, color = '#FF5C00', glow = true, height = 8 }: { progress: number; color?: string; glow?: boolean; height?: number }) {
+function ProgressBar({ progress, color = '#ff7a1a', glow = true, height = 8 }: { progress: number; color?: string; glow?: boolean; height?: number }) {
   const clamped = Math.max(0, Math.min(100, progress))
   return (
     <div className="w-full overflow-hidden rounded-full bg-white/[.07]" style={{ height }}>
@@ -212,7 +212,7 @@ export function GoalsDebts({
         </div>
         <button
           aria-label={activeTab === 'debts' ? 'Add debt' : activeTab === 'upcoming' ? 'Add upcoming expense' : 'Add goal'}
-          className="grid h-[52px] w-[52px] place-items-center rounded-full bg-gradient-to-br from-[#FF5C00] to-[#D14E0C] text-[#16130F] shadow-[0_12px_28px_rgba(255,92,0,.25)]"
+          className="grid h-[52px] w-[52px] place-items-center rounded-full bg-gradient-to-br from-[#ff7a1a] to-[#ff7a1a] text-[#16130F] shadow-[0_12px_28px_rgba(255, 122, 26,.25)]"
           onClick={() => {
             if (activeTab === 'debts') setShowAddDebt(true)
             else if (activeTab === 'upcoming') setShowAddExpense(true)
@@ -229,7 +229,7 @@ export function GoalsDebts({
           label="Total savings"
           value={totalSavings}
           icon={WalletCards}
-          color="#FF9A5C"
+          color="#ff7a1a"
           ring={goalProgress}
           ringLabel={totalGoalTarget > 0 ? `${goalProgress}% of goals` : 'No goals yet'}
         />
@@ -237,7 +237,7 @@ export function GoalsDebts({
           label="Debt to pay"
           value={totalDebtToPay}
           icon={Landmark}
-          color="#FF5C00"
+          color="#ff7a1a"
           ring={debtProgress}
           ringLabel={totalDebt > 0 ? `${debtProgress}% paid` : 'All clear'}
         />
@@ -259,7 +259,7 @@ export function GoalsDebts({
               {active && (
                 <motion.span
                   layoutId="goals-tab-pill"
-                  className="absolute inset-0 rounded-full bg-gradient-to-br from-[#FF5C00] to-[#D14E0C]"
+                  className="absolute inset-0 rounded-full bg-gradient-to-br from-[#ff7a1a] to-[#ff7a1a]"
                   transition={{ type: 'spring', stiffness: 380, damping: 32 }}
                 />
               )}
@@ -340,7 +340,7 @@ export function GoalsDebts({
                     <div className="flex flex-wrap items-center gap-2">
                       <h4 className="truncate text-lg font-semibold text-white">{expense.title}</h4>
                       <StatusBadge status={displayStatus} />
-                      {expense.isRecurring && <span className="inline-flex items-center gap-1 rounded-full border border-[rgba(255,92,0,.22)] bg-[var(--accent-soft)] px-2.5 py-1 text-xs font-semibold text-[var(--accent)]"><Repeat2 size={13} />Recurring</span>}
+                      {expense.isRecurring && <span className="inline-flex items-center gap-1 rounded-full border border-[rgba(255, 122, 26,.22)] bg-[var(--accent-soft)] px-2.5 py-1 text-xs font-semibold text-[var(--accent)]"><Repeat2 size={13} />Recurring</span>}
                     </div>
                     <p className="mt-2 text-sm text-[var(--muted)]">{expense.category} · Due {formatDate(expense.dueDate)}{account ? ` · ${account.name}` : ''}</p>
                     {expense.isRecurring && expense.recurringFrequency && <p className="mt-1 text-xs text-[var(--muted-2)]">{frequencyLabels[expense.recurringFrequency]} commitment</p>}
@@ -468,7 +468,7 @@ function GoalRingCard({ goal, index, onAddSavings, onEdit, onDelete }: { goal: G
       className="rounded-[26px] border border-[var(--glass-border)] bg-[var(--glass-bg)] p-5 backdrop-blur-xl"
     >
       <div className="flex items-start gap-4">
-        <ProgressRing progress={progress} size={92} stroke={9} from={done ? '#D9541A' : '#FF5C00'} to={done ? '#FF9A5C' : '#FF8A47'}>
+        <ProgressRing progress={progress} size={92} stroke={9} from={done ? '#ff7a1a' : '#ff7a1a'} to={done ? '#ff7a1a' : '#ff7a1a'}>
           <strong className="text-lg font-semibold tracking-tight text-white"><CountUp value={progress} format={(v) => `${Math.round(v)}%`} /></strong>
           <span className="text-[10px] text-[var(--muted-2)]">saved</span>
         </ProgressRing>
@@ -477,7 +477,7 @@ function GoalRingCard({ goal, index, onAddSavings, onEdit, onDelete }: { goal: G
             <h4 className="truncate text-lg font-semibold text-white">{goal.name}</h4>
             <span className={cn(
               'flex-none rounded-full border px-2.5 py-0.5 text-[11px] font-semibold',
-              done ? 'border-[rgba(255,92,0,.28)] bg-[rgba(255,92,0,.13)] text-[var(--positive)]' : 'border-[rgba(255,92,0,.25)] bg-[var(--accent-soft)] text-[var(--accent)]',
+              done ? 'border-[rgba(255, 122, 26,.28)] bg-[rgba(255, 122, 26,.13)] text-[var(--positive)]' : 'border-[rgba(255, 122, 26,.25)] bg-[var(--accent-soft)] text-[var(--accent)]',
             )}>{goal.status}</span>
           </div>
           <p className="mt-2 text-xl font-semibold tracking-tight text-white">
@@ -507,7 +507,7 @@ function DebtGlowCard({ debt, index, onPayDebt, onEdit, onDelete }: { debt: Debt
   const overdue = status === 'Overdue'
   const paidOff = status === 'Paid'
   const category = debt.category ?? 'Debt'
-  const barColor = overdue ? '#E8481C' : paidOff ? '#FF9A5C' : '#FF5C00'
+  const barColor = overdue ? '#E8481C' : paidOff ? '#ff7a1a' : '#ff7a1a'
 
   return (
     <motion.article
@@ -529,9 +529,9 @@ function DebtGlowCard({ debt, index, onPayDebt, onEdit, onDelete }: { debt: Debt
         </div>
         <span className={cn(
           'flex-none rounded-full border px-2.5 py-0.5 text-[11px] font-semibold',
-          paidOff ? 'border-[rgba(255,92,0,.28)] bg-[rgba(255,92,0,.13)] text-[var(--positive)]'
+          paidOff ? 'border-[rgba(255, 122, 26,.28)] bg-[rgba(255, 122, 26,.13)] text-[var(--positive)]'
             : overdue ? 'border-[rgba(232,105,74,.35)] bg-[rgba(232,105,74,.12)] text-[var(--negative)]'
-              : status === 'Due Soon' ? 'border-[rgba(255,92,0,.3)] bg-[var(--accent-soft)] text-[var(--accent)]'
+              : status === 'Due Soon' ? 'border-[rgba(255, 122, 26,.3)] bg-[var(--accent-soft)] text-[var(--accent)]'
                 : 'border-[var(--border)] bg-white/[.04] text-[var(--muted)]',
         )}>{status}</span>
       </div>
@@ -562,7 +562,7 @@ function DebtGlowCard({ debt, index, onPayDebt, onEdit, onDelete }: { debt: Debt
 function GoalsEmptyState({ title, note, action, onAction }: { title: string; note: string; action: string; onAction: () => void }) {
   return (
     <div className="flex flex-col items-start gap-4 rounded-[26px] border border-dashed border-[var(--border)] bg-white/[.02] p-6">
-      <div className="grid h-13 w-13 place-items-center rounded-2xl bg-gradient-to-br from-[#FF5C00] to-[#D14E0C] p-3 text-[#16130F]">
+      <div className="grid h-13 w-13 place-items-center rounded-2xl bg-gradient-to-br from-[#ff7a1a] to-[#ff7a1a] p-3 text-[#16130F]">
         <Plus size={26} />
       </div>
       <div>
@@ -577,9 +577,9 @@ function GoalsEmptyState({ title, note, action, onAction }: { title: string; not
 function StatusBadge({ status }: { status: UpcomingExpenseStatus }) {
   const config: Record<UpcomingExpenseStatus, { label: string; cls: string }> = {
     upcoming: { label: 'Upcoming', cls: 'border-[var(--border)] bg-white/[.04] text-[var(--muted)]' },
-    due_soon: { label: 'Due Soon', cls: 'border-[rgba(255,92,0,.3)] bg-[var(--accent-soft)] text-[var(--accent)]' },
+    due_soon: { label: 'Due Soon', cls: 'border-[rgba(255, 122, 26,.3)] bg-[var(--accent-soft)] text-[var(--accent)]' },
     overdue: { label: 'Overdue', cls: 'border-[rgba(232,105,74,.35)] bg-[rgba(232,105,74,.12)] text-[var(--negative)]' },
-    paid: { label: 'Paid', cls: 'border-[rgba(255,92,0,.28)] bg-[rgba(255,92,0,.13)] text-[var(--positive)]' },
+    paid: { label: 'Paid', cls: 'border-[rgba(255, 122, 26,.28)] bg-[rgba(255, 122, 26,.13)] text-[var(--positive)]' },
   }
   return <span className={cn('rounded-full border px-2.5 py-0.5 text-[11px] font-semibold', config[status].cls)}>{config[status].label}</span>
 }
@@ -647,7 +647,7 @@ export function AddUpcomingExpenseModal({
           <input className="h-5 w-5 accent-[var(--accent)]" type="checkbox" checked={isRecurring} onChange={(event) => setIsRecurring(event.target.checked)} />
         </label>
         {isRecurring && (
-          <div className="grid gap-4 rounded-3xl border border-[rgba(255,92,0,.16)] bg-[rgba(255,92,0,.05)] p-3">
+          <div className="grid gap-4 rounded-3xl border border-[rgba(255, 122, 26,.16)] bg-[rgba(255, 122, 26,.05)] p-3">
             <Select label="Frequency" value={recurringFrequency} onChange={(value) => setRecurringFrequency(value as RecurringFrequency)} options={Object.entries(frequencyLabels).map(([value, label]) => ({ value, label }))} />
             <Field label="Repeat start date" type="date" value={repeatStartDate} onChange={setRepeatStartDate} />
             <Field label="Optional repeat end date" type="date" value={repeatEndDate} onChange={setRepeatEndDate} />
@@ -809,7 +809,7 @@ function AddSavingsModal({
         <Select label="Pay from account" value={accountId} onChange={setAccountId} options={accounts.map((account) => ({ value: account.id, label: `${account.name} · ${formatPKR(account.balance)}` }))} />
         <Field label="Date" type="date" value={date} onChange={setDate} />
         <TextArea label="Notes optional" value={notes} onChange={setNotes} />
-        <div className="rounded-2xl border border-[rgba(255,92,0,.2)] bg-[rgba(255,92,0,.06)] p-3 text-sm text-[var(--muted)]">
+        <div className="rounded-2xl border border-[rgba(255, 122, 26,.2)] bg-[rgba(255, 122, 26,.06)] p-3 text-sm text-[var(--muted)]">
           Remaining target: {formatPKR(remaining)}. This contribution will reduce the selected account balance.
         </div>
         <button className="btn-primary justify-center disabled:opacity-60" disabled={invalid}>Add savings</button>
@@ -907,7 +907,7 @@ export function RecordUpcomingExpensePaidModal({
         <Select label="Paid from account" value={accountId} onChange={setAccountId} options={accounts.map((item) => ({ value: item.id, label: `${item.name} · ${formatPKR(item.balance)}` }))} />
         <Field label="Payment date" type="date" value={paymentDate} onChange={setPaymentDate} />
         <TextArea label="Notes optional" value={notes} onChange={setNotes} />
-        <div className="rounded-2xl border border-[rgba(255,92,0,.2)] bg-[rgba(255,92,0,.06)] p-3 text-sm text-[var(--muted)]">
+        <div className="rounded-2xl border border-[rgba(255, 122, 26,.2)] bg-[rgba(255, 122, 26,.06)] p-3 text-sm text-[var(--muted)]">
           Confirming will create a real expense transaction, reduce the selected account balance, and mark this planned item as paid.
         </div>
         <button className="btn-primary justify-center" disabled={!accountId || !paymentDate}>Record as actual expense <ArrowRight size={17} /></button>

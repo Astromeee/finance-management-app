@@ -43,7 +43,7 @@ export function SplashScreen({ duration = 2000 }: { duration?: number }) {
         gap: 26,
         background: light
           ? 'radial-gradient(80% 46% at 76% 22%, rgba(242,100,25,.85) 0%, rgba(255,138,71,.45) 42%, transparent 72%), radial-gradient(55% 32% at 8% 100%, rgba(255,178,122,.5), transparent 68%), #FFFDFB'
-          : 'radial-gradient(85% 48% at 82% 12%, #F26419 0%, #D14E0C 30%, rgba(199,75,14,.38) 55%, transparent 76%), radial-gradient(60% 35% at 12% 96%, rgba(242,100,25,.22), transparent 68%), #1B1A19',
+          : 'radial-gradient(85% 48% at 82% 12%, #ff7a1a 0%, #ff7a1a 30%, rgba(199,75,14,.38) 55%, transparent 76%), radial-gradient(60% 35% at 12% 96%, rgba(242,100,25,.22), transparent 68%), #1B1A19',
         opacity: phase === 'leaving' ? 0 : 1,
         transition: 'opacity 420ms ease',
         pointerEvents: phase === 'leaving' ? 'none' : 'auto',
@@ -74,7 +74,7 @@ export function SplashScreen({ duration = 2000 }: { duration?: number }) {
           <span style={bar('52px', '0.35s')} />
           <div style={{ display: 'flex', gap: 5, alignItems: 'center' }}>
             <span style={bar('30px', '0.7s')} />
-            <span style={{ display: 'block', width: 9, height: 9, borderRadius: 2.5, background: '#FF5C00', animation: 'pl-cursor 1.1s steps(1) infinite' }} />
+            <span style={{ display: 'block', width: 9, height: 9, borderRadius: 2.5, background: '#ff7a1a', animation: 'pl-cursor 1.1s steps(1) infinite' }} />
           </div>
         </div>
       </div>
@@ -86,7 +86,7 @@ export function SplashScreen({ duration = 2000 }: { duration?: number }) {
 
       {/* sweep loader */}
       <div style={{ position: 'relative', width: 148, height: 4, borderRadius: 2, background: light ? 'rgba(22,19,15,.14)' : 'rgba(255,255,255,.14)' }}>
-        <span style={{ position: 'absolute', top: -3, left: 0, width: 10, height: 10, borderRadius: 3, background: '#FF5C00', animation: 'pl-sweep 1.6s ease-in-out infinite alternate' }} />
+        <span style={{ position: 'absolute', top: -3, left: 0, width: 10, height: 10, borderRadius: 3, background: '#ff7a1a', animation: 'pl-sweep 1.6s ease-in-out infinite alternate' }} />
       </div>
     </div>
   )

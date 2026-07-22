@@ -3,7 +3,7 @@
    Imported after index.css so this file is the single token and
    surface authority. Approved direction: solid ink cards
    (frosted glass retired), orange-only accents (no green — income
-   and "comfortable" read as warm #FF9A5C), 7a ember-bloom + film
+   and "comfortable" read as warm #ff7a1a), 7a ember-bloom + film
    grain on every page, 7c ledger-paper grid on Home.
    Fonts stay local (loaded in main.tsx) — no CDN import here.
    ============================================================ */
@@ -24,13 +24,13 @@
   --accent-ink: #16130f;
   --muted: #8d8a85;
   --muted-2: #6e6b66;
-  --accent: #ff5c00;
-  --accent-2: #ff8a47;
-  --accent-pressed: #d9541a;
-  --accent-soft: rgba(255, 92, 0, 0.14);
+  --accent: #ff7a1a;
+  --accent-2: #ff7a1a;
+  --accent-pressed: #ff7a1a;
+  --accent-soft: rgba(255, 122, 26, 0.14);
   /* warm ramp replaces green/amber/red */
-  --positive: #ff9a5c;   /* income & "comfortable" */
-  --warning: #ff7a2e;    /* watchful / near-limit */
+  --positive: #ff7a1a;   /* income & "comfortable" */
+  --warning: #ff7a1a;    /* watchful / near-limit */
   --negative: #e8481c;   /* protect / over-limit */
   --info: #8d8a85;
   /* retained for older hooks; both resolve to the ink card recipe */
@@ -162,7 +162,7 @@ article.rounded-2xl {
   border: 1px solid var(--border);
   border-radius: 24px;
   background:
-    radial-gradient(120% 120% at 100% -10%, rgba(255, 92, 0, 0.18), transparent 60%),
+    radial-gradient(120% 120% at 100% -10%, rgba(255, 122, 26, 0.18), transparent 60%),
     linear-gradient(160deg, #1b1a19, #141413);
   box-shadow: none;
 }
@@ -186,13 +186,13 @@ article.rounded-2xl {
 
 .journey-hero-comfortable {
   background:
-    radial-gradient(120% 120% at 100% -10%, rgba(255, 92, 0, 0.20), transparent 60%),
+    radial-gradient(120% 120% at 100% -10%, rgba(255, 122, 26, 0.20), transparent 60%),
     linear-gradient(160deg, #1b1a19, #141413);
 }
 
 .journey-hero-watchful {
   background:
-    radial-gradient(120% 120% at 100% -10%, rgba(255, 122, 46, 0.24), transparent 60%),
+    radial-gradient(120% 120% at 100% -10%, rgba(255, 122, 26, 0.24), transparent 60%),
     linear-gradient(160deg, #1b1a19, #141413);
 }
 
@@ -234,7 +234,7 @@ article.rounded-2xl {
   border: 1px solid var(--border);
   border-radius: 26px;
   background:
-    radial-gradient(120% 120% at 100% -10%, rgba(255, 92, 0, 0.20), transparent 60%),
+    radial-gradient(120% 120% at 100% -10%, rgba(255, 122, 26, 0.20), transparent 60%),
     linear-gradient(160deg, #1b1a19, #141413);
 }
 
@@ -272,7 +272,7 @@ article.rounded-2xl {
 .payday-fill {
   height: 100%;
   border-radius: 999px;
-  background: linear-gradient(90deg, #d9541a, #ff8a47);
+  background: linear-gradient(90deg, #ff7a1a, #ff7a1a);
 }
 
 .payday-knob {
@@ -282,7 +282,7 @@ article.rounded-2xl {
   height: 18px;
   border-radius: 999px;
   background: var(--accent);
-  box-shadow: 0 0 0 4px rgba(255, 92, 0, 0.18), 0 0 18px 4px rgba(255, 92, 0, 0.45);
+  box-shadow: 0 0 0 4px rgba(255, 122, 26, 0.18), 0 0 18px 4px rgba(255, 122, 26, 0.45);
   transform: translate(-50%, -50%);
 }
 
@@ -299,7 +299,7 @@ article.rounded-2xl {
 
 :root[data-theme='light'] .home-rail-card {
   background:
-    radial-gradient(120% 120% at 100% -10%, rgba(255, 92, 0, 0.12), transparent 60%),
+    radial-gradient(120% 120% at 100% -10%, rgba(255, 122, 26, 0.12), transparent 60%),
     #ffffff;
 }
 
@@ -320,15 +320,15 @@ article.rounded-2xl {
 }
 
 .journey-status-positive {
-  border: 1px solid rgba(255, 92, 0, 0.28);
-  background: rgba(255, 92, 0, 0.13);
-  color: #ff9a5c;
+  border: 1px solid rgba(255, 122, 26, 0.28);
+  background: rgba(255, 122, 26, 0.13);
+  color: #ff7a1a;
 }
 
 .journey-status-warning {
-  border: 1px solid rgba(255, 122, 46, 0.32);
-  background: rgba(255, 122, 46, 0.15);
-  color: #ff7a2e;
+  border: 1px solid rgba(255, 122, 26, 0.32);
+  background: rgba(255, 122, 26, 0.15);
+  color: #ff7a1a;
 }
 
 .journey-status-negative {
@@ -344,8 +344,8 @@ button.bg-\[var\(--accent\)\]:not(.rounded-full) {
   min-height: 48px;
   border: 0;
   border-radius: 14px;
-  background: linear-gradient(160deg, #ff5c00, #d9541a);
-  box-shadow: 0 10px 26px rgba(255, 92, 0, 0.28);
+  background: linear-gradient(160deg, #ff7a1a, #ff7a1a);
+  box-shadow: 0 10px 26px rgba(255, 122, 26, 0.28);
   color: var(--accent-ink);
   font-family: Outfit, sans-serif;
   font-weight: 650;
@@ -373,8 +373,8 @@ button.bg-\[var\(--accent\)\]:not(.rounded-full) {
 
 .quick-action-primary {
   border-color: transparent;
-  background: linear-gradient(160deg, #ff5c00, #d9541a);
-  box-shadow: 0 10px 26px rgba(255, 92, 0, 0.28);
+  background: linear-gradient(160deg, #ff7a1a, #ff7a1a);
+  box-shadow: 0 10px 26px rgba(255, 122, 26, 0.28);
   color: var(--accent-ink);
 }
 
@@ -408,7 +408,7 @@ button.bg-\[var\(--accent\)\]:not(.rounded-full) {
 
 .transaction-chip-active {
   border-color: transparent;
-  background: linear-gradient(160deg, #ff5c00, #d9541a);
+  background: linear-gradient(160deg, #ff7a1a, #ff7a1a);
   color: var(--accent-ink);
 }
 
@@ -416,16 +416,16 @@ button.bg-\[var\(--accent\)\]:not(.rounded-full) {
 
 /* Income amounts and progress bars — the old green hooks go warm */
 .text-\[var\(--positive\)\] { color: var(--positive); }
-.bg-\[var\(--positive\)\] { background: linear-gradient(90deg, #d9541a, #ff8a47); }
-.bg-\[var\(--warning\)\] { background: linear-gradient(90deg, #c2551a, #ff7a2e); }
-.bg-\[var\(--negative\)\] { background: linear-gradient(90deg, #b03a10, #ff5c00); }
+.bg-\[var\(--positive\)\] { background: linear-gradient(90deg, #ff7a1a, #ff7a1a); }
+.bg-\[var\(--warning\)\] { background: linear-gradient(90deg, #ff7a1a, #ff7a1a); }
+.bg-\[var\(--negative\)\] { background: linear-gradient(90deg, #ff7a1a, #ff7a1a); }
 
 /* ---------- Account identity colors (warm set, no green) ---------- */
-.home-account-cash      { --home-accent: #e8e0d2; }
-.home-account-hbl       { --home-accent: #c9a68a; }
-.home-account-meezan    { --home-accent: #ff9a5c; }
-.home-account-jazzcash  { --home-accent: #ff5c00; }
-.home-account-easypaisa { --home-accent: #c9743f; }
+.home-account-cash      { --home-accent: var(--accent); }
+.home-account-hbl       { --home-accent: var(--accent); }
+.home-account-meezan    { --home-accent: #ff7a1a; }
+.home-account-jazzcash  { --home-accent: #ff7a1a; }
+.home-account-easypaisa { --home-accent: var(--accent); }
 .home-account-default   { --home-accent: var(--accent); }
 
 .home-v2-bank-card,
@@ -585,13 +585,13 @@ button.bg-\[var\(--accent\)\]:not(.rounded-full) {
   --accent-ink: #ffffff;
   --muted: #6e675f;
   --muted-2: #97908a;
-  --accent: #ff5c00;
-  --accent-2: #d9541a;
-  --accent-pressed: #d9541a;
-  --accent-soft: rgba(255, 92, 0, 0.10);
-  --positive: #d9541a;
-  --warning: #c2551a;
-  --negative: #b03a10;
+  --accent: #ff7a1a;
+  --accent-2: #ff7a1a;
+  --accent-pressed: #ff7a1a;
+  --accent-soft: rgba(255, 122, 26, 0.10);
+  --positive: #ff7a1a;
+  --warning: #ff7a1a;
+  --negative: #ff7a1a;
   --info: #6e675f;
   --glass-bg: var(--surface);
   --glass-border: var(--border);
@@ -656,13 +656,13 @@ button.bg-\[var\(--accent\)\]:not(.rounded-full) {
 :root[data-theme='light'] .dashboard-hero,
 :root[data-theme='light'] .journey-hero-comfortable {
   background:
-    radial-gradient(120% 120% at 100% -10%, rgba(255, 92, 0, 0.12), transparent 60%),
+    radial-gradient(120% 120% at 100% -10%, rgba(255, 122, 26, 0.12), transparent 60%),
     #ffffff;
 }
 
 :root[data-theme='light'] .journey-hero-watchful {
   background:
-    radial-gradient(120% 120% at 100% -10%, rgba(255, 122, 46, 0.16), transparent 60%),
+    radial-gradient(120% 120% at 100% -10%, rgba(255, 122, 26, 0.16), transparent 60%),
     #ffffff;
 }
 

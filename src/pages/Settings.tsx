@@ -47,7 +47,7 @@ export function Settings(props: Props) {
     const name = categoryName.trim()
     if (!name) return
     if (props.categories.some((item) => item.kind === categoryKind && item.name.toLowerCase() === name.toLowerCase())) return notify('That category already exists.')
-    await props.onSaveCategory({ id: crypto.randomUUID(), name, kind: categoryKind, color: categoryKind === 'income' ? '#FF9A5C' : '#FF6B3D', spendingNature: categoryKind === 'income' ? 'flexible' : categoryNature })
+    await props.onSaveCategory({ id: crypto.randomUUID(), name, kind: categoryKind, color: categoryKind === 'income' ? '#ff7a1a' : '#FF6B3D', spendingNature: categoryKind === 'income' ? 'flexible' : categoryNature })
     setCategoryName('')
     notify('Category added.')
   }
@@ -108,7 +108,7 @@ export function Settings(props: Props) {
 
       <SettingsGroup heading="Preferences">
         <SettingsRow detail="PKR / Rs. · Asia/Karachi" icon={Wallet} title="Currency and timezone" />
-        <SettingsRow detail={theme === 'dark' ? 'Dark — orange on black' : 'Light — orange on white'} icon={theme === 'dark' ? Moon : Sun} title="Theme" trailing={<button aria-checked={theme === 'light'} aria-label="Toggle light theme" className="relative h-8 w-14 flex-none rounded-full transition-colors" onClick={() => setThemeState(toggleTheme())} role="switch" style={{ background: theme === 'light' ? '#FF5C00' : 'var(--surface-3)' }}><span className="absolute top-1 h-6 w-6 rounded-full bg-white shadow-md transition-all" style={{ left: theme === 'light' ? 'calc(100% - 1.75rem)' : '0.25rem' }} /></button>} />
+        <SettingsRow detail={theme === 'dark' ? 'Dark — orange on black' : 'Light — orange on white'} icon={theme === 'dark' ? Moon : Sun} title="Theme" trailing={<button aria-checked={theme === 'light'} aria-label="Toggle light theme" className="relative h-8 w-14 flex-none rounded-full transition-colors" onClick={() => setThemeState(toggleTheme())} role="switch" style={{ background: theme === 'light' ? '#ff7a1a' : 'var(--surface-3)' }}><span className="absolute top-1 h-6 w-6 rounded-full bg-white shadow-md transition-all" style={{ left: theme === 'light' ? 'calc(100% - 1.75rem)' : '0.25rem' }} /></button>} />
         <SettingsRow detail={`${props.accounts.length} active account${props.accounts.length === 1 ? '' : 's'}`} icon={Wallet} title="Manage accounts" trailing={<button className="text-sm font-semibold text-[var(--accent)]" onClick={() => props.onNavigate('accounts')}>Open</button>} />
         <SettingsRow detail="Replay setup and learn where key features live" icon={BookOpen} title="Help & Tour" trailing={<button className="text-sm font-semibold text-[var(--accent)]" onClick={props.onRestartTour}>Restart</button>} />
         <SettingsRow detail="Optional anonymous interaction events; never financial values or personal content" icon={ShieldCheck} title="Private analytics" trailing={<button aria-checked={props.analyticsConsent} aria-label="Allow privacy-safe analytics" className="relative h-8 w-14 flex-none rounded-full transition-colors" onClick={() => props.onAnalyticsConsentChange(!props.analyticsConsent)} role="switch" style={{ background: props.analyticsConsent ? 'var(--positive)' : 'var(--surface-3)' }}><span className="absolute top-1 h-6 w-6 rounded-full bg-white shadow transition-all" style={{ left: props.analyticsConsent ? 'calc(100% - 1.75rem)' : '0.25rem' }} /></button>} />
@@ -171,5 +171,5 @@ function SettingsGroup({ heading, children }: { heading: string; children: React
 }
 
 function SettingsRow({ title, detail, icon: Icon, trailing }: { title: string; detail: string; icon: typeof Moon; trailing?: ReactNode }) {
-  return <div className="flex items-center gap-4 border-b border-[var(--border)] px-4 py-3.5 last:border-b-0"><span className="grid h-10 w-10 flex-none place-items-center rounded-[14px] border border-[rgba(255,92,0,.22)] bg-[var(--accent-soft)] text-[var(--accent)]"><Icon size={18} /></span><div className="min-w-0 flex-1"><h3 className="text-[15px] font-semibold text-white">{title}</h3><p className="mt-0.5 text-[13px] text-[var(--muted)]">{detail}</p></div>{trailing}</div>
+  return <div className="flex items-center gap-4 border-b border-[var(--border)] px-4 py-3.5 last:border-b-0"><span className="grid h-10 w-10 flex-none place-items-center rounded-[14px] border border-[rgba(255, 122, 26,.22)] bg-[var(--accent-soft)] text-[var(--accent)]"><Icon size={18} /></span><div className="min-w-0 flex-1"><h3 className="text-[15px] font-semibold text-white">{title}</h3><p className="mt-0.5 text-[13px] text-[var(--muted)]">{detail}</p></div>{trailing}</div>
 }

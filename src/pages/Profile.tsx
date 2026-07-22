@@ -52,7 +52,7 @@ export function ProfilePage({ onBack }: { onBack: () => void }) {
       </button>
 
       {notice && (
-        <div className="rounded-2xl border border-[rgba(255,92,0,.25)] bg-[var(--accent-soft)] px-4 py-3 text-sm text-[var(--accent)]">{notice}</div>
+        <div className="rounded-2xl border border-[rgba(255, 122, 26,.25)] bg-[var(--accent-soft)] px-4 py-3 text-sm text-[var(--accent)]">{notice}</div>
       )}
 
       {/* ---- Photo ---- */}

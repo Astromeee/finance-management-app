@@ -30,8 +30,8 @@
   --muted: #a8a39b;
   --muted-2: #918c84;
   --accent: #ff7a1a;
-  --accent-2: #ff9b52;
-  --accent-pressed: #e96510;
+  --accent-2: #ff7a1a;
+  --accent-pressed: #ff7a1a;
   --accent-soft: rgba(255, 122, 26, 0.15);
 }
 
@@ -45,8 +45,8 @@ body,
 :root[data-page='dashboard'] body,
 :root[data-page='dashboard'] #root {
   background:
-    repeating-linear-gradient(0deg, rgba(255, 122, 46, 0.045) 0 1px, transparent 1px 64px),
-    repeating-linear-gradient(90deg, rgba(255, 122, 46, 0.045) 0 1px, transparent 1px 64px),
+    repeating-linear-gradient(0deg, rgba(255, 122, 26, 0.045) 0 1px, transparent 1px 64px),
+    repeating-linear-gradient(90deg, rgba(255, 122, 26, 0.045) 0 1px, transparent 1px 64px),
     repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.015) 0 1px, transparent 1px 16px),
     repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.015) 0 1px, transparent 1px 16px),
     #0d0c0b;
@@ -161,13 +161,15 @@ article.rounded-2xl {
 
 .home-balance-rail {
   display: flex;
-  gap: 14px;
-  width: calc(100% + 1rem);
-  margin-right: -1rem;
-  padding: 1px 1rem 8px 0;
+  gap: 12px;
+  width: 100%;
+  margin-right: 0;
+  padding: 1px 0 10px;
   overflow-x: auto;
   overscroll-behavior-inline: contain;
-  scroll-snap-type: inline mandatory;
+  scroll-snap-type: x mandatory;
+  scroll-padding-inline: 0;
+  scroll-behavior: smooth;
   scrollbar-width: none;
 }
 
@@ -178,11 +180,12 @@ article.rounded-2xl {
   isolation: isolate;
   display: flex;
   min-height: 236px;
-  flex: 0 0 min(86%, 34rem);
+  flex: 0 0 100%;
   flex-direction: column;
   justify-content: space-between;
   overflow: hidden;
   scroll-snap-align: start;
+  scroll-snap-stop: always;
   border: 1px solid rgba(255, 255, 255, 0.28);
   border-radius: 26px;
   padding: 21px;
@@ -462,12 +465,11 @@ section.rounded-\[22px\].border {
 :root[data-theme='light'] .dock-v3-label { color: #191714; }
 
 @media (min-width: 640px) {
-  .home-balance-rail { width: 100%; margin-right: 0; padding-right: 0; }
-  .home-balance-card { flex-basis: min(76%, 34rem); }
+  .home-balance-card { flex-basis: 100%; }
 }
 
 @media (max-width: 390px) {
-  .home-balance-card { min-height: 220px; flex-basis: 90%; padding: 19px; }
+  .home-balance-card { min-height: 220px; flex-basis: 100%; padding: 19px; }
   .home-balance-card-amount { font-size: clamp(1.9rem, 9.5vw, 2.5rem); }
   .home-safe-spend-summary { padding: 20px 19px 0; }
   .home-safe-spend-cycle { padding: 20px 19px; }

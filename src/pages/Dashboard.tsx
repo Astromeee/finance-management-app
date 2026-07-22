@@ -1,6 +1,6 @@
 import { ArrowDown, ArrowRight, ArrowRightLeft, ArrowUpRight, Banknote, ChevronDown, Eye, EyeOff, Flag, Landmark, Settings, Sparkles, Target, UserRound, WalletCards } from 'lucide-react'
 import { motion } from 'framer-motion'
-import { useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { CategoryIcon } from '../components/icons/CategoryIcon'
 import { firstNameOf, getProfile, initialsOf } from '../lib/profile'
 import { trackEvent } from '../lib/analytics'
@@ -53,6 +53,9 @@ export function Dashboard({
   const [showBreakdown, setShowBreakdown] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
   const [coachOpen, setCoachOpen] = useState(!journeySettings.tourCompleted)
+  const balanceRailRef = useRef<HTMLDivElement>(null)
+  const balanceRailFrame = useRef<number | undefined>(undefined)
+  const activeBalanceCard = useRef(0)
   const profile = getProfile()
   const safeSpend = useMemo(() => calculateSafeSpend({ accounts, budgets, categories, upcomingExpenses, settings: journeySettings }), [accounts, budgets, categories, upcomingExpenses, journeySettings])
   const insight = useMemo(() => detectMoneyLeak(transactions), [transactions])
@@ -72,6 +75,25 @@ export function Dashboard({
     onTourComplete()
   }
 
+  const handleBalanceRailScroll = useCallback(() => {
+    if (balanceRailFrame.current !== undefined) window.cancelAnimationFrame(balanceRailFrame.current)
+    balanceRailFrame.current = window.requestAnimationFrame(() => {
+      const rail = balanceRailRef.current
+      const firstCard = rail?.querySelector<HTMLElement>('.home-balance-card')
+      if (!rail || !firstCard) return
+
+      const nextCard = Math.round(rail.scrollLeft / firstCard.offsetWidth)
+      if (nextCard === activeBalanceCard.current) return
+      activeBalanceCard.current = nextCard
+
+      if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) navigator.vibrate?.(8)
+    })
+  }, [])
+
+  useEffect(() => () => {
+    if (balanceRailFrame.current !== undefined) window.cancelAnimationFrame(balanceRailFrame.current)
+  }, [])
+
   return (
     <div className="mx-auto w-full max-w-2xl pb-8 pt-[max(1rem,calc(env(safe-area-inset-top)+0.5rem))] sm:pt-2">
       <header className="flex items-center justify-between">
@@ -90,7 +112,7 @@ export function Dashboard({
           <h2 className="font-display text-lg font-bold">Your money</h2>
           <button aria-label={showBalance ? 'Hide money amounts' : 'Show money amounts'} className="home-balance-visibility" onClick={() => setShowBalance((value) => !value)}>{showBalance ? <Eye size={18} /> : <EyeOff size={18} />}<span>{showBalance ? 'Hide' : 'Show'}</span></button>
         </div>
-        <div className="home-balance-rail">
+        <div ref={balanceRailRef} aria-label="Balances. Swipe to view each account." className="home-balance-rail" onScroll={handleBalanceRailScroll} role="region">
           <BalanceCard
             amount={totalBalance}
             detail={accounts.length ? `Across ${accounts.length} ${accounts.length === 1 ? 'account' : 'accounts'}` : 'Add an account to begin'}
@@ -207,7 +229,7 @@ function TransactionRow({ transaction }: { transaction: Transaction }) {
   const expense = transaction.type === 'expense' || transaction.type === 'goal_saving' || transaction.type === 'debt_payment'
   return (
     <div className="flex items-center gap-3.5 border-b border-[var(--border)] px-4 py-4 last:border-b-0">
-      <span className={cn('grid h-11 w-11 shrink-0 place-items-center rounded-2xl', expense ? 'bg-[var(--surface-2)] text-[var(--muted)]' : 'bg-[rgba(255,92,0,.13)] text-[var(--accent)]')}><CategoryIcon label={transaction.category ?? transaction.title} size={18} type={transaction.type} /></span>
+      <span className={cn('grid h-11 w-11 shrink-0 place-items-center rounded-2xl', expense ? 'bg-[var(--surface-2)] text-[var(--muted)]' : 'bg-[rgba(255, 122, 26,.13)] text-[var(--accent)]')}><CategoryIcon label={transaction.category ?? transaction.title} size={18} type={transaction.type} /></span>
       <div className="min-w-0 flex-1">
         <p className="truncate text-[0.95rem] font-semibold">{transaction.title}</p>
         <p className="mt-0.5 text-xs text-[var(--muted)]">{transaction.category ?? transaction.account} · {relativeDay(transaction.date)}</p>

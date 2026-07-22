@@ -39,7 +39,7 @@ export const goalProgress = (goal: Goal) => percent(goal.saved, goal.target)
 export const debtProgress = (debt: Debt) => percent(debt.paidAmount ?? debt.paid ?? 0, debt.totalAmount ?? debt.total ?? 0)
 export const budgetUsage = (budget: Budget) => percent(budget.used, budget.amount)
 
-const categoryColors = ['#FF5C00', '#FF8A47', '#C9743F', '#FF9A5C', '#A8642F', '#8D8A85']
+const categoryColors = ['#ff7a1a', '#ff7a1a', '#C9743F', '#ff7a1a', '#ff7a1a', '#8D8A85']
 
 export const categorySpendFromTransactions = (transactions: Transaction[]) => {
   const totals = transactions

@@ -26,7 +26,7 @@ import { trackEvent } from '../lib/analytics'
 /* ============================================================
    Reports (Analytics) — V3 redesign
    Same data, same props, same calculations. New skin:
-   - Orange #FF5C00 leads every chart; income is soft green; the rest warm grey
+   - Orange #ff7a1a leads every chart; income is soft green; the rest warm grey
    - Glass panels + glass tooltips
    - Period selector is a horizontal chip rail (custom range keeps date inputs)
    Drop-in replacement for src/pages/Reports.tsx.
@@ -51,9 +51,9 @@ const periodOptions: Array<{ value: PeriodKey; label: string }> = [
   { value: 'custom', label: 'Custom' },
 ]
 
-const ORANGE = '#FF5C00'
-const ORANGE_SOFT = '#FF8A47'
-const GREEN = '#FF9A5C'
+const ORANGE = '#ff7a1a'
+const ORANGE_SOFT = '#ff7a1a'
+const GREEN = '#ff7a1a'
 const GREY_AXIS = '#8D8A85'
 const GRID = 'rgba(246,243,239,.07)'
 
@@ -158,7 +158,7 @@ export function Reports({
                 className={cn(
                   'flex-none rounded-full border px-4 py-2 text-[13px] font-medium transition',
                   active
-                    ? 'border-transparent bg-gradient-to-br from-[#FF5C00] to-[#D14E0C] text-[#16130F]'
+                    ? 'border-transparent bg-gradient-to-br from-[#ff7a1a] to-[#ff7a1a] text-[#16130F]'
                     : 'border-[var(--border)] bg-transparent text-[var(--muted)]',
                 )}
                 onClick={() => setPeriod(option.value)}
@@ -175,7 +175,7 @@ export function Reports({
                 className={cn(
                   'flex-none rounded-full border px-4 py-2 text-[13px] font-medium transition',
                   active
-                    ? 'border-transparent bg-gradient-to-br from-[#FF5C00] to-[#D14E0C] text-[#16130F]'
+                    ? 'border-transparent bg-gradient-to-br from-[#ff7a1a] to-[#ff7a1a] text-[#16130F]'
                     : 'border-[var(--border)] bg-transparent text-[var(--muted)]',
                 )}
                 onClick={() => setPeriod(option.value as PeriodSelection)}
@@ -252,7 +252,7 @@ export function Reports({
                 <CartesianGrid stroke={GRID} vertical={false} />
                 <XAxis dataKey="label" stroke={GREY_AXIS} tickLine={false} axisLine={false} tick={{ fontSize: 12 }} />
                 <YAxis stroke={GREY_AXIS} tickLine={false} axisLine={false} tickFormatter={(value) => `${Number(value) / 1000}k`} tick={{ fontSize: 12 }} />
-                <Tooltip formatter={(value) => formatPKR(Number(value))} contentStyle={tooltipStyle} cursor={{ stroke: 'rgba(255,92,0,.28)', strokeWidth: 2 }} />
+                <Tooltip formatter={(value) => formatPKR(Number(value))} contentStyle={tooltipStyle} cursor={{ stroke: 'rgba(255, 122, 26,.28)', strokeWidth: 2 }} />
                 <Area type="monotone" dataKey="income" stroke={GREEN} fill="url(#incomeGlow)" strokeWidth={2.5} activeDot={{ r: 6, strokeWidth: 3, stroke: '#171716', fill: GREEN }} animationDuration={950} animationEasing="ease-out" />
                 <Area type="monotone" dataKey="expenses" stroke={ORANGE} fill="url(#expenseGlow)" strokeWidth={3} activeDot={{ r: 7, strokeWidth: 3, stroke: '#171716', fill: ORANGE }} animationDuration={950} animationEasing="ease-out" />
               </AreaChart>
@@ -262,7 +262,7 @@ export function Reports({
       </ReportPanel>
 
       <button
-        className="flex w-full items-center justify-center gap-2 rounded-full border border-[var(--border)] bg-transparent px-4 py-3 text-sm font-semibold text-[var(--muted)] transition hover:border-[rgba(255,92,0,.3)] hover:text-[var(--accent)]"
+        className="flex w-full items-center justify-center gap-2 rounded-full border border-[var(--border)] bg-transparent px-4 py-3 text-sm font-semibold text-[var(--muted)] transition hover:border-[rgba(255, 122, 26,.3)] hover:text-[var(--accent)]"
         onClick={() => setShowMoreAnalytics((current) => !current)}
       >
         <span>{showMoreAnalytics ? 'Hide more analytics' : 'Show more analytics'}</span>
@@ -283,13 +283,13 @@ export function Reports({
                     <defs>
                       <linearGradient id="spendBar" x1="0" y1="0" x2="0" y2="1">
                         <stop offset="0%" stopColor={ORANGE} stopOpacity={1} />
-                        <stop offset="100%" stopColor="#B23F02" stopOpacity={0.55} />
+                        <stop offset="100%" stopColor="#ff7a1a" stopOpacity={0.55} />
                       </linearGradient>
                     </defs>
                     <CartesianGrid stroke={GRID} vertical={false} />
                     <XAxis dataKey="label" stroke={GREY_AXIS} tickLine={false} axisLine={false} tick={{ fontSize: 12 }} />
                     <YAxis stroke={GREY_AXIS} tickLine={false} axisLine={false} tickFormatter={(value) => `${Number(value) / 1000}k`} tick={{ fontSize: 12 }} />
-                    <Tooltip formatter={(value) => formatPKR(Number(value))} contentStyle={tooltipStyle} cursor={{ fill: 'rgba(255,92,0,.06)' }} />
+                    <Tooltip formatter={(value) => formatPKR(Number(value))} contentStyle={tooltipStyle} cursor={{ fill: 'rgba(255, 122, 26,.06)' }} />
                     <Bar dataKey="amount" fill="url(#spendBar)" radius={[10, 10, 4, 4]} animationDuration={850} animationEasing="ease-out" />
                   </BarChart>
                 </ResponsiveContainer>
@@ -362,7 +362,7 @@ function InsightCard({ eyebrow, title, value, note, icon: Icon, children }: { ey
           <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--muted-2)]">{eyebrow}</p>
           <h3 className="mt-1 text-lg font-semibold text-white">{title}</h3>
         </div>
-        <span className="grid h-10 w-10 place-items-center rounded-[14px] border border-[rgba(255,92,0,.22)] bg-[var(--accent-soft)] text-[var(--accent)]"><Icon size={18} /></span>
+        <span className="grid h-10 w-10 place-items-center rounded-[14px] border border-[rgba(255, 122, 26,.22)] bg-[var(--accent-soft)] text-[var(--accent)]"><Icon size={18} /></span>
       </div>
       <strong className="mt-4 block truncate text-3xl font-semibold tracking-tight text-white">{value}</strong>
       <p className="mt-2 min-h-10 text-sm leading-5 text-[var(--muted)]">{note}</p>
@@ -443,7 +443,7 @@ function DonutChart({ data, colors, empty = false }: { data: Array<{ name: strin
                 key={item.name}
                 className={cn(
                   'flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs transition',
-                  active ? 'border-[rgba(255,92,0,.35)] bg-[var(--accent-soft)] text-white' : 'border-[var(--border)] text-[var(--muted)]',
+                  active ? 'border-[rgba(255, 122, 26,.35)] bg-[var(--accent-soft)] text-white' : 'border-[var(--border)] text-[var(--muted)]',
                 )}
                 type="button"
                 onClick={() => setSelectedIndex(index)}
@@ -533,7 +533,7 @@ function EmptyInsight({ title, note }: { title: string; note: string }) {
 
 function RankedBars({ items, empty, accent = 'accent', showCount }: { items: Array<{ name: string; value: number; percent: number; count?: number }>; empty: string; accent?: 'accent' | 'positive'; showCount?: boolean }) {
   if (!items.length) return <p className="rounded-2xl bg-white/[.035] p-4 text-sm text-[var(--muted)]">{empty}</p>
-  const fill = accent === 'positive' ? 'linear-gradient(90deg,#D9541A,#FF8A47)' : 'linear-gradient(90deg,#FF5C00,#FF8A47)'
+  const fill = accent === 'positive' ? 'linear-gradient(90deg,#ff7a1a,#ff7a1a)' : 'linear-gradient(90deg,#ff7a1a,#ff7a1a)'
   return (
     <div className="grid gap-3">
       {items.map((item, index) => (

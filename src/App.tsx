@@ -611,7 +611,7 @@ function App() {
 
   const ledger = (
     <AppShell activePage={activePage} setActivePage={setActivePage}>
-      {toast && <div aria-live="polite" className="fixed left-1/2 top-4 z-[60] -translate-x-1/2 rounded-full border border-[rgba(255,92,0,.28)] bg-[var(--surface-raised)] px-4 py-2 text-sm font-semibold text-[var(--accent-2)] shadow-2xl shadow-black/40" role="status">{toast}</div>}
+      {toast && <div aria-live="polite" className="fixed left-1/2 top-4 z-[60] -translate-x-1/2 rounded-full border border-[rgba(255, 122, 26,.28)] bg-[var(--surface-raised)] px-4 py-2 text-sm font-semibold text-[var(--accent-2)] shadow-2xl shadow-black/40" role="status">{toast}</div>}
       <Suspense fallback={<div className="card p-6 text-sm text-[var(--muted)]" role="status">Loading screen…</div>}>{(pages[activePage] ?? pages.dashboard).component}</Suspense>
       <Suspense fallback={null}>
       {activeModal === 'income' && <AddIncomeModal

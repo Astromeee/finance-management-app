@@ -18,20 +18,20 @@ import type { Transaction } from '../../types/finance'
 
 /**
  * V3 chart language:
- * - Orange #FF5C00 is THE data color; everything else is warm grey.
+ * - Orange #ff7a1a is THE data color; everything else is warm grey.
  * - Income = soft green line/area; spending = orange.
  * - Glass tooltips, no harsh grid, rounded geometry.
  * Component names & props are identical to the old file — drop-in replacement.
  */
 
-const ORANGE = '#FF5C00'
-const ORANGE_DIM = '#B23F02'
-const GREEN = '#FF9A5C' // income/positive series — warm, no green in the V4 palette
+const ORANGE = '#ff7a1a'
+const ORANGE_DIM = '#ff7a1a'
+const GREEN = '#ff7a1a' // income/positive series — warm, no green in the V4 palette
 const GREY_AXIS = '#8D8A85'
 const GRID = 'rgba(246,243,239,.07)'
 
 /* warm sequential palette for the donut — orange leads, warm greys follow */
-const DONUT_PALETTE = ['#FF5C00', '#FF8A47', '#C9743F', '#FF9A5C', '#8D8A85', '#5E5B57', '#A8642F', '#3A3A3E']
+const DONUT_PALETTE = ['#ff7a1a', '#ff7a1a', '#C9743F', '#ff7a1a', '#8D8A85', '#5E5B57', '#ff7a1a', '#3A3A3E']
 
 /* solid ink tooltip — glass retired in V4 */
 const tooltipStyle = {
