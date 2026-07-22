@@ -213,7 +213,7 @@ export function Accounts({ accounts, setAccounts, setTransactions, onTransfer, o
 
   return (
     <div className="space-y-5">
-      {notice && <div className="rounded-2xl border border-[rgba(255,92,0,.25)] bg-[var(--accent-soft)] px-4 py-3 text-sm text-[var(--accent)]">{notice}</div>}
+      {notice && <div className="rounded-2xl border border-[rgba(246,105,36,.25)] bg-[var(--accent-soft)] px-4 py-3 text-sm text-[var(--accent)]">{notice}</div>}
 
       {/* ---- Header: Wallet / Accounts + add button (mock 5a) ---- */}
       <section className="flex items-start justify-between gap-4">
@@ -223,7 +223,7 @@ export function Accounts({ accounts, setAccounts, setTransactions, onTransfer, o
         </div>
         <button
           aria-label="Add account"
-          className="grid h-[52px] w-[52px] place-items-center rounded-full border border-white/12 bg-white/[.055] text-white backdrop-blur-xl transition hover:border-[rgba(255,92,0,.35)]"
+          className="grid h-[52px] w-[52px] place-items-center rounded-full border border-white/12 bg-white/[.055] text-white backdrop-blur-xl transition hover:border-[rgba(246,105,36,.35)]"
           onClick={() => setAddingAccount(true)}
         >
           <Plus size={21} />
@@ -263,7 +263,7 @@ export function Accounts({ accounts, setAccounts, setTransactions, onTransfer, o
                   <div
                     aria-hidden
                     className="pointer-events-none absolute -right-10 top-6 h-56 w-56 rounded-full"
-                    style={{ background: `radial-gradient(circle, ${light ? 'rgba(255,92,0,.18)' : 'rgba(255,92,0,.30)'}, transparent 66%)` }}
+                    style={{ background: `radial-gradient(circle, ${light ? 'rgba(246,105,36,.18)' : 'rgba(246,105,36,.30)'}, transparent 66%)` }}
                   />
                   <div className="relative flex items-start justify-between">
                     <div>
@@ -304,7 +304,7 @@ export function Accounts({ accounts, setAccounts, setTransactions, onTransfer, o
           </div>
         </section>
       ) : (
-        <button className="w-full rounded-[1.5rem] border border-dashed border-white/15 bg-white/[.03] px-5 py-10 text-left transition hover:border-[rgba(255,92,0,.35)] hover:bg-[rgba(255,92,0,.06)]" onClick={() => setAddingAccount(true)}>
+        <button className="w-full rounded-[1.5rem] border border-dashed border-white/15 bg-white/[.03] px-5 py-10 text-left transition hover:border-[rgba(246,105,36,.35)] hover:bg-[rgba(246,105,36,.06)]" onClick={() => setAddingAccount(true)}>
           <span className="grid h-12 w-12 place-items-center rounded-2xl bg-[var(--accent)] text-[#16130F]"><Plus size={22} /></span>
           <span className="mt-5 block text-xl font-semibold text-white">Add your first account</span>
           <span className="mt-2 block text-sm text-[var(--muted)]">Create cash, bank, or wallet accounts to start tracking.</span>
@@ -340,7 +340,7 @@ export function Accounts({ accounts, setAccounts, setTransactions, onTransfer, o
               <p className="text-[11px] text-[var(--muted-2)]">Out</p>
               <p className="mt-1 text-lg font-semibold text-[var(--negative)]">{formatPlain(stats.moneyOut)}</p>
             </div>
-            <div className="rounded-[18px] border border-[rgba(255,92,0,.28)] bg-[rgba(255,92,0,.14)] px-4 py-3.5 backdrop-blur-xl">
+            <div className="rounded-[18px] border border-[rgba(246,105,36,.28)] bg-[rgba(246,105,36,.14)] px-4 py-3.5 backdrop-blur-xl">
               <p className="text-[11px] text-[#FFB27A]">Kept</p>
               <p className="mt-1 text-lg font-semibold text-white">{stats.kept >= 0 ? '+' : '-'}{formatPlain(stats.kept)}</p>
             </div>
@@ -373,11 +373,11 @@ export function Accounts({ accounts, setAccounts, setTransactions, onTransfer, o
                       className="w-full rounded-[7px] transition-all"
                       style={{
                         height: `${Math.max(10, (amount / maxWeeklySpend) * 100)}%`,
-                        background: isActive ? 'linear-gradient(180deg,#FF5C00,#B23F02)' : '#3A3A3E',
-                        boxShadow: isActive ? '0 0 16px rgba(255,92,0,.4)' : undefined,
+                        background: isActive ? 'linear-gradient(180deg,#F66924,#A54D26)' : 'var(--surface-3)',
+                        boxShadow: isActive ? '0 0 16px rgba(165,77,38,.34)' : undefined,
                       }}
                     />
-                    <span className={cn('text-[10px]', isActive ? 'text-[#FFB27A]' : 'text-[var(--muted-2)]')}>W{week + 1}</span>
+                    <span className={cn('text-[10px]', isActive ? 'text-[#FA9132]' : 'text-[var(--muted-2)]')}>W{week + 1}</span>
                   </button>
                 )
               })}
@@ -387,7 +387,7 @@ export function Accounts({ accounts, setAccounts, setTransactions, onTransfer, o
           {/* top category */}
           {stats.topCategory && (
             <div className="flex items-center gap-3 rounded-[20px] border border-white/10 bg-white/[.055] px-4 py-3.5 backdrop-blur-xl">
-              <span className="grid h-10 w-10 place-items-center rounded-[13px] border border-[rgba(255,92,0,.28)] bg-[rgba(255,92,0,.16)] text-[var(--accent)]">
+              <span className="grid h-10 w-10 place-items-center rounded-[13px] border border-[rgba(246,105,36,.28)] bg-[rgba(246,105,36,.16)] text-[var(--accent)]">
                 <ShoppingCart size={17} />
               </span>
               <div className="min-w-0 flex-1">
@@ -784,7 +784,7 @@ function CardColorPicker({
           <button
             key={option.name}
             aria-label={`Use ${option.name}`}
-            className={cn('h-12 rounded-2xl border transition', baseColor === option.value ? 'border-[var(--accent)] ring-2 ring-[rgba(255,92,0,.25)]' : 'border-white/10')}
+            className={cn('h-12 rounded-2xl border transition', baseColor === option.value ? 'border-[var(--accent)] ring-2 ring-[rgba(246,105,36,.25)]' : 'border-white/10')}
             title={option.name}
             style={{ background: option.value }}
             onClick={() => setColorFromBase(option.value, 0)}

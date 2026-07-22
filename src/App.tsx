@@ -122,7 +122,7 @@ function App() {
   const location = useLocation()
   const navigate = useNavigate()
   const routePage = location.pathname.startsWith('/app/') ? location.pathname.split('/')[2] : 'dashboard'
-  const activePage = routePage === 'goals' ? 'budgets' : routePage
+  const activePage = routePage
   const [activeModal, setActiveModal] = useState<ActionModal>(null)
   const [activeDebtId, setActiveDebtId] = useState<string | undefined>()
   const [expenseDraft, setExpenseDraft] = useState<{ amount: number; category: string; wishlistId?: string }>()
@@ -169,10 +169,6 @@ function App() {
   const setActivePage = useCallback((page: string) => {
     navigate(page === 'dashboard' ? '/app' : `/app/${page}`)
   }, [navigate])
-
-  useEffect(() => {
-    if (routePage === 'goals') navigate('/app/budgets', { replace: true })
-  }, [navigate, routePage])
 
   useEffect(() => onProfileChange(setProfileState), [])
 
@@ -615,7 +611,7 @@ function App() {
 
   const ledger = (
     <AppShell activePage={activePage} setActivePage={setActivePage}>
-      {toast && <div aria-live="polite" className="fixed left-1/2 top-4 z-[60] -translate-x-1/2 rounded-full border border-[rgba(255,92,0,.28)] bg-[var(--surface-raised)] px-4 py-2 text-sm font-semibold text-[var(--accent-2)] shadow-2xl shadow-black/40" role="status">{toast}</div>}
+      {toast && <div aria-live="polite" className="fixed left-1/2 top-4 z-[60] -translate-x-1/2 rounded-full border border-[rgba(246,105,36,.28)] bg-[var(--surface-raised)] px-4 py-2 text-sm font-semibold text-[var(--accent-2)] shadow-2xl shadow-black/40" role="status">{toast}</div>}
       <Suspense fallback={<div className="card p-6 text-sm text-[var(--muted)]" role="status">Loading screen…</div>}>{(pages[activePage] ?? pages.dashboard).component}</Suspense>
       <Suspense fallback={null}>
       {activeModal === 'income' && <AddIncomeModal

@@ -128,7 +128,7 @@ export function Onboarding({ email, initialName, initialSettings, existingAccoun
           name: draft.accountName.trim() || 'Cash',
           type: draft.accountType,
           balance: parsedBalance ?? 0,
-          color: '#FF5C00',
+          color: '#F66924',
           activity: 'Opening balance',
           cardLabel: draft.accountType.toUpperCase(),
           includeInSafeSpend: true,

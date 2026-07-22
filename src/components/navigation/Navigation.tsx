@@ -38,7 +38,7 @@ export function Sidebar({ activePage, setActivePage }: { activePage: string; set
    that expands into a labeled pill revealing the current page name when tapped.
    Inactive items are plain circular icon buttons. */
 export function BottomNav({ activePage, setActivePage }: { activePage: string; setActivePage: (page: string) => void }) {
-  const order = ['dashboard', 'transactions', 'budgets', 'reports']
+  const order = ['dashboard', 'transactions', 'budgets', 'goals', 'reports']
   const mobileItems = order
     .map((id) => navItems.find((item) => item.id === id))
     .filter((item): item is NavItem => Boolean(item))
