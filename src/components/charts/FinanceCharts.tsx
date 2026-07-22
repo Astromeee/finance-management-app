@@ -18,25 +18,25 @@ import type { Transaction } from '../../types/finance'
 
 /**
  * V3 chart language:
- * - The extracted vivid orange is the primary data color; everything else stays warm and neutral.
+ * - Orange #FF5C00 is THE data color; everything else is warm grey.
  * - Income = soft green line/area; spending = orange.
  * - Glass tooltips, no harsh grid, rounded geometry.
  * Component names & props are identical to the old file — drop-in replacement.
  */
 
-const ORANGE = '#F66924'
-const ORANGE_DIM = '#A54D26'
-const GREEN = '#E79564' // income/positive series uses a lighter reference orange
+const ORANGE = '#FF5C00'
+const ORANGE_DIM = '#B23F02'
+const GREEN = '#FF9A5C' // income/positive series — warm, no green in the V4 palette
 const GREY_AXIS = '#8D8A85'
 const GRID = 'rgba(246,243,239,.07)'
 
 /* warm sequential palette for the donut — orange leads, warm greys follow */
-const DONUT_PALETTE = ['#F66924', '#FA9132', '#A54D26', '#E79564', '#8B8581', '#65615E', '#947162', '#522819']
+const DONUT_PALETTE = ['#FF5C00', '#FF8A47', '#C9743F', '#FF9A5C', '#8D8A85', '#5E5B57', '#A8642F', '#3A3A3E']
 
 /* solid ink tooltip — glass retired in V4 */
 const tooltipStyle = {
   background: '#1C1B1A',
-  border: '1px solid rgba(235, 226, 213, 0.12)',
+  border: '1px solid #272624',
   borderRadius: 14,
   color: '#F2EFEA',
   boxShadow: '0 12px 32px rgba(0,0,0,.45)',
@@ -109,8 +109,8 @@ export function WeeklyLine({ transactions }: { transactions?: Transaction[] }) {
           <XAxis dataKey="day" stroke={GREY_AXIS} tickLine={false} axisLine={false} tick={{ fontSize: 12, fontFamily: 'Outfit, sans-serif' }} />
           <YAxis stroke={GREY_AXIS} tickLine={false} axisLine={false} tickFormatter={(value) => `${Number(value) / 1000}k`} tick={{ fontSize: 12, fontFamily: 'Outfit, sans-serif' }} />
           <Tooltip formatter={(value) => formatPKR(Number(value))} contentStyle={tooltipStyle} />
-          <Area type="monotone" dataKey="income" stroke={GREEN} strokeWidth={2.5} fill="url(#pl-income-fill)" dot={false} activeDot={{ r: 4, fill: GREEN, stroke: '#160A07', strokeWidth: 2 }} isAnimationActive={false} />
-          <Area type="monotone" dataKey="spending" stroke={ORANGE} strokeWidth={3} fill="url(#pl-spend-fill)" dot={false} activeDot={{ r: 5, fill: ORANGE, stroke: '#160A07', strokeWidth: 2 }} isAnimationActive={false} />
+          <Area type="monotone" dataKey="income" stroke={GREEN} strokeWidth={2.5} fill="url(#pl-income-fill)" dot={false} activeDot={{ r: 4, fill: GREEN, stroke: '#171716', strokeWidth: 2 }} isAnimationActive={false} />
+          <Area type="monotone" dataKey="spending" stroke={ORANGE} strokeWidth={3} fill="url(#pl-spend-fill)" dot={false} activeDot={{ r: 5, fill: ORANGE, stroke: '#171716', strokeWidth: 2 }} isAnimationActive={false} />
         </AreaChart>
       </ResponsiveContainer>
     </div>

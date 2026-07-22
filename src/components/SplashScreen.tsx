@@ -42,8 +42,8 @@ export function SplashScreen({ duration = 2000 }: { duration?: number }) {
         justifyContent: 'center',
         gap: 26,
         background: light
-          ? 'radial-gradient(80% 46% at 76% 22%, rgba(211,181,172,.82) 0%, rgba(220,201,194,.45) 42%, transparent 72%), #E2E0DF'
-          : 'radial-gradient(85% 48% at 82% 12%, #F66924 0%, #A54D26 30%, rgba(82,40,25,.42) 55%, transparent 76%), radial-gradient(60% 35% at 12% 96%, rgba(246,105,36,.18), transparent 68%), #160A07',
+          ? 'radial-gradient(80% 46% at 76% 22%, rgba(242,100,25,.85) 0%, rgba(255,138,71,.45) 42%, transparent 72%), radial-gradient(55% 32% at 8% 100%, rgba(255,178,122,.5), transparent 68%), #FFFDFB'
+          : 'radial-gradient(85% 48% at 82% 12%, #F26419 0%, #D14E0C 30%, rgba(199,75,14,.38) 55%, transparent 76%), radial-gradient(60% 35% at 12% 96%, rgba(242,100,25,.22), transparent 68%), #1B1A19',
         opacity: phase === 'leaving' ? 0 : 1,
         transition: 'opacity 420ms ease',
         pointerEvents: phase === 'leaving' ? 'none' : 'auto',
@@ -61,7 +61,7 @@ export function SplashScreen({ duration = 2000 }: { duration?: number }) {
           width: 100,
           height: 100,
           borderRadius: 24,
-          background: '#160A07',
+          background: '#16130F',
           display: 'flex',
           flexDirection: 'column',
           justifyContent: 'center',
@@ -74,19 +74,19 @@ export function SplashScreen({ duration = 2000 }: { duration?: number }) {
           <span style={bar('52px', '0.35s')} />
           <div style={{ display: 'flex', gap: 5, alignItems: 'center' }}>
             <span style={bar('30px', '0.7s')} />
-            <span style={{ display: 'block', width: 9, height: 9, borderRadius: 2.5, background: '#F66924', animation: 'pl-cursor 1.1s steps(1) infinite' }} />
+            <span style={{ display: 'block', width: 9, height: 9, borderRadius: 2.5, background: '#FF5C00', animation: 'pl-cursor 1.1s steps(1) infinite' }} />
           </div>
         </div>
       </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
-        <p style={{ margin: 0, fontFamily: "'Sora',sans-serif", fontSize: 19, fontWeight: 700, letterSpacing: '-0.5px', color: light ? '#160A07' : '#F8F4F0' }}>Pocket Ledger</p>
-        <p style={{ margin: 0, fontSize: 11.5, letterSpacing: 3, textTransform: 'uppercase', color: light ? 'rgba(22,10,7,.58)' : 'rgba(248,244,240,.58)' }}>Every rupee, written</p>
+        <p style={{ margin: 0, fontFamily: "'Sora',sans-serif", fontSize: 19, fontWeight: 700, letterSpacing: '-0.5px', color: light ? '#16130F' : '#F6F3EF' }}>Pocket Ledger</p>
+        <p style={{ margin: 0, fontSize: 11.5, letterSpacing: 3, textTransform: 'uppercase', color: light ? 'rgba(22,19,15,.5)' : 'rgba(246,243,239,.55)' }}>Every rupee, written</p>
       </div>
 
       {/* sweep loader */}
       <div style={{ position: 'relative', width: 148, height: 4, borderRadius: 2, background: light ? 'rgba(22,19,15,.14)' : 'rgba(255,255,255,.14)' }}>
-        <span style={{ position: 'absolute', top: -3, left: 0, width: 10, height: 10, borderRadius: 3, background: '#F66924', animation: 'pl-sweep 1.6s ease-in-out infinite alternate' }} />
+        <span style={{ position: 'absolute', top: -3, left: 0, width: 10, height: 10, borderRadius: 3, background: '#FF5C00', animation: 'pl-sweep 1.6s ease-in-out infinite alternate' }} />
       </div>
     </div>
   )

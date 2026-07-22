@@ -207,7 +207,7 @@ function TransactionRow({ transaction }: { transaction: Transaction }) {
   const expense = transaction.type === 'expense' || transaction.type === 'goal_saving' || transaction.type === 'debt_payment'
   return (
     <div className="flex items-center gap-3.5 border-b border-[var(--border)] px-4 py-4 last:border-b-0">
-      <span className={cn('grid h-11 w-11 shrink-0 place-items-center rounded-2xl', expense ? 'bg-[var(--surface-2)] text-[var(--muted)]' : 'bg-[rgba(246,105,36,.13)] text-[var(--accent)]')}><CategoryIcon label={transaction.category ?? transaction.title} size={18} type={transaction.type} /></span>
+      <span className={cn('grid h-11 w-11 shrink-0 place-items-center rounded-2xl', expense ? 'bg-[var(--surface-2)] text-[var(--muted)]' : 'bg-[rgba(255,92,0,.13)] text-[var(--accent)]')}><CategoryIcon label={transaction.category ?? transaction.title} size={18} type={transaction.type} /></span>
       <div className="min-w-0 flex-1">
         <p className="truncate text-[0.95rem] font-semibold">{transaction.title}</p>
         <p className="mt-0.5 text-xs text-[var(--muted)]">{transaction.category ?? transaction.account} · {relativeDay(transaction.date)}</p>

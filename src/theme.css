@@ -3,34 +3,34 @@
    Imported after index.css so this file is the single token and
    surface authority. Approved direction: solid ink cards
    (frosted glass retired), orange-only accents (no green — income
-   and "comfortable" read as the lighter extracted orange), 7a ember-bloom + film
+   and "comfortable" read as warm #FF9A5C), 7a ember-bloom + film
    grain on every page, 7c ledger-paper grid on Home.
    Fonts stay local (loaded in main.tsx) — no CDN import here.
    ============================================================ */
 
 :root {
-  --bg: #160a07;
-  --bg-deep: #0f0604;
+  --bg: #171716;
+  --bg-deep: #171716;
   /* ink-card surfaces — solid, glassmorphism retired */
-  --surface: #1b0d0a;
-  --surface-2: #211112;
-  --surface-3: #2b1712;
-  --surface-raised: #251410;
-  --surface-elevated: #fcfbfc;
-  --border: rgba(235, 226, 213, 0.12);
-  --border-strong: rgba(235, 226, 213, 0.20);
-  --text: #f8f4f0;
-  --text-dark: #160a07;
-  --accent-ink: #160a07;
-  --muted: #b8aaa4;
-  --muted-2: #897b75;
-  --accent: #f66924;
-  --accent-2: #fa9132;
-  --accent-pressed: #a54d26;
-  --accent-soft: rgba(246, 105, 36, 0.15);
+  --surface: #181716;
+  --surface-2: #201f1e;
+  --surface-3: #262524;
+  --surface-raised: #1c1b1a;
+  --surface-elevated: #f2efea;
+  --border: #272624;
+  --border-strong: #343230;
+  --text: #f2efea;
+  --text-dark: #16130f;
+  --accent-ink: #16130f;
+  --muted: #8d8a85;
+  --muted-2: #6e6b66;
+  --accent: #ff5c00;
+  --accent-2: #ff8a47;
+  --accent-pressed: #d9541a;
+  --accent-soft: rgba(255, 92, 0, 0.14);
   /* warm ramp replaces green/amber/red */
-  --positive: #fa9132;   /* income & "comfortable" */
-  --warning: #f66924;    /* watchful / near-limit */
+  --positive: #ff9a5c;   /* income & "comfortable" */
+  --warning: #ff7a2e;    /* watchful / near-limit */
   --negative: #e8481c;   /* protect / over-limit */
   --info: #8d8a85;
   /* retained for older hooks; both resolve to the ink card recipe */
@@ -61,9 +61,9 @@ a:hover { color: var(--accent); }
 body,
 #root {
   background:
-    radial-gradient(95% 30rem at 92% -4rem, rgba(246, 105, 36, 0.38) 0%, rgba(165, 77, 38, 0.18) 38%, transparent 68%),
-    radial-gradient(70% 22rem at -8% 110%, rgba(246, 105, 36, 0.10), transparent 64%),
-    linear-gradient(180deg, #211112 0%, #160a07 55%, #0f0604 100%);
+    radial-gradient(95% 30rem at 92% -4rem, rgba(242, 100, 25, 0.42) 0%, rgba(209, 78, 12, 0.20) 38%, transparent 68%),
+    radial-gradient(70% 22rem at -8% 110%, rgba(242, 100, 25, 0.10), transparent 64%),
+    linear-gradient(180deg, #1b1a19 0%, #171716 55%, #121211 100%);
 }
 
 /* 7a's film grain — one fixed 5% overlay across the whole app. */
@@ -81,8 +81,8 @@ body::after {
 :root[data-page='dashboard'] body,
 :root[data-page='dashboard'] #root {
   background:
-    radial-gradient(90% 26rem at 90% -4rem, rgba(246, 105, 36, 0.28) 0%, transparent 62%),
-    linear-gradient(180deg, #211112 0%, #160a07 60%, #0f0604 100%);
+    radial-gradient(90% 26rem at 90% -4rem, rgba(242, 100, 25, 0.30) 0%, transparent 62%),
+    linear-gradient(180deg, #191918 0%, #151514 60%, #111110 100%);
 }
 
 :root[data-page='dashboard'] body::before {
@@ -144,7 +144,7 @@ p { text-wrap: pretty; }
 article.rounded-2xl {
   border: 1px solid var(--border);
   border-radius: 18px;
-  background: linear-gradient(160deg, #211112, #160a07);
+  background: linear-gradient(160deg, #1b1a19, #141413);
   box-shadow: none;
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
@@ -162,8 +162,8 @@ article.rounded-2xl {
   border: 1px solid var(--border);
   border-radius: 24px;
   background:
-    radial-gradient(120% 120% at 100% -10%, rgba(246, 105, 36, 0.18), transparent 60%),
-    linear-gradient(160deg, #211112, #160a07);
+    radial-gradient(120% 120% at 100% -10%, rgba(255, 92, 0, 0.18), transparent 60%),
+    linear-gradient(160deg, #1b1a19, #141413);
   box-shadow: none;
 }
 
@@ -180,26 +180,26 @@ article.rounded-2xl {
 .journey-hero {
   position: relative;
   border: 1px solid var(--border);
-  background: linear-gradient(160deg, #211112, #160a07);
+  background: linear-gradient(160deg, #1b1a19, #141413);
   box-shadow: none;
 }
 
 .journey-hero-comfortable {
   background:
-    radial-gradient(120% 120% at 100% -10%, rgba(246, 105, 36, 0.20), transparent 60%),
-    linear-gradient(160deg, #211112, #160a07);
+    radial-gradient(120% 120% at 100% -10%, rgba(255, 92, 0, 0.20), transparent 60%),
+    linear-gradient(160deg, #1b1a19, #141413);
 }
 
 .journey-hero-watchful {
   background:
     radial-gradient(120% 120% at 100% -10%, rgba(255, 122, 46, 0.24), transparent 60%),
-    linear-gradient(160deg, #211112, #160a07);
+    linear-gradient(160deg, #1b1a19, #141413);
 }
 
 .journey-hero-protect {
   background:
     radial-gradient(120% 120% at 100% -10%, rgba(232, 72, 28, 0.26), transparent 60%),
-    linear-gradient(160deg, #211112, #160a07);
+    linear-gradient(160deg, #1b1a19, #141413);
 }
 
 .journey-hero::after { display: none; }
@@ -234,8 +234,8 @@ article.rounded-2xl {
   border: 1px solid var(--border);
   border-radius: 26px;
   background:
-    radial-gradient(120% 120% at 100% -10%, rgba(246, 105, 36, 0.20), transparent 60%),
-    linear-gradient(160deg, #211112, #160a07);
+    radial-gradient(120% 120% at 100% -10%, rgba(255, 92, 0, 0.20), transparent 60%),
+    linear-gradient(160deg, #1b1a19, #141413);
 }
 
 .home-rail-card > * { position: relative; z-index: 1; }
@@ -272,7 +272,7 @@ article.rounded-2xl {
 .payday-fill {
   height: 100%;
   border-radius: 999px;
-  background: linear-gradient(90deg, #a54d26, #fa9132);
+  background: linear-gradient(90deg, #d9541a, #ff8a47);
 }
 
 .payday-knob {
@@ -282,7 +282,7 @@ article.rounded-2xl {
   height: 18px;
   border-radius: 999px;
   background: var(--accent);
-  box-shadow: 0 0 0 4px rgba(246, 105, 36, 0.18), 0 0 18px 4px rgba(246, 105, 36, 0.45);
+  box-shadow: 0 0 0 4px rgba(255, 92, 0, 0.18), 0 0 18px 4px rgba(255, 92, 0, 0.45);
   transform: translate(-50%, -50%);
 }
 
@@ -299,7 +299,7 @@ article.rounded-2xl {
 
 :root[data-theme='light'] .home-rail-card {
   background:
-    radial-gradient(120% 120% at 100% -10%, rgba(246, 105, 36, 0.12), transparent 60%),
+    radial-gradient(120% 120% at 100% -10%, rgba(255, 92, 0, 0.12), transparent 60%),
     #ffffff;
 }
 
@@ -320,9 +320,9 @@ article.rounded-2xl {
 }
 
 .journey-status-positive {
-  border: 1px solid rgba(246, 105, 36, 0.28);
-  background: rgba(246, 105, 36, 0.13);
-  color: #fa9132;
+  border: 1px solid rgba(255, 92, 0, 0.28);
+  background: rgba(255, 92, 0, 0.13);
+  color: #ff9a5c;
 }
 
 .journey-status-warning {
@@ -344,8 +344,8 @@ button.bg-\[var\(--accent\)\]:not(.rounded-full) {
   min-height: 48px;
   border: 0;
   border-radius: 14px;
-  background: linear-gradient(160deg, #f66924, #a54d26);
-  box-shadow: 0 10px 26px rgba(82, 40, 25, 0.30);
+  background: linear-gradient(160deg, #ff5c00, #d9541a);
+  box-shadow: 0 10px 26px rgba(255, 92, 0, 0.28);
   color: var(--accent-ink);
   font-family: Outfit, sans-serif;
   font-weight: 650;
@@ -365,7 +365,7 @@ button.bg-\[var\(--accent\)\]:not(.rounded-full) {
 .home-v2-section-heading-compact button {
   border: 1px solid var(--border);
   border-radius: 20px;
-  background: linear-gradient(160deg, #211112, #160a07);
+  background: linear-gradient(160deg, #1b1a19, #141413);
   box-shadow: none;
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
@@ -373,8 +373,8 @@ button.bg-\[var\(--accent\)\]:not(.rounded-full) {
 
 .quick-action-primary {
   border-color: transparent;
-  background: linear-gradient(160deg, #f66924, #a54d26);
-  box-shadow: 0 10px 26px rgba(82, 40, 25, 0.30);
+  background: linear-gradient(160deg, #ff5c00, #d9541a);
+  box-shadow: 0 10px 26px rgba(255, 92, 0, 0.28);
   color: var(--accent-ink);
 }
 
@@ -408,7 +408,7 @@ button.bg-\[var\(--accent\)\]:not(.rounded-full) {
 
 .transaction-chip-active {
   border-color: transparent;
-  background: linear-gradient(160deg, #f66924, #a54d26);
+  background: linear-gradient(160deg, #ff5c00, #d9541a);
   color: var(--accent-ink);
 }
 
@@ -416,15 +416,15 @@ button.bg-\[var\(--accent\)\]:not(.rounded-full) {
 
 /* Income amounts and progress bars — the old green hooks go warm */
 .text-\[var\(--positive\)\] { color: var(--positive); }
-.bg-\[var\(--positive\)\] { background: linear-gradient(90deg, #a54d26, #fa9132); }
+.bg-\[var\(--positive\)\] { background: linear-gradient(90deg, #d9541a, #ff8a47); }
 .bg-\[var\(--warning\)\] { background: linear-gradient(90deg, #c2551a, #ff7a2e); }
-.bg-\[var\(--negative\)\] { background: linear-gradient(90deg, #b03a10, #f66924); }
+.bg-\[var\(--negative\)\] { background: linear-gradient(90deg, #b03a10, #ff5c00); }
 
 /* ---------- Account identity colors (warm set, no green) ---------- */
 .home-account-cash      { --home-accent: #e8e0d2; }
 .home-account-hbl       { --home-accent: #c9a68a; }
-.home-account-meezan    { --home-accent: #fa9132; }
-.home-account-jazzcash  { --home-accent: #f66924; }
+.home-account-meezan    { --home-accent: #ff9a5c; }
+.home-account-jazzcash  { --home-accent: #ff5c00; }
 .home-account-easypaisa { --home-accent: #c9743f; }
 .home-account-default   { --home-accent: var(--accent); }
 
@@ -568,29 +568,29 @@ button.bg-\[var\(--accent\)\]:not(.rounded-full) {
 }
 
 /* ============================================================
-   LIGHT THEME — reference orange on cool gray
+   LIGHT THEME — orange on warm white (auto under data-theme)
    ============================================================ */
 
 :root[data-theme='light'] {
-  --bg: #e2e0df;
-  --bg-deep: #d9d9d9;
-  --surface: #f4f2f1;
-  --surface-2: #e9e6e4;
-  --surface-3: #dedad7;
-  --surface-raised: #fcfbfc;
-  --border: #cbc5c1;
-  --border-strong: #b8b0ac;
-  --text: #160a07;
-  --text-dark: #160a07;
-  --accent-ink: #160a07;
-  --muted: #65615e;
-  --muted-2: #8b8581;
-  --accent: #f66924;
-  --accent-2: #a54d26;
-  --accent-pressed: #a54d26;
-  --accent-soft: rgba(246, 105, 36, 0.12);
-  --positive: #a54d26;
-  --warning: #f66924;
+  --bg: #fffdfb;
+  --bg-deep: #fbf8f4;
+  --surface: #ffffff;
+  --surface-2: #f5f1ec;
+  --surface-3: #ece7e1;
+  --surface-raised: #ffffff;
+  --border: #e6e0d8;
+  --border-strong: #d6cec3;
+  --text: #191714;
+  --text-dark: #16130f;
+  --accent-ink: #ffffff;
+  --muted: #6e675f;
+  --muted-2: #97908a;
+  --accent: #ff5c00;
+  --accent-2: #d9541a;
+  --accent-pressed: #d9541a;
+  --accent-soft: rgba(255, 92, 0, 0.10);
+  --positive: #d9541a;
+  --warning: #c2551a;
   --negative: #b03a10;
   --info: #6e675f;
   --glass-bg: var(--surface);
@@ -601,8 +601,9 @@ button.bg-\[var\(--accent\)\]:not(.rounded-full) {
 :root[data-theme='light'] body,
 :root[data-theme='light'] #root {
   background:
-    radial-gradient(95% 30rem at 92% -4rem, rgba(211, 181, 172, 0.46) 0%, rgba(220, 201, 194, 0.18) 38%, transparent 68%),
-    linear-gradient(180deg, #e2e0df 0%, #d9d9d9 100%);
+    radial-gradient(95% 30rem at 92% -4rem, rgba(242, 100, 25, 0.30) 0%, rgba(255, 138, 71, 0.14) 38%, transparent 68%),
+    radial-gradient(70% 22rem at -8% 110%, rgba(255, 178, 122, 0.20), transparent 64%),
+    linear-gradient(180deg, #fffdfb 0%, #fbf8f4 55%, #f6f3ef 100%);
 }
 
 :root[data-theme='light'] body::after { opacity: 0.035; }
@@ -610,8 +611,8 @@ button.bg-\[var\(--accent\)\]:not(.rounded-full) {
 :root[data-theme='light'][data-page='dashboard'] body,
 :root[data-theme='light'][data-page='dashboard'] #root {
   background:
-    radial-gradient(90% 26rem at 90% -4rem, rgba(211, 181, 172, 0.44) 0%, transparent 62%),
-    linear-gradient(180deg, #e2e0df 0%, #d9d9d9 100%);
+    radial-gradient(90% 26rem at 90% -4rem, rgba(242, 100, 25, 0.22) 0%, transparent 62%),
+    linear-gradient(180deg, #fffdfb 0%, #fbf8f4 60%, #f6f3ef 100%);
 }
 
 :root[data-theme='light'][data-page='dashboard'] body::before {
@@ -655,7 +656,7 @@ button.bg-\[var\(--accent\)\]:not(.rounded-full) {
 :root[data-theme='light'] .dashboard-hero,
 :root[data-theme='light'] .journey-hero-comfortable {
   background:
-    radial-gradient(120% 120% at 100% -10%, rgba(246, 105, 36, 0.12), transparent 60%),
+    radial-gradient(120% 120% at 100% -10%, rgba(255, 92, 0, 0.12), transparent 60%),
     #ffffff;
 }
 
@@ -699,7 +700,7 @@ button.bg-\[var\(--accent\)\]:not(.rounded-full) {
 
 :root[data-theme='light'] .home-v2-bank-card,
 :root[data-theme='light'] .home-v2-bank-card-2,
-:root[data-theme='light'] .home-v2-bank-card-3 { color: #ffffff; background: #522819; }
+:root[data-theme='light'] .home-v2-bank-card-3 { color: #ffffff; background: #201f1e; }
 
 /* Tailwind white/black utilities — remap to ink on light */
 :root[data-theme='light'] .text-white { color: var(--text) !important; }
