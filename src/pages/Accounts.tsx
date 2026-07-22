@@ -1,6 +1,7 @@
-import { ArrowRightLeft, ChevronDown, MoreVertical, PencilLine, Plus, ShoppingCart, Trash2, WalletCards, X } from 'lucide-react'
+import { ArrowRightLeft, Banknote, ChevronDown, Landmark, MoreVertical, PencilLine, Plus, ShoppingCart, Trash2, WalletCards, X } from 'lucide-react'
 import { motion } from 'framer-motion'
-import { useMemo, useRef, useState, type Dispatch, type SetStateAction, type UIEvent } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type Dispatch, type SetStateAction, type UIEvent } from 'react'
+import { BalanceRailIndicator } from '../components/BalanceRailIndicator'
 import type { Account, Transaction } from '../types/finance'
 import { formatPKR, totalBalance } from '../utils/financeCalculations'
 import { cn } from '../utils/ui'
@@ -34,27 +35,23 @@ function isValidHex(value: string) {
   return /^#[0-9a-fA-F]{6}$/.test(value)
 }
 
-function clampColorChannel(value: number) {
-  return Math.max(0, Math.min(255, Math.round(value)))
-}
-
 function adjustHexLightness(hex: string, amount: number) {
   if (!isValidHex(hex)) return hex
   const clean = hex.slice(1)
   const channels = [0, 2, 4].map((start) => Number.parseInt(clean.slice(start, start + 2), 16))
   const adjusted = channels.map((channel) => {
     const target = amount >= 0 ? 255 : 0
-    return clampColorChannel(channel + (target - channel) * Math.abs(amount / 100))
+    return Math.max(0, Math.min(255, Math.round(channel + (target - channel) * Math.abs(amount / 100))))
   })
   return `#${adjusted.map((channel) => channel.toString(16).padStart(2, '0')).join('')}`
 }
 
-/* Card text should be dark on light card colors, light on dark ones */
-function isLightColor(hex: string) {
-  if (!isValidHex(hex)) return false
-  const clean = hex.slice(1)
-  const [r, g, b] = [0, 2, 4].map((start) => Number.parseInt(clean.slice(start, start + 2), 16))
-  return (r * 299 + g * 587 + b * 114) / 1000 > 150
+function railStep(rail: HTMLElement) {
+  const firstCard = rail.firstElementChild
+  if (!(firstCard instanceof HTMLElement)) return 1
+  const styles = window.getComputedStyle(rail)
+  const gap = Number.parseFloat(styles.columnGap || styles.gap)
+  return firstCard.offsetWidth + (Number.isFinite(gap) ? gap : 0)
 }
 
 interface AccountsProps {
@@ -146,6 +143,8 @@ export function Accounts({ accounts, setAccounts, setTransactions, onTransfer, o
   const [notice, setNotice] = useState('')
   const [activeIndex, setActiveIndex] = useState(0)
   const carouselRef = useRef<HTMLDivElement>(null)
+  const carouselFrame = useRef<number | undefined>(undefined)
+  const activeCardIndex = useRef(0)
 
   const total = totalBalance(accounts)
   const activeAccount = accounts[Math.min(activeIndex, Math.max(0, accounts.length - 1))] ?? null
@@ -183,18 +182,26 @@ export function Accounts({ accounts, setAccounts, setTransactions, onTransfer, o
     ? Math.round(((stats.moneyOut - lastStats.moneyOut) / lastStats.moneyOut) * 100)
     : null
 
-  const onCarouselScroll = (event: UIEvent<HTMLDivElement>) => {
+  const onCarouselScroll = useCallback((event: UIEvent<HTMLDivElement>) => {
     const node = event.currentTarget
-    const cardWidth = node.firstElementChild instanceof HTMLElement ? node.firstElementChild.offsetWidth + 14 : 1
-    const index = Math.round(node.scrollLeft / cardWidth)
-    if (index !== activeIndex) setActiveIndex(Math.max(0, Math.min(accounts.length - 1, index)))
-  }
+    if (carouselFrame.current !== undefined) window.cancelAnimationFrame(carouselFrame.current)
+    carouselFrame.current = window.requestAnimationFrame(() => {
+      const index = Math.max(0, Math.min(accounts.length - 1, Math.round(node.scrollLeft / railStep(node))))
+      if (index === activeCardIndex.current) return
+      activeCardIndex.current = index
+      setActiveIndex(index)
+      if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) navigator.vibrate?.(8)
+    })
+  }, [accounts.length])
+
+  useEffect(() => () => {
+    if (carouselFrame.current !== undefined) window.cancelAnimationFrame(carouselFrame.current)
+  }, [])
 
   const scrollToIndex = (index: number) => {
     const node = carouselRef.current
     if (!node) return
-    const cardWidth = node.firstElementChild instanceof HTMLElement ? node.firstElementChild.offsetWidth + 14 : 0
-    node.scrollTo({ left: index * cardWidth, behavior: 'smooth' })
+    node.scrollTo({ left: index * railStep(node), behavior: 'smooth' })
   }
 
   const maxWeeklySpend = stats ? Math.max(...stats.weeklySpend, 1) : 1
@@ -241,67 +248,42 @@ export function Accounts({ accounts, setAccounts, setTransactions, onTransfer, o
         <section>
           <div
             ref={carouselRef}
-            className="scrollbar-none -mx-4 flex snap-x snap-mandatory gap-3.5 overflow-x-auto px-4 pb-2 sm:mx-0 sm:px-0"
-            style={{ scrollbarWidth: 'none' }}
+            aria-label="Accounts. Swipe to view each account."
+            className="home-balance-rail cards-balance-rail"
             onScroll={onCarouselScroll}
+            role="region"
           >
             {accounts.map((account) => {
-              const light = isLightColor(account.color)
-              const ink = light ? '#191714' : '#F2EFEA'
-              const inkSoft = light ? 'rgba(25,23,20,.62)' : 'rgba(242,239,234,.62)'
               const share = total > 0 ? Math.round((account.balance / total) * 100) : 0
+              const Icon = account.type === 'bank' ? Landmark : account.type === 'cash' ? Banknote : WalletCards
               return (
                 <article
                   key={account.id}
-                  className="relative min-w-[calc(100%-3.5rem)] snap-center overflow-hidden rounded-[30px] border p-6 shadow-[0_18px_36px_rgba(0,0,0,.45)] sm:min-w-[330px]"
-                  style={{
-                    background: `linear-gradient(150deg, ${adjustHexLightness(account.color, 14)}, ${adjustHexLightness(account.color, -32)})`,
-                    borderColor: light ? 'rgba(25,23,20,.14)' : 'rgba(255,255,255,.16)',
-                    color: ink,
-                  }}
+                  className="home-balance-card cards-balance-card"
                 >
-                  <div
-                    aria-hidden
-                    className="pointer-events-none absolute -right-10 top-6 h-56 w-56 rounded-full"
-                    style={{ background: `radial-gradient(circle, ${light ? 'rgba(255, 122, 26,.18)' : 'rgba(255, 122, 26,.30)'}, transparent 66%)` }}
-                  />
-                  <div className="relative flex items-start justify-between">
+                  <div className="home-balance-card-topline">
                     <div>
                       <p className="text-[15px] font-semibold">{account.name}</p>
-                      <p className="mt-0.5 text-[12px] capitalize" style={{ color: inkSoft }}>
-                        {account.type}{account.cardLabel ? ` - ${account.cardLabel}` : ''}
-                      </p>
                     </div>
                     <button
                       aria-label={`${account.name} options`}
-                      className="-mr-1.5 -mt-1 rounded-full p-1.5 transition hover:bg-black/10"
-                      style={{ color: inkSoft }}
+                      className="home-balance-card-icon transition hover:bg-white/30"
                       onClick={() => setMenuAccount(account)}
                     >
                       <MoreVertical size={18} />
                     </button>
                   </div>
-                  <p className="relative mt-10 text-[38px] font-semibold leading-none tracking-tight">{formatPKR(account.balance)}</p>
-                  <div className="relative mt-10 flex items-center justify-between">
-                    <p className="text-[10.5px] font-semibold tracking-[.18em]" style={{ color: inkSoft }}>POCKET LEDGER</p>
-                    <p className="text-[12px]" style={{ color: inkSoft }}>{share}% of portfolio</p>
+                  <p className="home-balance-card-amount">{formatPKR(account.balance)}</p>
+                  <div className="home-balance-card-footer">
+                    <span className="capitalize"><Icon className="mr-1 inline-block align-[-2px]" size={13} />{account.type}</span>
+                    <span>{account.cardLabel || `${share}% of total balance`}</span>
                   </div>
                 </article>
               )
             })}
           </div>
 
-          {/* dots */}
-          <div className="mt-3 flex justify-center gap-2">
-            {accounts.map((account, index) => (
-              <button
-                key={account.id}
-                aria-label={`Go to ${account.name}`}
-                className={cn('h-1.5 rounded-full transition-all', index === activeIndex ? 'w-6 bg-[var(--accent)]' : 'w-1.5 bg-white/20')}
-                onClick={() => scrollToIndex(index)}
-              />
-            ))}
-          </div>
+          <BalanceRailIndicator activeIndex={activeIndex} items={accounts.map((account) => ({ id: account.id, label: account.name }))} onSelect={scrollToIndex} />
         </section>
       ) : (
         <button className="w-full rounded-[1.5rem] border border-dashed border-white/15 bg-white/[.03] px-5 py-10 text-left transition hover:border-[rgba(255, 122, 26,.35)] hover:bg-[rgba(255, 122, 26,.06)]" onClick={() => setAddingAccount(true)}>

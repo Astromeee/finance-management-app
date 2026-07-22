@@ -1,3 +1,4 @@
+import { CircleEllipsis } from 'lucide-react'
 import { useState } from 'react'
 import { navItems } from '../../data/navigation'
 import type { NavItem } from '../../types/finance'
@@ -38,42 +39,99 @@ export function Sidebar({ activePage, setActivePage }: { activePage: string; set
    that expands into a labeled pill revealing the current page name when tapped.
    Inactive items are plain circular icon buttons. */
 export function BottomNav({ activePage, setActivePage }: { activePage: string; setActivePage: (page: string) => void }) {
-  const order = ['dashboard', 'transactions', 'budgets', 'goals', 'reports']
-  const mobileItems = order
+  const primaryOrder = ['dashboard', 'transactions', 'accounts', 'budgets']
+  const overflowOrder = ['goals', 'reports', 'settings']
+  const mobileItems = primaryOrder
     .map((id) => navItems.find((item) => item.id === id))
     .filter((item): item is NavItem => Boolean(item))
+  const overflowItems = overflowOrder
+    .map((id) => navItems.find((item) => item.id === id))
+    .filter((item): item is NavItem => Boolean(item))
+  const activeOverflow = overflowItems.some((item) => item.id === activePage)
   // The active pill shows its page name by default; tapping the menu button
   // collapses it. Tracking the *collapsed* page (rather than a boolean) means
   // navigating always lands expanded again, with no state-syncing effect.
   const [collapsedPage, setCollapsedPage] = useState<string | null>(null)
+  const [moreOpen, setMoreOpen] = useState(false)
+
+  const openPage = (page: string) => {
+    setMoreOpen(false)
+    setCollapsedPage(null)
+    navigate(setActivePage, page)
+  }
 
   return (
-    <nav className="dock-v3" aria-label="Primary navigation">
-      {mobileItems.map(({ id, label, icon: Icon }) => {
-        const active = activePage === id
-        if (active) {
-          const expanded = collapsedPage !== id
-          return (
+    <>
+      {moreOpen && (
+        <div className="dock-v3-more" role="menu" aria-label="More destinations">
+          {overflowItems.map(({ id, label, icon: Icon }) => (
             <button
               key={id}
+              aria-current={activePage === id ? 'page' : undefined}
+              className={cn('dock-v3-more-item', activePage === id && 'dock-v3-more-item-active')}
+              onClick={() => openPage(id)}
+              role="menuitem"
               type="button"
-              className={cn('dock-v3-active', expanded && 'dock-v3-active-expanded')}
-              aria-current="page"
-              aria-expanded={expanded}
-              aria-label={expanded ? `${label}, current page, hide name` : `${label}, current page, show name`}
-              onClick={() => setCollapsedPage(expanded ? id : null)}
             >
-              <span className="dock-v3-label">{label}</span>
-              <span className="dock-v3-circle"><Icon size={19} /></span>
+              <Icon size={18} />
+              <span>{label}</span>
+            </button>
+          ))}
+        </div>
+      )}
+      <nav className="dock-v3" aria-label="Primary navigation">
+        {mobileItems.map(({ id, label, icon: Icon }) => {
+          const active = activePage === id
+          if (active) {
+            const expanded = collapsedPage !== id
+            return (
+              <button
+                key={id}
+                type="button"
+                className={cn('dock-v3-active', expanded && 'dock-v3-active-expanded')}
+                aria-current="page"
+                aria-expanded={expanded}
+                aria-label={expanded ? `${label}, current page, hide name` : `${label}, current page, show name`}
+                onClick={() => setCollapsedPage(expanded ? id : null)}
+              >
+                <span className="dock-v3-label">{label}</span>
+                <span className="dock-v3-circle"><Icon size={19} /></span>
+              </button>
+            )
+          }
+          return (
+            <button key={id} type="button" aria-label={label} className="dock-v3-icon" onClick={() => openPage(id)}>
+              <Icon size={23} />
             </button>
           )
-        }
-        return (
-          <button key={id} type="button" aria-label={label} className="dock-v3-icon" onClick={() => navigate(setActivePage, id)}>
-            <Icon size={23} />
+        })}
+        {activeOverflow ? (
+          <button
+            type="button"
+            className={cn('dock-v3-active', collapsedPage !== 'more' && 'dock-v3-active-expanded')}
+            aria-current="page"
+            aria-expanded={moreOpen}
+            aria-label="More destinations"
+            onClick={() => {
+              setCollapsedPage(collapsedPage === 'more' ? 'more' : null)
+              setMoreOpen((open) => !open)
+            }}
+          >
+            <span className="dock-v3-label">More</span>
+            <span className="dock-v3-circle"><CircleEllipsis size={19} /></span>
           </button>
-        )
-      })}
-    </nav>
+        ) : (
+          <button
+            type="button"
+            aria-expanded={moreOpen}
+            aria-label="More destinations"
+            className="dock-v3-icon"
+            onClick={() => setMoreOpen((open) => !open)}
+          >
+            <CircleEllipsis size={23} />
+          </button>
+        )}
+      </nav>
+    </>
   )
 }

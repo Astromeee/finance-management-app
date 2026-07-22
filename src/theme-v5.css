@@ -175,6 +175,8 @@ article.rounded-2xl {
 
 .home-balance-rail::-webkit-scrollbar { display: none; }
 
+.cards-balance-rail { margin-top: 0; }
+
 .home-balance-card {
   position: relative;
   isolation: isolate;
@@ -255,6 +257,37 @@ article.rounded-2xl {
 }
 
 .home-balance-card-footer > :last-child { min-width: 0; opacity: 0.72; text-align: right; }
+
+.cards-balance-card .home-balance-card-icon {
+  cursor: pointer;
+  color: inherit;
+}
+
+.balance-rail-indicator {
+  display: flex;
+  min-height: 28px;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.balance-rail-indicator-dot {
+  width: 6px;
+  height: 6px;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.24);
+  padding: 0;
+  transition: width 180ms ease, background-color 180ms ease, transform 180ms ease;
+}
+
+.balance-rail-indicator-dot.is-active {
+  width: 24px;
+  background: var(--accent);
+}
+
+.balance-rail-indicator-dot:active { transform: scale(0.9); }
 
 /* ---------- Safe-to-spend decision card ---------- */
 .home-safe-spend-card {
@@ -442,6 +475,9 @@ section.rounded-\[22px\].border {
   background: rgba(255, 255, 255, 0.88);
 }
 
+:root[data-theme='light'] .balance-rail-indicator-dot { background: rgba(25, 23, 20, 0.20); }
+:root[data-theme='light'] .balance-rail-indicator-dot.is-active { background: var(--accent); }
+
 :root[data-theme='light'] .home-safe-spend-card {
   border-color: #e6e0d8;
   background:
@@ -463,6 +499,14 @@ section.rounded-\[22px\].border {
 :root[data-theme='light'] .dock-v3-icon { border-color: #e6e0d8; color: #6e675f; }
 :root[data-theme='light'] .dock-v3-active { background: rgba(25, 23, 20, 0.06); }
 :root[data-theme='light'] .dock-v3-label { color: #191714; }
+:root[data-theme='light'] .dock-v3-more {
+  border-color: #e6e0d8;
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 16px 38px rgba(25, 23, 20, 0.16);
+}
+:root[data-theme='light'] .dock-v3-more-item { color: #6e675f; }
+:root[data-theme='light'] .dock-v3-more-item:hover,
+:root[data-theme='light'] .dock-v3-more-item-active { background: rgba(25, 23, 20, 0.06); color: #191714; }
 
 @media (min-width: 640px) {
   .home-balance-card { flex-basis: 100%; }

@@ -1,6 +1,7 @@
 import { ArrowDown, ArrowRight, ArrowRightLeft, ArrowUpRight, Banknote, ChevronDown, Eye, EyeOff, Flag, Landmark, Settings, Sparkles, Target, UserRound, WalletCards } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { BalanceRailIndicator } from '../components/BalanceRailIndicator'
 import { CategoryIcon } from '../components/icons/CategoryIcon'
 import { firstNameOf, getProfile, initialsOf } from '../lib/profile'
 import { trackEvent } from '../lib/analytics'
@@ -10,6 +11,14 @@ import { calculateSafeSpend, detectMoneyLeak } from '../utils/journeyCalculation
 import { cn } from '../utils/ui'
 
 type DashboardAction = 'income' | 'expense' | 'transfer' | 'goal' | 'debt' | null
+
+function railStep(rail: HTMLElement) {
+  const firstCard = rail.firstElementChild
+  if (!(firstCard instanceof HTMLElement)) return 1
+  const styles = window.getComputedStyle(rail)
+  const gap = Number.parseFloat(styles.columnGap || styles.gap)
+  return firstCard.offsetWidth + (Number.isFinite(gap) ? gap : 0)
+}
 
 /** "Today" / "Yesterday" / "Jul 16" — matches the entry rows in the Home mock. */
 function relativeDay(date: string) {
@@ -53,6 +62,7 @@ export function Dashboard({
   const [showBreakdown, setShowBreakdown] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
   const [coachOpen, setCoachOpen] = useState(!journeySettings.tourCompleted)
+  const [activeBalanceIndex, setActiveBalanceIndex] = useState(0)
   const balanceRailRef = useRef<HTMLDivElement>(null)
   const balanceRailFrame = useRef<number | undefined>(undefined)
   const activeBalanceCard = useRef(0)
@@ -63,6 +73,10 @@ export function Dashboard({
   const progress = safeSpend.cycle ? Math.max(0, Math.min(100, (safeSpend.cycle.daysElapsed / safeSpend.cycle.totalDays) * 100)) : 0
   const needsSetup = safeSpend.state === 'needs_setup'
   const totalBalance = useMemo(() => accounts.reduce((sum, account) => sum + account.balance, 0), [accounts])
+  const balanceRailItems = useMemo(() => [
+    { id: 'total-balance', label: 'total balance' },
+    ...accounts.map((account) => ({ id: account.id, label: account.name })),
+  ], [accounts])
   const stateCopy = {
     comfortable: { label: 'Comfortable', className: 'journey-status-positive' },
     watchful: { label: 'Watchful', className: 'journey-status-warning' },
@@ -79,19 +93,25 @@ export function Dashboard({
     if (balanceRailFrame.current !== undefined) window.cancelAnimationFrame(balanceRailFrame.current)
     balanceRailFrame.current = window.requestAnimationFrame(() => {
       const rail = balanceRailRef.current
-      const firstCard = rail?.querySelector<HTMLElement>('.home-balance-card')
-      if (!rail || !firstCard) return
+      if (!rail) return
 
-      const nextCard = Math.round(rail.scrollLeft / firstCard.offsetWidth)
+      const nextCard = Math.max(0, Math.min(balanceRailItems.length - 1, Math.round(rail.scrollLeft / railStep(rail))))
       if (nextCard === activeBalanceCard.current) return
       activeBalanceCard.current = nextCard
+      setActiveBalanceIndex(nextCard)
 
       if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) navigator.vibrate?.(8)
     })
-  }, [])
+  }, [balanceRailItems.length])
 
   useEffect(() => () => {
     if (balanceRailFrame.current !== undefined) window.cancelAnimationFrame(balanceRailFrame.current)
+  }, [])
+
+  const scrollToBalanceIndex = useCallback((index: number) => {
+    const rail = balanceRailRef.current
+    if (!rail) return
+    rail.scrollTo({ left: index * railStep(rail), behavior: 'smooth' })
   }, [])
 
   return (
@@ -123,6 +143,7 @@ export function Dashboard({
           />
           {accounts.map((account) => <BalanceCard account={account} amount={account.balance} detail={account.cardLabel} icon={account.type === 'bank' ? Landmark : account.type === 'cash' ? Banknote : WalletCards} key={account.id} label={account.name} showBalance={showBalance} typeLabel={account.type} />)}
         </div>
+        <BalanceRailIndicator activeIndex={activeBalanceIndex} items={balanceRailItems} onSelect={scrollToBalanceIndex} />
       </section>
 
       <section aria-label="Safe to spend today" className="mt-4">
