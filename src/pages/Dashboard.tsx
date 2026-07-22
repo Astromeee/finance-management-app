@@ -1,6 +1,6 @@
-import { ArrowDown, ArrowRight, ArrowRightLeft, ArrowUpRight, Eye, EyeOff, Flag, Settings, Sparkles, Target, UserRound, WalletCards } from 'lucide-react'
+import { ArrowDown, ArrowRight, ArrowRightLeft, ArrowUpRight, ChevronDown, Eye, EyeOff, Flag, Settings, Sparkles, Target, UserRound, WalletCards } from 'lucide-react'
 import { motion } from 'framer-motion'
-import { useMemo, useRef, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { CategoryIcon } from '../components/icons/CategoryIcon'
 import { firstNameOf, getProfile, initialsOf } from '../lib/profile'
 import { trackEvent } from '../lib/analytics'
@@ -10,8 +10,6 @@ import { calculateSafeSpend, detectMoneyLeak } from '../utils/journeyCalculation
 import { cn } from '../utils/ui'
 
 type DashboardAction = 'income' | 'expense' | 'transfer' | 'goal' | 'debt' | null
-
-const CARD_GAP = 14
 
 /** "Today" / "Yesterday" / "Jul 16" — matches the entry rows in the Home mock. */
 function relativeDay(date: string) {
@@ -55,9 +53,6 @@ export function Dashboard({
   const [showBreakdown, setShowBreakdown] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
   const [coachOpen, setCoachOpen] = useState(!journeySettings.tourCompleted)
-  const [slide, setSlide] = useState(0)
-  const lastSlide = useRef(0)
-  const railRef = useRef<HTMLDivElement>(null)
   const profile = getProfile()
   const safeSpend = useMemo(() => calculateSafeSpend({ accounts, budgets, categories, upcomingExpenses, settings: journeySettings }), [accounts, budgets, categories, upcomingExpenses, journeySettings])
   const insight = useMemo(() => detectMoneyLeak(transactions), [transactions])
@@ -71,23 +66,6 @@ export function Dashboard({
     protect: { label: 'Protect', className: 'journey-status-negative' },
     needs_setup: { label: 'Needs setup', className: 'journey-status-warning' },
   }[safeSpend.state]
-
-  // one dot per card: the safe-to-spend card, then one per account
-  const slides = 1 + accounts.length
-
-  const onRailScroll = () => {
-    const rail = railRef.current
-    const card = rail?.firstElementChild as HTMLElement | null
-    if (!rail || !card) return
-    const next = Math.max(0, Math.min(slides - 1, Math.round(rail.scrollLeft / (card.offsetWidth + CARD_GAP))))
-    // guard on a ref, not on `slide`: scroll fires far faster than React
-    // re-renders, so a state check would be stale and buzz several times per swipe
-    if (next === lastSlide.current) return
-    lastSlide.current = next
-    setSlide(next)
-    // a short tick as each card snaps into place (no-op where unsupported)
-    if (typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') navigator.vibrate(8)
-  }
 
   const completeCoach = () => {
     setCoachOpen(false)
@@ -108,77 +86,63 @@ export function Dashboard({
       </header>
 
       <section aria-label="Your money" className="mt-5">
-        <div className="home-rail" onScroll={onRailScroll} ref={railRef}>
-          <article className="home-rail-card flex flex-col">
-            <div className="flex items-start justify-between gap-3">
+        <article className="home-money-card">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <p className="text-sm font-semibold text-[var(--muted)]">Total balance</p>
+              <div className="mt-2 flex items-center gap-3">
+                <h2 className="font-display text-[clamp(2.65rem,12vw,3.7rem)] font-bold leading-none tracking-tight tabular-nums">{showBalance ? formatPKR(totalBalance) : 'Rs ••••'}</h2>
+                <button aria-label={showBalance ? 'Hide money amounts' : 'Show money amounts'} className="text-[var(--muted-2)] transition-colors hover:text-[var(--text)]" onClick={() => setShowBalance((value) => !value)}>{showBalance ? <Eye size={18} /> : <EyeOff size={18} />}</button>
+              </div>
+              <p className="mt-2 text-xs text-[var(--muted)]">Across {accounts.length} {accounts.length === 1 ? 'account' : 'accounts'}</p>
+            </div>
+          </div>
+
+          <div className="my-5 h-px bg-[var(--border)]" />
+
+          <div className="flex items-start justify-between gap-4">
+            <div className="min-w-0">
               <p className="text-sm font-semibold text-[var(--muted)]">Safe to spend today</p>
-              <span className={cn('journey-status', stateCopy.className)}><span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-current" />{stateCopy.label}</span>
+              {needsSetup ? <p className="mt-2 font-display text-2xl font-bold">Finish your setup</p> : <p className="mt-2 font-display text-[clamp(2rem,9vw,2.8rem)] font-bold leading-none tracking-tight tabular-nums">{showBalance ? formatPKR(safeSpend.safeToSpendToday) : 'Rs ••••'}</p>}
             </div>
+            <span className={cn('journey-status shrink-0', stateCopy.className)}>{stateCopy.label}</span>
+          </div>
 
-            {needsSetup ? (
-              <>
-                <h2 className="mt-3 font-display text-[2.4rem] font-bold leading-none">Finish your setup</h2>
-                <p className="mt-3 text-sm leading-6 text-[var(--muted)]">{safeSpend.explanation}</p>
-                <button className="btn-primary mt-5 self-start px-5" onClick={onSetupJourney}>Complete journey setup <ArrowRight size={17} /></button>
-              </>
-            ) : (
-              <>
-                <div className="mt-2 flex items-center gap-3">
-                  <h2 className="font-display text-[clamp(2.6rem,12vw,3.6rem)] font-bold leading-none tracking-tight tabular-nums">{showBalance ? formatPKR(safeSpend.safeToSpendToday) : 'Rs ••••'}</h2>
-                  <button aria-label={showBalance ? 'Hide money amounts' : 'Show money amounts'} className="text-[var(--muted-2)] transition-colors hover:text-[var(--text)]" onClick={() => setShowBalance((value) => !value)}>{showBalance ? <Eye size={18} /> : <EyeOff size={18} />}</button>
-                </div>
-                <button
-                  aria-expanded={showBreakdown}
-                  className="mt-2 self-start text-left text-sm leading-6 text-[var(--muted)]"
-                  onClick={() => setShowBreakdown((value) => { if (!value) trackEvent('journey_breakdown_opened', { surface: 'home', state: safeSpend.state }); return !value })}
-                >
-                  Bills + {formatPKR(safeSpend.safetyReserve)} reserve already protected
-                </button>
-                {showBreakdown && <dl className="mt-3 grid gap-2 text-sm"><BreakdownRow label="Spendable balances" value={safeSpend.includedBalance} /><BreakdownRow label="Protected for bills" value={-safeSpend.reservedForBills} /><BreakdownRow label="Safety reserve" value={-safeSpend.safetyReserve} /><BreakdownRow label="Flexible until payday" value={safeSpend.flexibleMoneyRemaining} strong /></dl>}
-              </>
-            )}
-
-            <div className="mt-auto pt-7">
-              <div className="payday-track">
-                <div className="payday-fill" style={{ width: `${progress}%` }} />
-                <span className="payday-knob" style={{ left: `${progress}%` }} />
-                <span className="payday-target" />
-              </div>
-              <div className="mt-3 flex justify-between text-xs text-[var(--muted)]">
-                <span>{safeSpend.cycle ? `Day ${safeSpend.cycle.daysElapsed} of ${safeSpend.cycle.totalDays}` : 'Start'}</span>
-                <span>{safeSpend.cycle ? `Next income · ${safeSpend.cycle.daysRemaining} days` : 'Add income date'}</span>
-              </div>
+          {needsSetup ? (
+            <div className="mt-3">
+              <p className="text-sm leading-6 text-[var(--muted)]">{safeSpend.explanation}</p>
+              <button className="btn-primary mt-4 px-5" onClick={onSetupJourney}>Complete journey setup <ArrowRight size={17} /></button>
             </div>
-          </article>
+          ) : (
+            <>
+              <button
+                aria-controls="safe-spend-breakdown"
+                aria-expanded={showBreakdown}
+                className="mt-4 flex w-full items-center justify-between gap-3 rounded-xl border border-[var(--border)] bg-[var(--surface)] px-4 py-3 text-left text-sm font-semibold"
+                onClick={() => setShowBreakdown((value) => { if (!value) trackEvent('journey_breakdown_opened', { surface: 'home', state: safeSpend.state }); return !value })}
+              >
+                <span>How this is calculated</span>
+                <ChevronDown className={cn('shrink-0 transition-transform', showBreakdown && 'rotate-180')} size={17} />
+              </button>
+              {showBreakdown && <div className="mt-3 rounded-xl bg-[var(--surface)] p-4" id="safe-spend-breakdown"><p className="mb-3 text-xs leading-5 text-[var(--muted)]">Only accounts included in safe spending are used. Bills and your reserve are protected, then the remainder is divided by the days until your next income.</p><dl className="grid gap-2.5 text-sm"><BreakdownRow label="Included account balances" value={safeSpend.includedBalance} /><BreakdownRow label="Bills before next income" value={-safeSpend.reservedForBills} /><BreakdownRow label="Safety reserve" value={-safeSpend.safetyReserve} /><BreakdownRow label="Available until next income" value={safeSpend.flexibleMoneyRemaining} /><BreakdownRow label={`Safe today (${safeSpend.cycle?.daysRemaining ?? 0} days left)`} value={safeSpend.safeToSpendToday} strong /></dl></div>}
+            </>
+          )}
 
-          {accounts.map((account) => {
-            const share = totalBalance > 0 ? Math.round((account.balance / totalBalance) * 100) : 0
-            return (
-              <article className="home-rail-card flex flex-col" key={account.id}>
-                <div className="flex items-start justify-between gap-3">
-                  <p className="text-sm font-semibold text-[var(--muted)]">{account.name}</p>
-                  <span className="rounded-full border border-[var(--border)] px-2.5 py-1 text-[0.72rem] font-semibold capitalize text-[var(--muted)]">{account.includeInSafeSpend ? account.type : 'Excluded'}</span>
-                </div>
-                <div className="mt-2 flex items-center gap-3">
-                  <h2 className="font-display text-[clamp(2.4rem,11vw,3.4rem)] font-bold leading-none tracking-tight tabular-nums">{showBalance ? formatPKR(account.balance) : 'Rs ••••'}</h2>
-                </div>
-                <p className="mt-2 text-sm leading-6 text-[var(--muted)]">{account.activity}</p>
-                <div className="mt-auto pt-7">
-                  <div className="payday-track"><div className="payday-fill" style={{ width: `${share}%` }} /></div>
-                  <div className="mt-3 flex justify-between text-xs text-[var(--muted)]">
-                    <span>{account.cardLabel}</span>
-                    <span>{share}% of your money</span>
-                  </div>
-                </div>
-              </article>
-            )
-          })}
-        </div>
+          {!needsSetup && <div className="pt-6">
+            <div className="payday-track">
+              <div className="payday-fill" style={{ width: `${progress}%` }} />
+              <span className="payday-knob" style={{ left: `${progress}%` }} />
+              <span className="payday-target" />
+            </div>
+            <div className="mt-3 flex justify-between gap-3 text-xs text-[var(--muted)]">
+              <span>{safeSpend.cycle ? `Day ${safeSpend.cycle.daysElapsed} of ${safeSpend.cycle.totalDays}` : 'Start'}</span>
+              <span className="text-right">{safeSpend.cycle ? `Next income in ${safeSpend.cycle.daysRemaining} days` : 'Add income date'}</span>
+            </div>
+          </div>}
 
-        {slides > 1 && <div className="home-dots" role="tablist" aria-label="Money cards">{Array.from({ length: slides }, (_, index) => <span aria-selected={index === slide} className={cn('home-dot', index === slide && 'home-dot-active')} key={index} role="tab" />)}</div>}
+          {coachOpen && <div className="mt-5 flex items-start gap-3 border-t border-[var(--border)] pt-4"><Sparkles className="mt-0.5 shrink-0 text-[var(--accent)]" size={17} /><div className="min-w-0 flex-1"><p className="text-sm font-semibold">Your daily starting point</p><p className="mt-1 text-xs leading-5 text-[var(--muted)]">Open the calculation whenever you want to check what is protected.</p></div><button className="text-xs font-semibold text-[var(--accent)]" onClick={completeCoach}>Got it</button></div>}
+        </article>
       </section>
-
-      {coachOpen && <div className="mt-4 rounded-2xl border border-[color-mix(in_srgb,var(--accent)_32%,transparent)] bg-[var(--surface)] p-4"><div className="flex gap-3"><Sparkles className="mt-0.5 shrink-0 text-[var(--accent)]" size={19} /><div><p className="font-semibold">Start here each day</p><p className="mt-1 text-sm leading-6 text-[var(--muted)]">This one number already protects your reserve and upcoming bills. Tap it whenever you want to check the logic.</p><button className="mt-3 text-sm font-semibold text-[var(--accent)]" onClick={completeCoach}>Got it</button></div></div></div>}
 
       <section aria-label="Quick actions" className="mt-4 grid grid-cols-4 gap-3">
         <QuickAction icon={ArrowDown} label="Income" onClick={() => onAction('income')} />
@@ -201,7 +165,7 @@ export function Dashboard({
 }
 
 function TodayMove({ insight, state, onAction }: { insight: ReturnType<typeof detectMoneyLeak>; state: ReturnType<typeof calculateSafeSpend>['state']; onAction: () => void }) {
-  const content = insight ? { eyebrow: 'Money leak', title: insight.title, detail: insight.explanation, action: 'See the pattern' } : state === 'needs_setup' ? { eyebrow: 'Today’s move', title: 'Set your next income date', detail: 'It is the one detail needed to turn your balance into a useful daily number.', action: 'Finish setup' } : state === 'protect' ? { eyebrow: 'Today’s move', title: 'Keep flexible spending paused', detail: 'Review upcoming bills before recording another optional purchase.', action: 'Review plan' } : { eyebrow: 'Today’s move', title: 'Keep today accurate', detail: 'Record one purchase while it’s fresh — a clean ledger keeps tomorrow’s number honest.', action: 'Record expense' }
+  const content = insight ? { eyebrow: 'Money leak', title: insight.title, detail: insight.explanation, action: 'See the pattern' } : state === 'needs_setup' ? { eyebrow: 'Today’s move', title: 'Set your next income date', detail: 'It is the one detail needed to turn your balance into a useful daily number.', action: 'Finish setup' } : state === 'protect' ? { eyebrow: 'Today’s move', title: 'Keep flexible spending paused', detail: 'Review upcoming bills before recording another optional purchase.', action: 'Review plan' } : { eyebrow: 'Today’s move', title: 'Keep today accurate', detail: 'Record one purchase while it is fresh. A clean ledger keeps tomorrow’s number honest.', action: 'Record expense' }
   return (
     <section className="mt-4 rounded-[22px] border border-[var(--border)] bg-[var(--surface)] p-5">
       <div className="flex items-start gap-4">

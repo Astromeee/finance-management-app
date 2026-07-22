@@ -122,7 +122,7 @@ function App() {
   const location = useLocation()
   const navigate = useNavigate()
   const routePage = location.pathname.startsWith('/app/') ? location.pathname.split('/')[2] : 'dashboard'
-  const activePage = routePage
+  const activePage = routePage === 'goals' ? 'budgets' : routePage
   const [activeModal, setActiveModal] = useState<ActionModal>(null)
   const [activeDebtId, setActiveDebtId] = useState<string | undefined>()
   const [expenseDraft, setExpenseDraft] = useState<{ amount: number; category: string; wishlistId?: string }>()
@@ -169,6 +169,10 @@ function App() {
   const setActivePage = useCallback((page: string) => {
     navigate(page === 'dashboard' ? '/app' : `/app/${page}`)
   }, [navigate])
+
+  useEffect(() => {
+    if (routePage === 'goals') navigate('/app/budgets', { replace: true })
+  }, [navigate, routePage])
 
   useEffect(() => onProfileChange(setProfileState), [])
 
@@ -548,7 +552,6 @@ function App() {
         transactions={transactions}
         wishlistItems={wishlistItems}
         activeQuest={moneyQuests.find((item) => item.status === 'active')}
-        goals={goals}
         onNavigateSettings={() => setActivePage('settings')}
         onAddUpcoming={addUpcoming}
         onUpdateUpcoming={updateUpcoming}
@@ -578,16 +581,6 @@ function App() {
           setExpenseDraft({ amount: item.amount, category: categories.find((category) => category.id === item.categoryId)?.name ?? 'Miscellaneous', wishlistId: item.id })
           setActiveModal('expense')
           trackEvent('wishlist_decision', { surface: 'plan', action: 'buy' })
-        }}
-        onMoveWishlistToGoal={(item) => {
-          const goal: Goal = { id: makeId(), name: item.name, target: item.amount, saved: 0, status: 'Active' }
-          const next = { ...item, goalId: goal.id, status: 'moved_to_goal' as const }
-          void saveGoal(goal).catch((error) => showToast(error.message))
-          void saveWishlistItem(next).catch((error) => showToast(error.message))
-          setGoals((current) => [goal, ...current])
-          setWishlistItems((current) => current.map((entry) => entry.id === item.id ? next : entry))
-          showToast('Wishlist item moved to a savings goal')
-          trackEvent('wishlist_decision', { surface: 'plan', action: 'move_to_goal' })
         }}
         onSaveQuest={(quest) => {
           void saveMoneyQuest(quest).catch((error) => showToast(error.message))

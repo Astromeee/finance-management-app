@@ -98,12 +98,20 @@ article.rounded-2xl {
 .journey-hero-comfortable,
 .journey-hero-watchful,
 .journey-hero-protect,
+.home-money-card,
 .home-rail-card {
   background: #211f1c;
   border: 1px solid rgba(255, 255, 255, 0.14);
   box-shadow:
     0 24px 48px rgba(0, 0, 0, 0.45),
     inset 0 1.5px 0 rgba(255, 255, 255, 0.10);
+}
+
+.home-money-card {
+  width: 100%;
+  overflow: hidden;
+  padding: 22px;
+  border-radius: 26px;
 }
 
 /* The TodayMove / Money-leak section card (rounded-[22px] surface) */
@@ -200,6 +208,7 @@ section.rounded-\[22px\].border {
 :root[data-theme='light'] .journey-hero-comfortable,
 :root[data-theme='light'] .journey-hero-watchful,
 :root[data-theme='light'] .journey-hero-protect,
+:root[data-theme='light'] .home-money-card,
 :root[data-theme='light'] .home-rail-card,
 :root[data-theme='light'] section.rounded-\[22px\].border {
   background: #ffffff;
