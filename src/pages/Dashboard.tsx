@@ -1,4 +1,4 @@
-import { ArrowDown, ArrowRight, ArrowRightLeft, ArrowUpRight, ChevronDown, Eye, EyeOff, Flag, Settings, Sparkles, Target, UserRound, WalletCards } from 'lucide-react'
+import { ArrowDown, ArrowRight, ArrowRightLeft, ArrowUpRight, Banknote, ChevronDown, Eye, EyeOff, Flag, Landmark, Settings, Sparkles, Target, UserRound, WalletCards } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { useMemo, useState } from 'react'
 import { CategoryIcon } from '../components/icons/CategoryIcon'
@@ -85,62 +85,60 @@ export function Dashboard({
         </div>
       </header>
 
-      <section aria-label="Your money" className="mt-5">
-        <article className="home-money-card">
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <p className="text-sm font-semibold text-[var(--muted)]">Total balance</p>
-              <div className="mt-2 flex items-center gap-3">
-                <h2 className="font-display text-[clamp(2.65rem,12vw,3.7rem)] font-bold leading-none tracking-tight tabular-nums">{showBalance ? formatPKR(totalBalance) : 'Rs ••••'}</h2>
-                <button aria-label={showBalance ? 'Hide money amounts' : 'Show money amounts'} className="text-[var(--muted-2)] transition-colors hover:text-[var(--text)]" onClick={() => setShowBalance((value) => !value)}>{showBalance ? <Eye size={18} /> : <EyeOff size={18} />}</button>
-              </div>
-              <p className="mt-2 text-xs text-[var(--muted)]">Across {accounts.length} {accounts.length === 1 ? 'account' : 'accounts'}</p>
-            </div>
-          </div>
+      <section aria-label="Your balances" className="mt-5">
+        <div className="mb-3 flex items-center justify-between px-1">
+          <h2 className="font-display text-lg font-bold">Your money</h2>
+          <button aria-label={showBalance ? 'Hide money amounts' : 'Show money amounts'} className="home-balance-visibility" onClick={() => setShowBalance((value) => !value)}>{showBalance ? <Eye size={18} /> : <EyeOff size={18} />}<span>{showBalance ? 'Hide' : 'Show'}</span></button>
+        </div>
+        <div className="home-balance-rail">
+          <BalanceCard
+            amount={totalBalance}
+            detail={accounts.length ? `Across ${accounts.length} ${accounts.length === 1 ? 'account' : 'accounts'}` : 'Add an account to begin'}
+            icon={WalletCards}
+            label="Total balance"
+            showBalance={showBalance}
+            typeLabel="All money"
+          />
+          {accounts.map((account) => <BalanceCard account={account} amount={account.balance} detail={account.cardLabel} icon={account.type === 'bank' ? Landmark : account.type === 'cash' ? Banknote : WalletCards} key={account.id} label={account.name} showBalance={showBalance} typeLabel={account.type} />)}
+        </div>
+      </section>
 
-          <div className="my-5 h-px bg-[var(--border)]" />
-
-          <div className="flex items-start justify-between gap-4">
+      <section aria-label="Safe to spend today" className="mt-4">
+        <article className={cn('home-safe-spend-card', `home-safe-spend-${safeSpend.state}`, showBreakdown && 'is-expanded')}>
+          <div className="home-safe-spend-summary">
             <div className="min-w-0">
               <p className="text-sm font-semibold text-[var(--muted)]">Safe to spend today</p>
-              {needsSetup ? <p className="mt-2 font-display text-2xl font-bold">Finish your setup</p> : <p className="mt-2 font-display text-[clamp(2rem,9vw,2.8rem)] font-bold leading-none tracking-tight tabular-nums">{showBalance ? formatPKR(safeSpend.safeToSpendToday) : 'Rs ••••'}</p>}
+              {needsSetup ? <p className="mt-2 font-display text-2xl font-bold">Finish your setup</p> : <p className="mt-2 font-display text-[clamp(2.25rem,10vw,3rem)] font-bold leading-none tracking-tight tabular-nums">{showBalance ? formatPKR(safeSpend.safeToSpendToday) : 'Rs ••••'}</p>}
+              <p className="mt-3 max-w-[34rem] text-sm leading-6 text-[var(--muted)]">{needsSetup ? safeSpend.explanation : 'Your bills and safety reserve are already protected.'}</p>
             </div>
             <span className={cn('journey-status shrink-0', stateCopy.className)}>{stateCopy.label}</span>
           </div>
 
-          {needsSetup ? (
-            <div className="mt-3">
-              <p className="text-sm leading-6 text-[var(--muted)]">{safeSpend.explanation}</p>
-              <button className="btn-primary mt-4 px-5" onClick={onSetupJourney}>Complete journey setup <ArrowRight size={17} /></button>
+          {needsSetup ? <button className="btn-primary mt-5 px-5" onClick={onSetupJourney}>Complete journey setup <ArrowRight size={17} /></button> : <>
+            <div className="home-safe-spend-cycle">
+              <div className="payday-track">
+                <div className="payday-fill" style={{ width: `${progress}%` }} />
+                <span className="payday-knob" style={{ left: `${progress}%` }} />
+                <span className="payday-target" />
+              </div>
+              <div className="mt-3 flex justify-between gap-3 text-xs text-[var(--muted)]">
+                <span>{safeSpend.cycle ? `Day ${safeSpend.cycle.daysElapsed} of ${safeSpend.cycle.totalDays}` : 'Start'}</span>
+                <span className="text-right">{safeSpend.cycle ? `Next income in ${safeSpend.cycle.daysRemaining} days` : 'Add income date'}</span>
+              </div>
             </div>
-          ) : (
-            <>
-              <button
-                aria-controls="safe-spend-breakdown"
-                aria-expanded={showBreakdown}
-                className="mt-4 flex w-full items-center justify-between gap-3 rounded-xl border border-[var(--border)] bg-[var(--surface)] px-4 py-3 text-left text-sm font-semibold"
-                onClick={() => setShowBreakdown((value) => { if (!value) trackEvent('journey_breakdown_opened', { surface: 'home', state: safeSpend.state }); return !value })}
-              >
-                <span>How this is calculated</span>
-                <ChevronDown className={cn('shrink-0 transition-transform', showBreakdown && 'rotate-180')} size={17} />
-              </button>
-              {showBreakdown && <div className="mt-3 rounded-xl bg-[var(--surface)] p-4" id="safe-spend-breakdown"><p className="mb-3 text-xs leading-5 text-[var(--muted)]">Only accounts included in safe spending are used. Bills and your reserve are protected, then the remainder is divided by the days until your next income.</p><dl className="grid gap-2.5 text-sm"><BreakdownRow label="Included account balances" value={safeSpend.includedBalance} /><BreakdownRow label="Bills before next income" value={-safeSpend.reservedForBills} /><BreakdownRow label="Safety reserve" value={-safeSpend.safetyReserve} /><BreakdownRow label="Available until next income" value={safeSpend.flexibleMoneyRemaining} /><BreakdownRow label={`Safe today (${safeSpend.cycle?.daysRemaining ?? 0} days left)`} value={safeSpend.safeToSpendToday} strong /></dl></div>}
-            </>
-          )}
+            <button
+              aria-controls="safe-spend-breakdown"
+              aria-expanded={showBreakdown}
+              className="home-safe-spend-toggle"
+              onClick={() => setShowBreakdown((value) => { if (!value) trackEvent('journey_breakdown_opened', { surface: 'home', state: safeSpend.state }); return !value })}
+            >
+              <span>{showBreakdown ? 'Hide calculation' : 'See calculation'}</span>
+              <ChevronDown className={cn('shrink-0 transition-transform', showBreakdown && 'rotate-180')} size={18} />
+            </button>
+            {showBreakdown && <div className="home-safe-spend-breakdown" id="safe-spend-breakdown"><p className="mb-4 text-xs leading-5 text-[var(--muted)]">Only accounts included in safe spending are used. Bills and your reserve are protected, then the remainder is divided by the days until your next income.</p><dl className="grid gap-2.5 text-sm"><BreakdownRow label="Included account balances" value={safeSpend.includedBalance} /><BreakdownRow label="Bills before next income" value={-safeSpend.reservedForBills} /><BreakdownRow label="Safety reserve" value={-safeSpend.safetyReserve} /><BreakdownRow label="Available until next income" value={safeSpend.flexibleMoneyRemaining} /><BreakdownRow label={`Safe today (${safeSpend.cycle?.daysRemaining ?? 0} days left)`} value={safeSpend.safeToSpendToday} strong /></dl></div>}
+          </>}
 
-          {!needsSetup && <div className="pt-6">
-            <div className="payday-track">
-              <div className="payday-fill" style={{ width: `${progress}%` }} />
-              <span className="payday-knob" style={{ left: `${progress}%` }} />
-              <span className="payday-target" />
-            </div>
-            <div className="mt-3 flex justify-between gap-3 text-xs text-[var(--muted)]">
-              <span>{safeSpend.cycle ? `Day ${safeSpend.cycle.daysElapsed} of ${safeSpend.cycle.totalDays}` : 'Start'}</span>
-              <span className="text-right">{safeSpend.cycle ? `Next income in ${safeSpend.cycle.daysRemaining} days` : 'Add income date'}</span>
-            </div>
-          </div>}
-
-          {coachOpen && <div className="mt-5 flex items-start gap-3 border-t border-[var(--border)] pt-4"><Sparkles className="mt-0.5 shrink-0 text-[var(--accent)]" size={17} /><div className="min-w-0 flex-1"><p className="text-sm font-semibold">Your daily starting point</p><p className="mt-1 text-xs leading-5 text-[var(--muted)]">Open the calculation whenever you want to check what is protected.</p></div><button className="text-xs font-semibold text-[var(--accent)]" onClick={completeCoach}>Got it</button></div>}
+          {coachOpen && <div className="home-safe-spend-coach"><Sparkles className="mt-0.5 shrink-0 text-[var(--accent)]" size={17} /><div className="min-w-0 flex-1"><p className="text-sm font-semibold">Your daily starting point</p><p className="mt-1 text-xs leading-5 text-[var(--muted)]">Open the calculation whenever you want to check what is protected.</p></div><button className="text-xs font-semibold text-[var(--accent)]" onClick={completeCoach}>Got it</button></div>}
         </article>
       </section>
 
@@ -183,6 +181,22 @@ function TodayMove({ insight, state, onAction }: { insight: ReturnType<typeof de
 
 function QuickAction({ icon: Icon, label, onClick, featured }: { icon: typeof ArrowDown; label: string; onClick: () => void; featured?: boolean }) {
   return <motion.button className={cn('flex min-h-[92px] flex-col items-center justify-center gap-2.5 px-2 text-[0.82rem] font-semibold', featured ? 'quick-action-primary rounded-[20px]' : 'quick-action text-[var(--muted)]')} whileTap={{ scale: 0.97 }} onClick={onClick}><Icon size={20} /><span>{label}</span></motion.button>
+}
+
+function BalanceCard({ account, amount, detail, icon: Icon, label, showBalance, typeLabel }: { account?: Account; amount: number; detail: string; icon: typeof WalletCards; label: string; showBalance: boolean; typeLabel: string }) {
+  return (
+    <article aria-label={`${label} balance`} className="home-balance-card">
+      <div className="home-balance-card-topline">
+        <p className="truncate text-sm font-semibold">{label}</p>
+        <span className="home-balance-card-icon" aria-hidden="true"><Icon size={18} /></span>
+      </div>
+      <p className="home-balance-card-amount">{showBalance ? formatPKR(amount) : 'Rs ••••'}</p>
+      <div className="home-balance-card-footer">
+        <span className="capitalize">{typeLabel}</span>
+        <span className="truncate">{account?.includeInSafeSpend === false ? 'Excluded from safe spend' : detail}</span>
+      </div>
+    </article>
+  )
 }
 
 function BreakdownRow({ label, value, strong }: { label: string; value: number; strong?: boolean }) {
