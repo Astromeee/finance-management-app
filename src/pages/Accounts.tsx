@@ -1,47 +1,32 @@
-import { ArrowRightLeft, PencilLine, Plus, ShieldCheck, Trash2, WalletCards, X } from 'lucide-react'
+import { ArrowRightLeft, GripVertical, PencilLine, Plus, ShieldCheck, Trash2, WalletCards, X } from 'lucide-react'
 import { motion } from 'framer-motion'
-import { useState, type Dispatch, type SetStateAction } from 'react'
+import { useRef, useState, type Dispatch, type PointerEvent as ReactPointerEvent, type SetStateAction } from 'react'
 import type { Account, Transaction } from '../types/finance'
 import { formatPKR, totalBalance } from '../utils/financeCalculations'
 import { cn } from '../utils/ui'
 import { localDateKey } from '../lib/date'
+import { saveAccountOrder } from '../lib/accountOrder'
+import { hapticTap } from '../components/sheets/numpad'
 
 /* ============================================================
    Accounts — "Your wallet." (Vault spec 14b)
-   Stacked account cards cycling exactly three surface treatments
-   (espresso / clay / outlined), a TOTAL + SAFE SPEND USES strip,
-   and the cash helper line. All modals, the color picker, and
-   account CRUD are preserved.
+   Stacked account cards in the Vault's surface treatments.
+   Cards reorder by dragging the grip handle (haptic on every
+   swap; the Home carousel follows the same order). Card color
+   is one of four theme surfaces and only ever affects this
+   page — the Home balance cards stay espresso.
    ============================================================ */
 
+/* The only card surfaces — every option is a Vault token. */
 const cardColorOptions = [
-  { name: 'Red', value: '#c2413d' },
-  { name: 'Black', value: '#111317' },
-  { name: 'Silver', value: '#b9bec7' },
-  { name: 'Navy Blue', value: '#162a4a' },
-  { name: 'Green', value: '#1f4938' },
-  { name: 'Clay', value: '#E2703A' },
-  { name: 'Yellow', value: '#c9b431' },
-]
-
-function normalizeHex(value: string) {
-  const cleaned = value.trim().replace(/^#/, '').slice(0, 6)
-  return `#${cleaned}`
-}
+  { name: 'Espresso', value: '#2B241D', treatment: 'is-espresso' },
+  { name: 'Clay', value: '#E2703A', treatment: 'is-clay' },
+  { name: 'Bone', value: '#FBF8F1', treatment: 'is-outline' },
+  { name: 'Taupe', value: '#9A8F7D', treatment: 'is-taupe' },
+] as const
 
 function isValidHex(value: string) {
   return /^#[0-9a-fA-F]{6}$/.test(value)
-}
-
-function adjustHexLightness(hex: string, amount: number) {
-  if (!isValidHex(hex)) return hex
-  const clean = hex.slice(1)
-  const channels = [0, 2, 4].map((start) => Number.parseInt(clean.slice(start, start + 2), 16))
-  const adjusted = channels.map((channel) => {
-    const target = amount >= 0 ? 255 : 0
-    return Math.max(0, Math.min(255, Math.round(channel + (target - channel) * Math.abs(amount / 100))))
-  })
-  return `#${adjusted.map((channel) => channel.toString(16).padStart(2, '0')).join('')}`
 }
 
 interface AccountsProps {
@@ -62,9 +47,15 @@ const makeAccountId = (name: string) => `${name.toLowerCase().replace(/[^a-z0-9]
 
 const nf = (value: number) => Math.round(value).toLocaleString('en-PK')
 
-/* Exactly three surface treatments, one per account type; clay at most
-   once per viewport (spec 14b §3). */
-function cardTreatments(accounts: Account[]) {
+/** Chosen theme surface, or the spec's type-based cycle for legacy colors. */
+function treatmentFor(account: Account, fallback: string) {
+  const option = cardColorOptions.find((item) => item.value.toLowerCase() === account.color?.toLowerCase())
+  return option?.treatment ?? fallback
+}
+
+/* Fallback cycle (spec 14b §3): cash = outlined, first wallet = clay,
+   the rest espresso. */
+function fallbackTreatments(accounts: Account[]) {
   let clayUsed = false
   return accounts.map((account) => {
     if (account.type === 'cash') return 'is-outline'
@@ -92,7 +83,7 @@ export function Accounts({ accounts, setAccounts, setTransactions, onTransfer, o
   const [notice, setNotice] = useState('')
 
   const total = totalBalance(accounts)
-  const treatments = cardTreatments(accounts)
+  const fallbacks = fallbackTreatments(accounts)
   const safeSpendUses = accounts.filter((account) => account.includeInSafeSpend !== false).length
   const hasCash = accounts.some((account) => account.type === 'cash' && account.includeInSafeSpend === false)
 
@@ -107,6 +98,14 @@ export function Accounts({ accounts, setAccounts, setTransactions, onTransfer, o
     setAccounts((current) => current.map((item) => item.id === account.id ? updated : item))
     setNotice(updated.includeInSafeSpend ? `${account.name} now counts toward safe spend.` : `${account.name} excluded from safe spend.`)
     setMenuAccount(null)
+  }
+
+  /* Every reorder step gets a light haptic; the new order persists locally
+     and flows straight into the Home carousel (same accounts state). */
+  const reorder = (next: Account[]) => {
+    hapticTap()
+    setAccounts(next)
+    saveAccountOrder(next)
   }
 
   return (
@@ -125,27 +124,12 @@ export function Accounts({ accounts, setAccounts, setTransactions, onTransfer, o
       <h1 className="vault-title">Your <em>wallet.</em></h1>
 
       {accounts.length > 0 ? (
-        <section aria-label="Your accounts" className="mt-7 grid gap-3">
-          {accounts.map((account, index) => {
-            const treatment = treatments[index]
-            const included = account.includeInSafeSpend !== false
-            return (
-              <button key={account.id} className={cn('vault-wallet-card', treatment)} type="button" onClick={() => setMenuAccount(account)}>
-                <span className="vault-acct-top">
-                  <span className="vault-acct-name">{account.name}</span>
-                  <span className="vault-acct-tag">{typeTag(account)}</span>
-                </span>
-                {account.type !== 'cash' && (
-                  <span className="vault-acct-number block">···· ···· {account.cardLabel || '····'}</span>
-                )}
-                <span className="vault-acct-foot">
-                  <span className="vault-acct-balance">Rs {nf(account.balance)}</span>
-                  <span className="vault-acct-safe">{included ? 'In safe spend' : 'Excluded'}</span>
-                </span>
-              </button>
-            )
-          })}
-        </section>
+        <WalletList
+          accounts={accounts}
+          treatments={accounts.map((account, index) => treatmentFor(account, fallbacks[index]))}
+          onOpen={setMenuAccount}
+          onReorder={reorder}
+        />
       ) : (
         <button className="vault-dashed mt-7" type="button" onClick={() => setAddingAccount(true)}>
           + Add your first account
@@ -262,7 +246,156 @@ export function Accounts({ accounts, setAccounts, setTransactions, onTransfer, o
 }
 
 /* ============================================================
-   Modals & color picker — unchanged behavior, V3 accents only
+   Reorderable card stack. Drag is driven manually via pointer
+   events on the grip (same approach as BottomSheet) so page
+   scrolling and card taps stay untouched: the dragged card
+   follows the finger, its neighbours slide out of the way with
+   a spring-eased transform, and every position swap fires a
+   light haptic. The committed order feeds the Home carousel.
+   ============================================================ */
+
+const CARD_GAP = 12
+
+type DragState = { id: string; from: number; to: number; dy: number; height: number }
+
+function projectedIndex(rects: Array<{ mid: number }>, from: number, draggedCenter: number) {
+  let to = from
+  for (let index = from + 1; index < rects.length; index++) {
+    if (draggedCenter > rects[index].mid) to = index
+  }
+  for (let index = from - 1; index >= 0; index--) {
+    if (draggedCenter < rects[index].mid) to = index
+  }
+  return to
+}
+
+function WalletList({ accounts, treatments, onOpen, onReorder }: {
+  accounts: Account[]
+  treatments: string[]
+  onOpen: (account: Account) => void
+  onReorder: (next: Account[]) => void
+}) {
+  const itemRefs = useRef(new Map<string, HTMLDivElement>())
+  const [drag, setDrag] = useState<DragState | null>(null)
+  const session = useRef({ pointerId: -1, startY: 0, from: 0, rects: [] as Array<{ height: number; mid: number }> })
+
+  const beginDrag = (event: ReactPointerEvent, index: number) => {
+    if (!event.isPrimary) return
+    event.preventDefault()
+    event.stopPropagation()
+    const rects = accounts.map((account) => {
+      const rect = itemRefs.current.get(account.id)!.getBoundingClientRect()
+      return { height: rect.height, mid: rect.top + rect.height / 2 }
+    })
+    session.current = { pointerId: event.pointerId, startY: event.clientY, from: index, rects }
+    try { (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId) } catch { /* ignore */ }
+    hapticTap()
+    setDrag({ id: accounts[index].id, from: index, to: index, dy: 0, height: rects[index].height })
+  }
+
+  const moveDrag = (event: ReactPointerEvent) => {
+    const { pointerId, startY, from, rects } = session.current
+    if (pointerId !== event.pointerId || !drag) return
+    const dy = event.clientY - startY
+    const to = projectedIndex(rects, from, rects[from].mid + dy)
+    setDrag((current) => {
+      if (!current) return current
+      if (to !== current.to) hapticTap() // a card slid out of the way
+      return { ...current, dy, to }
+    })
+  }
+
+  const endDrag = (event: ReactPointerEvent) => {
+    if (session.current.pointerId !== event.pointerId || !drag) return
+    session.current.pointerId = -1
+    if (drag.to !== drag.from) {
+      const next = [...accounts]
+      const [moved] = next.splice(drag.from, 1)
+      next.splice(drag.to, 0, moved)
+      onReorder(next)
+    }
+    hapticTap() // snap into place
+    setDrag(null)
+  }
+
+  /* Keyboard fallback: arrow keys on the grip nudge the card. */
+  const nudge = (index: number, direction: -1 | 1) => {
+    const target = index + direction
+    if (target < 0 || target >= accounts.length) return
+    const next = [...accounts]
+    const [moved] = next.splice(index, 1)
+    next.splice(target, 0, moved)
+    onReorder(next)
+  }
+
+  /* While dragging, neighbours between the old and projected slot shift
+     by the dragged card's height (+gap); the dragged card follows dy. */
+  const shiftFor = (index: number): number => {
+    if (!drag) return 0
+    if (drag.from < drag.to && index > drag.from && index <= drag.to) return -(drag.height + CARD_GAP)
+    if (drag.from > drag.to && index >= drag.to && index < drag.from) return drag.height + CARD_GAP
+    return 0
+  }
+
+  return (
+    <div aria-label="Your accounts — drag the grip to reorder" className="mt-7 flex flex-col gap-3" role="list">
+      {accounts.map((account, index) => {
+        const included = account.includeInSafeSpend !== false
+        const isDragged = drag?.id === account.id
+        return (
+          <div
+            key={account.id}
+            ref={(node) => { if (node) itemRefs.current.set(account.id, node); else itemRefs.current.delete(account.id) }}
+            role="listitem"
+            className={cn('vault-wallet-card cursor-pointer', treatments[index], isDragged && 'is-dragging')}
+            style={{
+              transform: isDragged ? `translateY(${drag.dy}px) scale(1.02)` : `translateY(${shiftFor(index)}px)`,
+              transition: isDragged ? 'none' : drag ? 'transform .25s cubic-bezier(0.22, 1, 0.36, 1)' : 'none',
+            }}
+            tabIndex={0}
+            aria-label={`${account.name} — open card actions`}
+            onClick={() => { if (!drag) onOpen(account) }}
+            onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); onOpen(account) } }}
+          >
+            <span className="vault-acct-top">
+              <span className="vault-acct-name">{account.name}</span>
+              <span className="flex items-center gap-1.5">
+                <span className="vault-acct-tag">{typeTag(account)}</span>
+                <span
+                  role="button"
+                  tabIndex={0}
+                  aria-label={`Reorder ${account.name} — drag, or use the arrow keys`}
+                  className="vault-grip"
+                  onClick={(event) => event.stopPropagation()}
+                  onPointerDown={(event) => beginDrag(event, index)}
+                  onPointerMove={moveDrag}
+                  onPointerUp={endDrag}
+                  onPointerCancel={endDrag}
+                  onKeyDown={(event) => {
+                    if (event.key === 'ArrowUp') { event.preventDefault(); event.stopPropagation(); nudge(index, -1) }
+                    if (event.key === 'ArrowDown') { event.preventDefault(); event.stopPropagation(); nudge(index, 1) }
+                  }}
+                >
+                  <GripVertical size={17} strokeWidth={1.8} />
+                </span>
+              </span>
+            </span>
+            {account.type !== 'cash' && (
+              <span className="vault-acct-number block">···· ···· {account.cardLabel || '····'}</span>
+            )}
+            <span className="vault-acct-foot">
+              <span className="vault-acct-balance">Rs {nf(account.balance)}</span>
+              <span className="vault-acct-safe">{included ? 'In safe spend' : 'Excluded'}</span>
+            </span>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+/* ============================================================
+   Modals & color picker
    ============================================================ */
 
 function AddAccountModal({
@@ -282,29 +415,9 @@ function AddAccountModal({
   const [type, setType] = useState<Account['type']>('bank')
   const [balance, setBalance] = useState('')
   const [cardLabel, setCardLabel] = useState('')
-  const [color, setColor] = useState('#1d2026')
-  const [baseColor, setBaseColor] = useState('#1d2026')
-  const [lightness, setLightness] = useState(0)
-  const [hexInput, setHexInput] = useState('#1d2026')
+  const [color, setColor] = useState<string>(cardColorOptions[0].value)
 
   if (!open) return null
-
-  const setColorFromBase = (nextBase: string, nextLightness = lightness) => {
-    setBaseColor(nextBase)
-    setLightness(nextLightness)
-    const nextColor = adjustHexLightness(nextBase, nextLightness)
-    setColor(nextColor)
-    setHexInput(nextColor)
-  }
-
-  const setColorFromHex = (value: string) => {
-    const normalized = normalizeHex(value)
-    setHexInput(normalized)
-    if (!isValidHex(normalized)) return
-    setBaseColor(normalized)
-    setLightness(0)
-    setColor(normalized)
-  }
 
   const saveAccount = async () => {
     const parsedBalance = Number(balance || 0)
@@ -364,14 +477,7 @@ function AddAccountModal({
             <span className="form-label">Masked card label</span>
             <input className="form-input uppercase" maxLength={8} placeholder="HBL" value={cardLabel} onChange={(event) => setCardLabel(event.target.value)} />
           </label>
-          <CardColorPicker
-            baseColor={baseColor}
-            color={color}
-            hexInput={hexInput}
-            lightness={lightness}
-            setColorFromBase={setColorFromBase}
-            setColorFromHex={setColorFromHex}
-          />
+          <CardColorPicker color={color} onPick={setColor} />
         </div>
 
         <div className="mt-5 grid grid-cols-2 gap-3">
@@ -404,29 +510,9 @@ function EditAccountModal({
   const [type, setType] = useState<Account['type']>(account?.type ?? 'bank')
   const [balance, setBalance] = useState(account?.balance.toString() ?? '')
   const [cardLabel, setCardLabel] = useState(account?.cardLabel ?? '')
-  const [color, setColor] = useState(account?.color ?? '#1d2026')
-  const [baseColor, setBaseColor] = useState(account?.color ?? '#1d2026')
-  const [lightness, setLightness] = useState(0)
-  const [hexInput, setHexInput] = useState(account?.color ?? '#1d2026')
+  const [color, setColor] = useState(account?.color ?? cardColorOptions[0].value)
 
   if (!account) return null
-
-  const setColorFromBase = (nextBase: string, nextLightness = lightness) => {
-    setBaseColor(nextBase)
-    setLightness(nextLightness)
-    const nextColor = adjustHexLightness(nextBase, nextLightness)
-    setColor(nextColor)
-    setHexInput(nextColor)
-  }
-
-  const setColorFromHex = (value: string) => {
-    const normalized = normalizeHex(value)
-    setHexInput(normalized)
-    if (!isValidHex(normalized)) return
-    setBaseColor(normalized)
-    setLightness(0)
-    setColor(normalized)
-  }
 
   const saveAccount = async () => {
     const parsedBalance = Number(balance)
@@ -472,7 +558,7 @@ function EditAccountModal({
     setAccounts((current) => current.map((item) => item.id === account.id ? updatedAccount : item))
     if (adjustment) setTransactions((current) => [adjustment, ...current])
 
-    onNotice(balanceDifference === 0 ? `${updatedName} updated. Card carousel is synced.` : `${adjustmentLabel} recorded for ${updatedName}.`)
+    onNotice(balanceDifference === 0 ? `${updatedName} updated.` : `${adjustmentLabel} recorded for ${updatedName}.`)
     onClose()
   }
 
@@ -508,14 +594,7 @@ function EditAccountModal({
             <span className="form-label">Masked card label</span>
             <input className="form-input uppercase" maxLength={8} placeholder="HBL" value={cardLabel} onChange={(event) => setCardLabel(event.target.value)} />
           </label>
-          <CardColorPicker
-            baseColor={baseColor}
-            color={color}
-            hexInput={hexInput}
-            lightness={lightness}
-            setColorFromBase={setColorFromBase}
-            setColorFromHex={setColorFromHex}
-          />
+          <CardColorPicker color={color} onPick={setColor} />
         </div>
 
         <div className="mt-5 grid grid-cols-2 gap-3">
@@ -527,51 +606,35 @@ function EditAccountModal({
   )
 }
 
-function CardColorPicker({
-  baseColor,
-  color,
-  hexInput,
-  lightness,
-  setColorFromBase,
-  setColorFromHex,
-}: {
-  baseColor: string
-  color: string
-  hexInput: string
-  lightness: number
-  setColorFromBase: (nextBase: string, nextLightness?: number) => void
-  setColorFromHex: (value: string) => void
-}) {
+/* Four Vault surfaces, nothing else. Only the Wallet page reads this —
+   the Home balance cards stay espresso regardless. */
+function CardColorPicker({ color, onPick }: { color: string; onPick: (value: string) => void }) {
   return (
     <div>
-      <span className="form-label">Card color</span>
-      <div className="grid grid-cols-4 gap-2 sm:grid-cols-7">
-        {cardColorOptions.map((option) => (
-          <button
-            key={option.name}
-            aria-label={`Use ${option.name}`}
-            className={cn('h-12 rounded-2xl border transition', baseColor === option.value ? 'border-[var(--accent)] ring-2 ring-[rgba(255, 122, 26,.25)]' : 'border-[var(--rule)]')}
-            title={option.name}
-            style={{ background: option.value }}
-            onClick={() => setColorFromBase(option.value, 0)}
-            type="button"
-          />
-        ))}
+      <span className="form-label">Card surface</span>
+      <div className="grid grid-cols-4 gap-2">
+        {cardColorOptions.map((option) => {
+          const selected = color.toLowerCase() === option.value.toLowerCase()
+          return (
+            <button
+              key={option.name}
+              aria-label={`Use ${option.name}`}
+              aria-pressed={selected}
+              className={cn(
+                'flex h-16 flex-col items-center justify-center gap-1 rounded-2xl border transition',
+                selected ? 'border-[var(--clay)] ring-2 ring-[rgba(226,112,58,.25)]' : 'border-[var(--rule)]',
+              )}
+              title={option.name}
+              type="button"
+              onClick={() => onPick(option.value)}
+            >
+              <span className="h-6 w-9 rounded-lg border border-[rgba(43,36,29,.12)]" style={{ background: option.value }} />
+              <span className="text-[10.5px] font-semibold text-[var(--ink-soft)]">{option.name}</span>
+            </button>
+          )
+        })}
       </div>
-      <label className="mt-4 block">
-        <span className="form-label">Lighten / darken</span>
-        <input className="w-full accent-[var(--accent)]" type="range" min="-55" max="55" value={lightness} onChange={(event) => setColorFromBase(baseColor, Number(event.target.value))} />
-        <div className="mt-1 flex justify-between text-xs text-[var(--muted)]"><span>Darker</span><span>{lightness > 0 ? `+${lightness}` : lightness}</span><span>Lighter</span></div>
-      </label>
-      <label className="mt-4 block">
-        <span className="form-label">Hex code</span>
-        <div className="grid grid-cols-[1fr_3.25rem] gap-3">
-          <input className="form-input uppercase" value={hexInput} onChange={(event) => setColorFromHex(event.target.value)} placeholder="#1D2026" />
-          <input className="form-input h-12 p-2" type="color" value={isValidHex(color) ? color : '#1d2026'} onChange={(event) => setColorFromHex(event.target.value)} aria-label="Custom card color" />
-        </div>
-        {!isValidHex(hexInput) && <p className="mt-2 text-xs text-[var(--negative)]">Use a 6-digit hex color, like #162A4A.</p>}
-      </label>
-      <div className="mt-4 h-12 rounded-2xl border border-[var(--rule)]" style={{ background: isValidHex(color) ? color : '#1d2026' }} />
+      <p className="mt-2 text-xs text-[var(--taupe)]">Changes how the card looks here — the Home carousel stays espresso.</p>
     </div>
   )
 }
@@ -671,7 +734,7 @@ function AdjustBalanceModal({
         <div className="mt-4 rounded-3xl border border-[var(--rule)] bg-[var(--surface-2)] p-4">
           <div className="flex items-center justify-between gap-3">
             <span className="text-sm text-[var(--muted)]">Difference</span>
-            <strong className={cn(isIncrease && 'amount-positive', isDecrease && 'amount-negative', !difference && 'amount-neutral')}>
+            <strong className={cn('text-[var(--ink)]', (isIncrease || isDecrease) && 'text-[var(--clay)]')}>
               {hasValue ? `${formatPKR(absoluteDifference)}${isIncrease ? ' increase' : isDecrease ? ' decrease' : ''}` : 'Enter actual balance'}
             </strong>
           </div>

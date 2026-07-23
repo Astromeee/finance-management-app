@@ -113,14 +113,18 @@ body::after,
    Shared Vault components (spec §5)
    ============================================================ */
 
-/* Screen column — phone-first editorial page. */
+/* Screen column — phone-first editorial page. Full-bleed on mobile
+   (no dead side gutters on wide phones); the 27rem phone-column cap
+   only applies on desktop, where the sidebar frames the content. */
 .vault-screen {
   width: 100%;
-  max-width: 27rem;
   margin: 0 auto;
   padding: 32px 26px 118px;
   font-family: var(--font-ui);
   color: var(--ink);
+}
+@media (min-width: 1024px) {
+  .vault-screen { max-width: 27rem; }
 }
 
 /* 5.1 Top bar */
@@ -411,10 +415,14 @@ body::after,
   left: 50%;
   transform: translateX(-50%);
   bottom: calc(22px + env(safe-area-inset-bottom));
-  width: min(100% - 48px, 384px);
+  /* spec §5.7: 24px from the sides on every phone; capped only on larger screens */
+  width: calc(100% - 48px);
   display: flex;
   align-items: center;
   gap: 13px;
+}
+@media (min-width: 640px) {
+  .vault-dock-wrap { width: min(100% - 48px, 384px); }
 }
 .vault-dock {
   flex: 1;
@@ -476,20 +484,21 @@ body::after,
    Screen-specific pieces
    ============================================================ */
 
-/* 13a — balance carousel */
+/* 13a — balance carousel. Exactly ONE card per view: the rail is the
+   content column itself (no bleed/peek of the next card) and every
+   swipe snaps a full step. */
 .vault-carousel {
   display: flex;
   overflow-x: auto;
   scroll-snap-type: x mandatory;
-  gap: 12px;
+  gap: 26px;
   scrollbar-width: none;
-  margin: 0 -26px;
-  padding: 0 26px;
 }
 .vault-carousel::-webkit-scrollbar { display: none; }
 .vault-balance-card {
   flex: 0 0 100%;
-  scroll-snap-align: center;
+  scroll-snap-align: start;
+  scroll-snap-stop: always;
   min-height: 196px;
   border-radius: var(--r-hero);
   background: var(--noise-06), var(--espresso);
@@ -675,6 +684,38 @@ body::after,
 }
 .vault-wallet-card.is-outline .vault-acct-tag,
 .vault-wallet-card.is-outline .vault-acct-safe { color: var(--taupe); }
+.vault-wallet-card.is-taupe { background: var(--taupe); color: var(--espresso); }
+.vault-wallet-card.is-taupe .vault-acct-tag,
+.vault-wallet-card.is-taupe .vault-acct-number,
+.vault-wallet-card.is-taupe .vault-acct-safe { color: rgba(43, 36, 29, .62); }
+
+/* Wallet reorder: grip handle + lifted drag state */
+.vault-grip {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  margin: -6px -8px -6px 0;
+  border-radius: 999px;
+  color: currentColor;
+  opacity: .45;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.vault-grip:active { cursor: grabbing; opacity: .8; }
+.vault-wallet-card {
+  user-select: none;
+  -webkit-user-select: none;
+}
+.vault-wallet-card.is-dragging {
+  box-shadow: 0 20px 40px rgba(43, 36, 29, .35);
+  cursor: grabbing;
+  z-index: 5;
+  position: relative;
+}
 
 /* 15a — week-by-week chart */
 .vault-bars {
@@ -831,7 +872,7 @@ body::after,
    Sheets & FAB menu (spec 17a/17b/18a/19a)
    ============================================================ */
 
-/* Shared sheet shell */
+/* Shared sheet shell — full-bleed on phones, capped on larger screens */
 .vault-sheet-scrim {
   position: fixed;
   inset: 0;
@@ -842,7 +883,6 @@ body::after,
 }
 .vault-sheet {
   width: 100%;
-  max-width: 27rem;
   margin: 0 auto;
   max-height: 94svh;
   display: flex;
@@ -869,6 +909,9 @@ body::after,
   scrollbar-width: none;
 }
 .vault-sheet-body::-webkit-scrollbar { display: none; }
+@media (min-width: 640px) {
+  .vault-sheet { max-width: 27rem; }
+}
 .vault-sheet-title {
   text-align: center;
   font-family: var(--font-display);
@@ -1255,6 +1298,51 @@ body::after,
   background: var(--espresso) !important;
   color: var(--bone-text) !important;
 }
+
+/* ============================================================
+   Legacy control re-skin — theme.css/theme-v5.css paint these
+   with hardcoded dark gradients that the variable remap can't
+   reach (invisible on bone surfaces). Flat Vault fills, loaded
+   last so they win the cascade. No gradients.
+   ============================================================ */
+.btn-primary,
+button.bg-\[var\(--accent\)\]:not(.rounded-full) {
+  background: var(--clay);
+  color: #fff;
+  border-radius: 999px;
+  box-shadow: none;
+  font-family: var(--font-ui);
+  font-weight: 700;
+}
+.quick-action,
+.icon-button,
+.home-glass-icon,
+.home-v2-icon-button,
+.home-install-button {
+  background: var(--vault-surface);
+  border: 1px solid var(--rule);
+  color: var(--ink);
+}
+/* theme.css/theme-v5.css turn ANY .rounded-2xl.border element into a dark
+   "ink card" — on bone surfaces that made modal rows unreadable. */
+.account-card,
+.upcoming-expense-card,
+.goal-debt-card,
+.home-install-hint,
+.rounded-2xl.border,
+.rounded-\[24px\].border,
+article.rounded-2xl {
+  background: var(--vault-surface);
+  border-color: var(--rule);
+}
+.form-input,
+.transaction-search-input {
+  background: var(--vault-surface);
+  border-color: var(--rule);
+  color: var(--ink);
+}
+.form-input:focus { border-color: var(--clay); box-shadow: 0 0 0 3px rgba(226, 112, 58, .14); }
+.form-label { color: var(--ink-soft); }
 
 /* Old dock classes die with the old dock; keep them inert if any
    stale CSS still matches. */

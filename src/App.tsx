@@ -6,6 +6,7 @@ import { accounts as initialAccounts, budgets as initialBudgets, debts as initia
 import * as vaultPreview from './data/vaultPreviewData'
 import { adjustAccountBalance, archiveAccount, archiveCategory, deleteBudget, deleteDebt, deleteFinanceTransaction, deleteGoal, deleteUpcomingExpense, deleteWishlistItem, loadFinanceData, markUpcomingExpensePaid, recordFinanceAction, saveAccount, saveBudget, saveCategory, saveDebt, saveGoal, saveJourneySettings, saveMoneyQuest, saveMoneyWin, saveUpcomingExpense, saveUserSettings, saveWishlistItem, updateFinanceTransaction } from './lib/financeRepository'
 import { addRecurringDate, localDateKey } from './lib/date'
+import { applyAccountOrder } from './lib/accountOrder'
 import { setAnalyticsConsent, trackEvent } from './lib/analytics'
 import { getProfile, onProfileChange, setProfile, type Profile } from './lib/profile'
 import { isSupabaseConfigured, supabase } from './lib/supabase'
@@ -139,7 +140,7 @@ function App() {
   const [authProvider, setAuthProvider] = useState<string>()
   const [onboardingCompleted, setOnboardingCompleted] = useState(!isSupabaseConfigured)
   const [journeySettings, setJourneySettings] = useState<JourneySettings>(designPreview ? vaultPreview.journeySettings : defaultJourneySettings)
-  const [accounts, setAccounts] = useState(designPreview ? vaultPreview.accounts : initialAccounts)
+  const [accounts, setAccounts] = useState(() => applyAccountOrder(designPreview ? vaultPreview.accounts : initialAccounts))
   const [transactions, setTransactions] = useState(designPreview ? vaultPreview.transactions : initialTransactions)
   const [goals, setGoals] = useState<Goal[]>(designPreview ? vaultPreview.goals : initialGoals)
   const [debts, setDebts] = useState<Debt[]>(designPreview ? vaultPreview.debts : initialDebts)
@@ -241,7 +242,7 @@ function App() {
         setDataReady(false)
         const remoteState = await loadFinanceData()
         if (cancelled) return
-        setAccounts(remoteState.accounts)
+        setAccounts(applyAccountOrder(remoteState.accounts))
         setTransactions(remoteState.transactions)
         setGoals(remoteState.goals)
         setDebts(remoteState.debts)
@@ -401,7 +402,7 @@ function App() {
     accounts: {
       title: 'Accounts',
       subtitle: 'Manage cash, banks, and wallets',
-      component: <Accounts accounts={accounts} transactions={transactions} setAccounts={setAccounts} setTransactions={setTransactions} onTransfer={() => setActiveModal('transfer')} onOpenTransactions={() => setActivePage('transactions')} onSaveAccount={saveAccount} onAdjustBalance={async (account, transaction) => { await adjustAccountBalance(account, transaction) }} onArchiveAccount={archiveAccount} />,
+      component: <Accounts accounts={accounts} transactions={transactions} setAccounts={setAccounts} setTransactions={setTransactions} onTransfer={() => setActiveModal('transfer')} onOpenTransactions={() => setActivePage('transactions')} onSaveAccount={designPreview ? undefined : saveAccount} onAdjustBalance={designPreview ? undefined : async (account, transaction) => { await adjustAccountBalance(account, transaction) }} onArchiveAccount={designPreview ? undefined : archiveAccount} />,
     },
     goals: {
       title: 'Goals & Debts',
