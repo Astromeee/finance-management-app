@@ -1,9 +1,18 @@
-import { useEffect, useMemo, useState } from 'react'
-import { ChevronDown, Share2, Trophy } from 'lucide-react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { motion } from 'framer-motion'
+import { ChevronDown, Trophy } from 'lucide-react'
 import type { Account, Debt, Goal, JourneySettings, MoneyWin, Transaction, UpcomingExpense } from '../types/finance'
 import { cn } from '../utils/ui'
 import { buildPreviousCycleStory, buildWeeklyReveal, detectMoneyLeak } from '../utils/journeyCalculations'
 import { trackEvent } from '../lib/analytics'
+
+const EASE = [0.22, 1, 0.36, 1] as const
+
+function haptic() {
+  if (typeof window === 'undefined') return
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
+  navigator.vibrate?.(8)
+}
 
 /* ============================================================
    Insights — "The story." (Vault spec 15a)
@@ -51,8 +60,8 @@ export function Reports({
     () => transactions.filter((transaction) => inRange(transaction.date, range)),
     [range, transactions],
   )
-  const incomeTransactions = periodTransactions.filter((transaction) => transaction.type === 'income')
-  const expenseTransactions = periodTransactions.filter((transaction) => transaction.type === 'expense')
+  const incomeTransactions = useMemo(() => periodTransactions.filter((transaction) => transaction.type === 'income'), [periodTransactions])
+  const expenseTransactions = useMemo(() => periodTransactions.filter((transaction) => transaction.type === 'expense'), [periodTransactions])
 
   const totalIncome = incomeTransactions.reduce((sum, transaction) => sum + transaction.amount, 0)
   const totalExpenses = expenseTransactions.reduce((sum, transaction) => sum + transaction.amount, 0)
@@ -62,13 +71,10 @@ export function Reports({
   const spendingByCategory = groupTransactions(expenseTransactions, (transaction) => transaction.category ?? transaction.title, totalExpenses)
   const incomeBySource = groupTransactions(incomeTransactions, (transaction) => transaction.source ?? transaction.category ?? transaction.title, totalIncome)
   const topCategories = spendingByCategory.slice(0, 3)
-  const weeks = weeklyBars(expenseTransactions, range)
+  const weeks = useMemo(() => weeklyBars(expenseTransactions, range), [expenseTransactions, range])
   const weeklyAverage = weeks.length ? Math.round(weeks.reduce((sum, week) => sum + week.amount, 0) / weeks.length) : 0
-  const maxWeek = Math.max(...weeks.map((week) => week.amount), 1)
 
-  const daily = useMemo(() => dailyBars(transactions), [transactions])
-  const maxDaily = Math.max(...daily.map((day) => day.amount), 1)
-  const todaySpent = daily[daily.length - 1]?.amount ?? 0
+  const daily = useMemo(() => dailyBars(expenseTransactions, range), [expenseTransactions, range])
 
   /* Donut: top five categories + everything else, colored from the
      Vault ladder (clay leads, since the biggest slice is the story). */
@@ -90,20 +96,10 @@ export function Reports({
 
   const eyebrow = `${range.label} · Story`.toUpperCase()
 
-  const share = () => {
-    void navigator.share?.({
-      title: 'My Pocket Ledger story',
-      text: `${range.label}: received Rs ${nf(totalIncome)}, spent Rs ${nf(totalExpenses)}, kept ${Math.max(0, savingsRate)}%.`,
-    })
-  }
-
   return (
     <div className="vault-screen">
       <header className="vault-topbar">
         <p className="vault-eyebrow">{eyebrow}</p>
-        <div className="vault-topbar-actions">
-          <button aria-label="Share this story" className="vault-iconbtn" type="button" onClick={share}><Share2 size={15} strokeWidth={1.8} /></button>
-        </div>
       </header>
 
       <h1 className="vault-title">The <em>story.</em></h1>
@@ -131,68 +127,11 @@ export function Reports({
         </div>
       </section>
 
-      <section aria-label="Week by week spending" className="mt-8">
-        <div className="flex items-baseline justify-between">
-          <h2 className="vault-h2">Week by week</h2>
-          <p className="vault-h2-sub vault-digits">avg {nf(weeklyAverage)} / week</p>
-        </div>
-        <div className="vault-bars">
-          {weeks.map((week) => (
-            <div
-              key={week.label}
-              className={cn('vault-bar', week.isNow && 'is-now')}
-              style={{ height: `${Math.max(8, (week.amount / maxWeek) * 100)}%` }}
-            >
-              {week.isNow && week.amount > 0 && <span className="vault-bar-value">{nf(week.amount)}</span>}
-            </div>
-          ))}
-        </div>
-        <div className="vault-bar-labels">
-          {weeks.map((week) => <span key={week.label} className={cn(week.isNow && 'is-now')}>{week.label}</span>)}
-        </div>
-      </section>
+      <WeekChart weeks={weeks} average={weeklyAverage} />
 
-      <section aria-label="Day by day spending, last 14 days" className="mt-9">
-        <div className="flex items-baseline justify-between">
-          <h2 className="vault-h2">Day by day</h2>
-          <p className="vault-h2-sub vault-digits">{todaySpent > 0 ? <>Rs {nf(todaySpent)} today</> : 'last 14 days'}</p>
-        </div>
-        <div className="vault-bars is-daily">
-          {daily.map((day) => (
-            <div
-              key={day.key}
-              className={cn('vault-bar', day.isToday && 'is-now')}
-              style={{ height: `${Math.max(5, (day.amount / maxDaily) * 100)}%` }}
-            />
-          ))}
-        </div>
-        <div className="vault-bar-labels is-daily">
-          {daily.map((day) => <span key={day.key} className={cn(day.isToday && 'is-now')}>{day.label}</span>)}
-        </div>
-      </section>
+      <DayChart days={daily} />
 
-      <section aria-label="Spending split by category" className="mt-9">
-        <div className="flex items-baseline justify-between">
-          <h2 className="vault-h2">The split</h2>
-          <p className="vault-h2-sub">this period, by category</p>
-        </div>
-        {totalExpenses > 0 ? (
-          <div className="mt-5 flex items-center gap-5">
-            <Donut data={donutData} total={totalExpenses} />
-            <div className="min-w-0 flex-1">
-              {donutData.map((segment, index) => (
-                <div key={segment.name} className="flex items-center gap-2.5 border-b border-[var(--rule-soft)] py-2 last:border-b-0">
-                  <span aria-hidden className="h-2 w-2 flex-none rounded-full" style={{ background: DONUT_COLORS[index % DONUT_COLORS.length] }} />
-                  <span className="min-w-0 flex-1 truncate text-[12.5px] font-semibold text-[var(--ink)]">{segment.name}</span>
-                  <span className="vault-digits flex-none text-[12.5px] font-semibold text-[var(--taupe)]">{totalExpenses > 0 ? Math.round((segment.value / totalExpenses) * 100) : 0}%</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        ) : (
-          <p className="py-6 text-sm text-[var(--taupe)]">No spending recorded in this period yet.</p>
-        )}
-      </section>
+      <SplitChart data={donutData} total={totalExpenses} />
 
       <section aria-label="Where it went" className="mt-9">
         <div className="flex items-baseline justify-between">
@@ -328,11 +267,14 @@ function dayOffset(fromKey: string, toKey: string) {
   return Math.round((new Date(`${toKey}T12:00:00`).getTime() - new Date(`${fromKey}T12:00:00`).getTime()) / 86_400_000)
 }
 
+type WeekBar = { label: string; sub: string; amount: number; isNow: boolean }
+type DayBar = { key: string; label: string; full: string; amount: number; isToday: boolean }
+
 /* The one chart: weekly money-out for the selected range. Month ranges
    use real calendar weeks of the month (days 1–7, 8–14, …); longer
    ranges split into four equal segments. The bucket containing today
    is "Now" (clay). */
-function weeklyBars(transactions: Transaction[], range: Range) {
+function weeklyBars(transactions: Transaction[], range: Range): WeekBar[] {
   const start = range.start ?? new Date()
   const end = range.end ?? new Date()
   const startKey = keyOf(start)
@@ -350,24 +292,44 @@ function weeklyBars(transactions: Transaction[], range: Range) {
   const todayIndex = todayOffset >= 0 && todayOffset < spanDays
     ? Math.min(bucketCount - 1, Math.floor(todayOffset / bucketDays))
     : -1
-  return buckets.map((amount, index) => ({
-    label: index === todayIndex ? 'Now' : `W${index + 1}`,
-    amount,
-    isNow: index === todayIndex,
-  }))
+  return buckets.map((amount, index) => {
+    const from = new Date(`${startKey}T12:00:00`)
+    from.setDate(from.getDate() + index * bucketDays)
+    const to = new Date(from)
+    to.setDate(to.getDate() + Math.min(bucketDays, spanDays - index * bucketDays) - 1)
+    const sub = isMonth
+      ? `${from.getDate()}–${to.getDate()} ${to.toLocaleDateString('en-GB', { month: 'short' })}`
+      : `${from.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })} – ${to.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}`
+    return {
+      label: index === todayIndex ? 'Now' : `W${index + 1}`,
+      sub,
+      amount,
+      isNow: index === todayIndex,
+    }
+  })
 }
 
-/* Day-by-day money out — always the last 14 days, independent of the
-   period chips, so it reads as "what did the last two weeks look like". */
-function dailyBars(transactions: Transaction[]) {
-  const now = new Date()
-  const days = Array.from({ length: 14 }, (_, index) => {
-    const date = new Date(now.getFullYear(), now.getMonth(), now.getDate() - (13 - index))
-    return { key: keyOf(date), label: String(date.getDate()), amount: 0, isToday: index === 13 }
+/* Day-by-day money out across the selected range — full month for month
+   periods (scrollable), last 30 days for longer periods. */
+function dailyBars(transactions: Transaction[], range: Range): DayBar[] {
+  const todayKey = keyOf(new Date())
+  let start = range.start ?? new Date()
+  let end = range.end ?? new Date()
+  let spanDays = Math.max(1, dayOffset(keyOf(start), keyOf(end)) + 1)
+  if (spanDays > 31) {
+    end = new Date()
+    start = new Date(end.getFullYear(), end.getMonth(), end.getDate() - 29)
+    spanDays = 30
+  }
+  const startKey = keyOf(start)
+  const days: DayBar[] = Array.from({ length: spanDays }, (_, index) => {
+    const date = new Date(`${startKey}T12:00:00`)
+    date.setDate(date.getDate() + index)
+    const key = keyOf(date)
+    return { key, label: String(date.getDate()), full: date.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' }), amount: 0, isToday: key === todayKey }
   })
   const slot = new Map(days.map((day, index) => [day.key, index]))
   for (const transaction of transactions) {
-    if (transaction.type !== 'expense') continue
     const index = slot.get(transaction.date)
     if (index !== undefined) days[index].amount += transaction.amount
   }
@@ -377,41 +339,207 @@ function dailyBars(transactions: Transaction[]) {
 /* Donut palette — Vault tokens only: clay leads, then the warm ladder. */
 const DONUT_COLORS = ['#E2703A', '#2B241D', '#9A8F7D', '#877B67', '#B9AE97', '#DDD4C1']
 
-function Donut({ data, total }: { data: Array<{ name: string; value: number }>; total: number }) {
-  const R = 54
+/* ============ interactive charts ============ */
+
+/* Week-by-week bars: tap a bar to lock the highlight + floating total onto
+   it; tapping again releases back to the current week ("Now"). Bars draw
+   in on mount. */
+function WeekChart({ weeks, average }: { weeks: WeekBar[]; average: number }) {
+  const [selected, setSelected] = useState<number | null>(null)
+  const max = Math.max(...weeks.map((week) => week.amount), 1)
+  const nowIndex = weeks.findIndex((week) => week.isNow)
+  const activeIndex = selected ?? (nowIndex >= 0 ? nowIndex : -1)
+  const picked = selected !== null ? weeks[selected] : null
+
+  return (
+    <section aria-label="Week by week spending" className="mt-8">
+      <div className="flex items-baseline justify-between gap-3">
+        <h2 className="vault-h2">Week by week</h2>
+        <p className="vault-h2-sub vault-digits">
+          {picked ? <><span className="text-[var(--ink)]">{picked.sub}</span> · Rs {nf(picked.amount)}</> : <>avg {nf(average)} / week</>}
+        </p>
+      </div>
+      <div className="vault-bars">
+        {weeks.map((week, index) => {
+          const on = index === activeIndex
+          return (
+            <motion.button
+              key={index}
+              aria-label={`${week.sub}: Rs ${nf(week.amount)}`}
+              aria-pressed={selected === index}
+              className={cn('vault-bar', on && 'is-now')}
+              type="button"
+              initial={{ height: 0 }}
+              animate={{ height: `${Math.max(8, (week.amount / max) * 100)}%` }}
+              transition={{ duration: 0.6, ease: EASE, delay: index * 0.05 }}
+              onClick={() => { haptic(); setSelected((current) => (current === index ? null : index)) }}
+            >
+              {on && week.amount > 0 && <span className="vault-bar-value">{nf(week.amount)}</span>}
+            </motion.button>
+          )
+        })}
+      </div>
+      <div className="vault-bar-labels">
+        {weeks.map((week, index) => <span key={index} className={cn(index === activeIndex && 'is-now')}>{week.label}</span>)}
+      </div>
+    </section>
+  )
+}
+
+/* Day-by-day bars: horizontally scrollable (≈10 days per view), auto-
+   scrolled to today. Tap a day to see its total in the header. */
+function DayChart({ days }: { days: DayBar[] }) {
+  const [selected, setSelected] = useState<string | null>(null)
+  const scrollRef = useRef<HTMLDivElement>(null)
+  const todayRef = useRef<HTMLButtonElement>(null)
+  const max = Math.max(...days.map((day) => day.amount), 1)
+  const active = days.find((day) => day.key === selected) ?? days.find((day) => day.isToday) ?? null
+
+  // Land on today (rightmost recent day) whenever the range changes.
+  useEffect(() => {
+    const node = todayRef.current
+    const rail = scrollRef.current
+    if (node && rail) rail.scrollLeft = node.offsetLeft - rail.clientWidth + node.clientWidth + 8
+  }, [days])
+
+  return (
+    <section aria-label="Day by day spending" className="mt-9">
+      <div className="flex items-baseline justify-between gap-3">
+        <h2 className="vault-h2">Day by day</h2>
+        <p className="vault-h2-sub vault-digits">
+          {active && active.amount > 0
+            ? <><span className="text-[var(--ink)]">{active.isToday ? 'Today' : active.full}</span> · Rs {nf(active.amount)}</>
+            : active?.isToday ? 'nothing spent today' : 'tap a day'}
+        </p>
+      </div>
+      <div ref={scrollRef} className="vault-day-scroll">
+        <div className="vault-day-track">
+          {days.map((day, index) => {
+            const on = day.key === active?.key
+            return (
+              <div key={day.key} className="vault-day-col">
+                <div className="vault-day-bararea">
+                  <motion.button
+                    ref={day.isToday ? todayRef : undefined}
+                    aria-label={`${day.full}: Rs ${nf(day.amount)}`}
+                    aria-pressed={selected === day.key}
+                    className={cn('vault-bar', on && 'is-now')}
+                    type="button"
+                    initial={{ height: 0 }}
+                    animate={{ height: `${Math.max(4, (day.amount / max) * 100)}%` }}
+                    transition={{ duration: 0.5, ease: EASE, delay: Math.min(index, 20) * 0.02 }}
+                    onClick={() => { haptic(); setSelected((current) => (current === day.key ? null : day.key)) }}
+                  >
+                    {on && day.amount > 0 && <span className="vault-bar-value">{nf(day.amount)}</span>}
+                  </motion.button>
+                </div>
+                <span className={cn('vault-day-label', on && 'is-now')}>{day.label}</span>
+              </div>
+            )
+          })}
+        </div>
+      </div>
+    </section>
+  )
+}
+
+/* Category split: big donut first (arcs draw in on mount), category
+   breakout below. Tap a slice or a row to focus it — the center switches
+   to that category and the others dim. */
+function SplitChart({ data, total }: { data: Array<{ name: string; value: number }>; total: number }) {
+  const [selected, setSelected] = useState<string | null>(null)
+  const R = 62
+  const STROKE = 22
   const C = 2 * Math.PI * R
-  const segments: Array<{ name: string; color: string; dash: number; offset: number }> = []
+  // Changes when the period (and thus the data) changes, so the arcs
+  // remount and replay their draw-in without a setState-in-effect.
+  const drawKey = data.map((segment) => `${segment.name}:${Math.round(segment.value)}`).join('|')
+
+  const segments: Array<{ name: string; color: string; value: number; dash: number; offset: number; percent: number }> = []
   let start = 0
   for (const [index, segment] of data.entries()) {
     const fraction = total > 0 ? segment.value / total : 0
     segments.push({
       name: segment.name,
       color: DONUT_COLORS[index % DONUT_COLORS.length],
+      value: segment.value,
       dash: Math.max(0, fraction * C - 2.5),
       offset: -start * C,
+      percent: Math.round(fraction * 100),
     })
     start += fraction
   }
+  const focus = segments.find((segment) => segment.name === selected) ?? null
+  const centerAmount = focus ? focus.value : total
+  const centerLabel = focus ? focus.name.toUpperCase() : 'SPENT'
+
   return (
-    <svg aria-hidden height={148} viewBox="0 0 148 148" width={148} className="flex-none">
-      {segments.map((segment) => (
-        <circle
-          key={segment.name}
-          cx={74}
-          cy={74}
-          fill="none"
-          r={R}
-          stroke={segment.color}
-          strokeDasharray={`${segment.dash} ${C}`}
-          strokeDashoffset={segment.offset}
-          strokeLinecap="butt"
-          strokeWidth={18}
-          transform="rotate(-90 74 74)"
-        />
-      ))}
-      <text fill="var(--ink)" fontFamily="'Space Grotesk', sans-serif" fontSize={17} fontWeight={600} textAnchor="middle" x={74} y={72}>Rs {nf(total)}</text>
-      <text fill="var(--taupe)" fontFamily="'Schibsted Grotesk', sans-serif" fontSize={10.5} letterSpacing={1.4} textAnchor="middle" x={74} y={90}>SPENT</text>
-    </svg>
+    <section aria-label="Spending split by category" className="mt-9">
+      <div className="flex items-baseline justify-between gap-3">
+        <h2 className="vault-h2">The split</h2>
+        <p className="vault-h2-sub">this period, by category</p>
+      </div>
+
+      {total > 0 ? (
+        <>
+          <div className="mt-6 grid place-items-center">
+            <svg height={188} role="img" viewBox="0 0 188 188" width={188} aria-label="Donut chart of spending by category">
+              {segments.map((segment, index) => {
+                const on = !selected || segment.name === selected
+                return (
+                  <motion.circle
+                    key={`${drawKey}-${segment.name}`}
+                    cx={94}
+                    cy={94}
+                    fill="none"
+                    r={R}
+                    stroke={segment.color}
+                    strokeDasharray={`${segment.dash} ${C}`}
+                    strokeLinecap="butt"
+                    transform="rotate(-90 94 94)"
+                    initial={{ strokeDashoffset: segment.offset + segment.dash }}
+                    animate={{ strokeDashoffset: segment.offset }}
+                    transition={{ duration: 0.7, ease: EASE, delay: index * 0.07 }}
+                    style={{
+                      strokeWidth: segment.name === selected ? STROKE + 6 : STROKE,
+                      opacity: on ? 1 : 0.25,
+                      transition: 'stroke-width .2s ease, opacity .2s ease',
+                    }}
+                  />
+                )
+              })}
+              <text fill="var(--ink)" fontFamily="'Space Grotesk', sans-serif" fontSize={24} fontWeight={600} textAnchor="middle" x={94} y={90}>Rs {nf(centerAmount)}</text>
+              <text fill="var(--taupe)" fontFamily="'Schibsted Grotesk', sans-serif" fontSize={10} letterSpacing={1.6} textAnchor="middle" x={94} y={110}>{centerLabel.length > 16 ? `${centerLabel.slice(0, 15)}…` : centerLabel}</text>
+            </svg>
+          </div>
+
+          <div className="mt-5">
+            {segments.map((segment, index) => {
+              const on = segment.name === selected
+              return (
+                <motion.button
+                  key={segment.name}
+                  aria-pressed={on}
+                  className={cn('flex w-full items-center gap-3 border-b border-[var(--rule-soft)] py-2.5 text-left last:border-b-0', selected && !on && 'opacity-45')}
+                  type="button"
+                  initial={{ opacity: 0, x: -8 }}
+                  animate={{ opacity: selected && !on ? 0.45 : 1, x: 0 }}
+                  transition={{ duration: 0.35, ease: EASE, delay: index * 0.05 }}
+                  onClick={() => { haptic(); setSelected((current) => (current === segment.name ? null : segment.name)) }}
+                >
+                  <span aria-hidden className="h-2.5 w-2.5 flex-none rounded-full" style={{ background: segment.color }} />
+                  <span className="min-w-0 flex-1 truncate text-[13.5px] font-semibold text-[var(--ink)]">{segment.name}</span>
+                  <span className="vault-digits flex-none text-[13.5px] font-semibold text-[var(--ink)]">Rs {nf(segment.value)}</span>
+                  <span className="vault-digits w-10 flex-none text-right text-[13px] font-medium text-[var(--taupe)]">{segment.percent}%</span>
+                </motion.button>
+              )
+            })}
+          </div>
+        </>
+      ) : (
+        <p className="py-6 text-sm text-[var(--taupe)]">No spending recorded in this period yet.</p>
+      )}
+    </section>
   )
 }
 

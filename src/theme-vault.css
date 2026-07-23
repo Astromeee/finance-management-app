@@ -750,11 +750,18 @@ body::after,
 .vault-bar {
   flex: 1;
   position: relative;
+  min-width: 0;
+  border: none;
+  padding: 0;
   border-radius: 10px 10px 5px 5px;
   background: var(--track-alt);
-  transition: height .6s cubic-bezier(0.22, 1, 0.36, 1);
+  cursor: pointer;
+  -webkit-appearance: none;
+  appearance: none;
+  transition: background .18s ease;
 }
 .vault-bar.is-now { background: var(--clay); }
+.vault-bar:active { filter: brightness(0.97); }
 .vault-bar-value {
   position: absolute;
   top: -22px;
@@ -766,13 +773,48 @@ body::after,
   font-weight: 600;
   color: var(--ink);
   white-space: nowrap;
+  pointer-events: none;
 }
-/* Day-by-day variant: 14 slim bars, tighter gaps */
-.vault-bars.is-daily { gap: 5px; height: 92px; margin-top: 22px; }
-.vault-bars.is-daily .vault-bar { border-radius: 6px 6px 3px 3px; }
-.vault-bar-labels.is-daily { gap: 5px; }
-.vault-bar-labels.is-daily span { font-size: 10px; }
 .vault-bar-labels { display: flex; gap: 14px; margin-top: 10px; }
+
+/* Day-by-day: taller area, ~10 columns per view, horizontal scroll for
+   the rest of the month. Each column is a fixed width so the rail
+   overflows and scrolls; today auto-scrolls into view. */
+.vault-day-scroll {
+  margin: 24px -26px 0;
+  padding: 0 26px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+.vault-day-scroll::-webkit-scrollbar { display: none; }
+.vault-day-track { display: flex; gap: 6px; width: max-content; }
+.vault-day-col {
+  width: calc((100vw - 52px - 54px) / 10);
+  min-width: 26px;
+  max-width: 40px;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+}
+@media (min-width: 1024px) {
+  .vault-day-col { width: 32px; }
+}
+.vault-day-bararea {
+  height: 128px;
+  display: flex;
+  align-items: flex-end;
+}
+.vault-day-bararea .vault-bar { width: 100%; border-radius: 7px 7px 3px 3px; }
+.vault-day-label {
+  margin-top: 10px;
+  text-align: center;
+  font-family: var(--font-digits);
+  font-variant-numeric: tabular-nums;
+  font-size: 11px;
+  color: var(--taupe);
+}
+.vault-day-label.is-now { color: var(--ink); font-weight: 700; }
 .vault-bar-labels span {
   flex: 1;
   text-align: center;
