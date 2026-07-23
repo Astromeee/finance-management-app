@@ -2,7 +2,7 @@ import { ArrowUpRight, Bell, Eye, EyeOff, Settings, UserRound } from 'lucide-rea
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { firstNameOf, getProfile, initialsOf } from '../lib/profile'
 import { trackEvent } from '../lib/analytics'
-import type { Account, Budget, Category, Debt, Goal, JourneySettings, Transaction, UpcomingExpense } from '../types/finance'
+import type { Account, Budget, Category, Debt, Goal, JourneySettings, Transaction, UpcomingExpense, WishlistItem } from '../types/finance'
 import { calculateSafeSpend, detectMoneyLeak } from '../utils/journeyCalculations'
 import { cn } from '../utils/ui'
 
@@ -45,13 +45,32 @@ function greetingWord() {
   return 'Good evening,'
 }
 
+/** Signed days until a date key: negative = overdue. */
+function daysUntil(date: string) {
+  const now = new Date()
+  const then = new Date(`${date}T12:00:00`)
+  if (Number.isNaN(then.getTime())) return Number.POSITIVE_INFINITY
+  return Math.round((new Date(then.getFullYear(), then.getMonth(), then.getDate()).getTime() - new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime()) / 86_400_000)
+}
+
+function dueLabel(days: number) {
+  if (days < 0) return `${Math.abs(days)} ${Math.abs(days) === 1 ? 'day' : 'days'} overdue`
+  if (days === 0) return 'due today'
+  if (days === 1) return 'due tomorrow'
+  return `due in ${days} days`
+}
+
+type Notice = { id: string; dot: 'out' | 'in' | 'move'; title: string; meta: string; page: string }
+
 export function Dashboard({
   accounts,
   transactions,
+  debts,
   budgets,
   upcomingExpenses,
   categories,
   journeySettings,
+  wishlistItems = [],
   onNavigate,
   onSetupJourney,
 }: {
@@ -63,6 +82,7 @@ export function Dashboard({
   upcomingExpenses: UpcomingExpense[]
   categories: Category[]
   journeySettings: JourneySettings
+  wishlistItems?: WishlistItem[]
   onAction: (action: DashboardAction) => void
   onNavigate: (page: string) => void
   onPlanPurchase: () => void
@@ -71,6 +91,7 @@ export function Dashboard({
 }) {
   const [showBalance, setShowBalance] = useState(true)
   const [menuOpen, setMenuOpen] = useState(false)
+  const [noticesOpen, setNoticesOpen] = useState(false)
   const [activeBalanceIndex, setActiveBalanceIndex] = useState(0)
   const balanceRailRef = useRef<HTMLDivElement>(null)
   const balanceRailFrame = useRef<number | undefined>(undefined)
@@ -113,6 +134,72 @@ export function Dashboard({
   /* Leak headline: "Dining Out — Rs 40,139 in 30 days" */
   const leakName = insight ? insight.title.replace(/ is quietly adding up$/, '') : null
 
+  /* Notification menu — real heads-ups from the ledger, most urgent first:
+     overdue/soon bills, cooling-off items ready to decide, debt payments
+     coming up, the money leak, and Protect mode. */
+  const notices = useMemo(() => {
+    const list: Notice[] = []
+    for (const bill of upcomingExpenses) {
+      if (bill.status === 'paid') continue
+      const days = daysUntil(bill.dueDate)
+      if (days <= 7) {
+        list.push({
+          id: `bill-${bill.id}`,
+          dot: 'out',
+          title: `${bill.title} ${dueLabel(days)}`,
+          meta: `Rs ${nf(bill.amount)} · locked for bills`,
+          page: 'budgets',
+        })
+      }
+    }
+    for (const item of wishlistItems) {
+      const ready = item.status === 'ready' || (item.status === 'waiting' && new Date(item.reconsiderAt) <= new Date())
+      if (ready) {
+        list.push({
+          id: `wish-${item.id}`,
+          dot: 'in',
+          title: `${item.name} — your head is clear now`,
+          meta: `Rs ${nf(item.amount)} · decide in Cooling off`,
+          page: 'budgets',
+        })
+      }
+    }
+    for (const debt of debts) {
+      const total = debt.totalAmount ?? debt.total ?? 0
+      const paid = debt.paidAmount ?? debt.paid ?? 0
+      if (paid >= total || !debt.dueDate) continue
+      const days = daysUntil(debt.dueDate)
+      if (days <= 7) {
+        list.push({
+          id: `debt-${debt.id}`,
+          dot: 'move',
+          title: `${debt.title ?? debt.name ?? 'Debt'} payment ${dueLabel(days)}`,
+          meta: `Rs ${nf(total - paid)} left`,
+          page: 'goals',
+        })
+      }
+    }
+    if (insight && leakName) {
+      list.push({
+        id: `leak-${insight.id}`,
+        dot: 'out',
+        title: 'Money leak found',
+        meta: `${leakName} — Rs ${nf(insight.amount)} in 30 days`,
+        page: 'reports',
+      })
+    }
+    if (safeSpend.state === 'protect') {
+      list.push({
+        id: 'protect',
+        dot: 'out',
+        title: 'Protect mode is on',
+        meta: 'Pause flexible spending so bills stay covered',
+        page: 'budgets',
+      })
+    }
+    return list.slice(0, 6)
+  }, [upcomingExpenses, wishlistItems, debts, insight, leakName, safeSpend.state])
+
   const statePill = { comfortable: null, needs_setup: null, watchful: <span className="vault-pill is-espresso mt-1.5">Watchful</span>, protect: <span className="vault-pill mt-1.5">Protect</span> }[safeSpend.state]
 
   return (
@@ -120,9 +207,35 @@ export function Dashboard({
       <header className="vault-topbar">
         <p className="vault-eyebrow">{todayEyebrow()}</p>
         <div className="vault-topbar-actions">
-          <button aria-label="Notifications" className="vault-iconbtn" type="button" onClick={() => onNavigate('settings')}><Bell size={15} strokeWidth={1.8} /></button>
           <div className="relative">
-            <button aria-expanded={menuOpen} aria-haspopup="menu" aria-label="Profile menu" className="vault-avatar" type="button" onClick={() => setMenuOpen((current) => !current)}>
+            <button aria-expanded={noticesOpen} aria-haspopup="menu" aria-label={notices.length ? `Notifications — ${notices.length} waiting` : 'Notifications'} className="vault-iconbtn relative" type="button" onClick={() => { setMenuOpen(false); setNoticesOpen((current) => !current) }}>
+              <Bell size={15} strokeWidth={1.8} />
+              {notices.length > 0 && <span aria-hidden className="absolute right-[7px] top-[7px] h-2 w-2 rounded-full bg-[var(--clay)]" />}
+            </button>
+            {noticesOpen && <>
+              <button aria-label="Close notifications" className="fixed inset-0 z-40" onClick={() => setNoticesOpen(false)} />
+              <div className="vault-outline absolute right-[-48px] top-12 z-50 w-[20rem] max-w-[calc(100vw-40px)] px-4 py-3 shadow-xl" role="menu" aria-label="Notifications">
+                <p className="vault-eyebrow">Heads-up</p>
+                {notices.length ? (
+                  <div className="mt-1">
+                    {notices.map((notice) => (
+                      <button key={notice.id} className="vault-row" role="menuitem" type="button" onClick={() => { setNoticesOpen(false); onNavigate(notice.page) }}>
+                        <span className={cn('vault-row-dot', notice.dot === 'in' && 'is-in', notice.dot === 'move' && 'is-move')} />
+                        <span className="vault-row-main">
+                          <span className="vault-row-title block whitespace-normal">{notice.title}</span>
+                          <span className="vault-row-meta block">{notice.meta}</span>
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="py-5 text-center text-sm text-[var(--taupe)]">You&rsquo;re all caught up — nothing needs you right now.</p>
+                )}
+              </div>
+            </>}
+          </div>
+          <div className="relative">
+            <button aria-expanded={menuOpen} aria-haspopup="menu" aria-label="Profile menu" className="vault-avatar" type="button" onClick={() => { setNoticesOpen(false); setMenuOpen((current) => !current) }}>
               {profile.avatar ? <img alt="" src={profile.avatar} /> : initialsOf(profile.name)}
             </button>
             {menuOpen && <>

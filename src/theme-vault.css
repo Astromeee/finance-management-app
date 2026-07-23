@@ -87,6 +87,11 @@
 html,
 :root[data-page] { background: var(--bone); }
 
+/* Global type bump: everything rem-based (Tailwind text utilities,
+   spacing, form inputs) scales from here; the Vault px classes are
+   bumped individually alongside. */
+html { font-size: 17px; }
+
 /* ---- Canvas: flat bone + grain. Retires every previous canvas —
    V4 ember blooms, V5 ledger grids, film-grain overlays. ---- */
 body,
@@ -119,12 +124,21 @@ body::after,
 .vault-screen {
   width: 100%;
   margin: 0 auto;
-  padding: 32px 26px 118px;
+  /* top respects the notch/cutout when the PWA runs fullscreen with the
+     status bar hidden; bottom keeps dock clearance above the gesture bar */
+  padding: max(32px, calc(env(safe-area-inset-top, 0px) + 14px)) 26px calc(118px + env(safe-area-inset-bottom, 0px));
   font-family: var(--font-ui);
   color: var(--ink);
 }
 @media (min-width: 1024px) {
   .vault-screen { max-width: 27rem; }
+}
+/* index.css gives .app-shell-page a legacy mobile gutter — Vault screens
+   own their padding, so strip it wherever one is inside (this is what
+   lets the balance rail bleed to the true screen edge). */
+.app-shell-page:has(.vault-screen) {
+  padding-left: 0;
+  padding-right: 0;
 }
 
 /* 5.1 Top bar */
@@ -136,7 +150,7 @@ body::after,
 }
 .vault-eyebrow {
   font-family: var(--font-ui);
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 600;
   letter-spacing: 2.2px;
   text-transform: uppercase;
@@ -176,7 +190,7 @@ body::after,
   margin-top: 12px;
   font-family: var(--font-display);
   font-weight: 400;
-  font-size: 34px;
+  font-size: 36px;
   line-height: 1.1;
   letter-spacing: -0.5px;
   color: var(--ink);
@@ -187,14 +201,14 @@ body::after,
 .vault-h2 {
   font-family: var(--font-display);
   font-weight: 400;
-  font-size: 22px;
+  font-size: 23px;
   line-height: 1.15;
   letter-spacing: -0.3px;
   color: var(--ink);
 }
 .vault-h2-sub {
   font-family: var(--font-ui);
-  font-size: 11.5px;
+  font-size: 12.5px;
   font-weight: 500;
   color: var(--taupe);
   letter-spacing: 0;
@@ -223,7 +237,7 @@ body::after,
   padding-left: 14px;
 }
 .vault-cell-label {
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 600;
   letter-spacing: 1.4px;
   text-transform: uppercase;
@@ -234,7 +248,7 @@ body::after,
   margin-top: 7px;
   font-family: var(--font-digits);
   font-variant-numeric: tabular-nums;
-  font-size: clamp(17px, 5.2vw, 20px);
+  font-size: clamp(19px, 5.4vw, 22px);
   font-weight: 600;
   letter-spacing: -0.5px;
   color: var(--ink);
@@ -242,7 +256,7 @@ body::after,
 }
 .vault-cell-value.is-clay { color: var(--clay); }
 .vault-cell-value .vault-sub {
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 500;
   color: var(--taupe);
   letter-spacing: 0;
@@ -266,7 +280,7 @@ body::after,
   background: transparent;
   color: var(--ink-soft);
   font-family: var(--font-ui);
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 600;
   white-space: nowrap;
   flex: none;
@@ -302,7 +316,7 @@ body::after,
 .vault-row-dot.is-paid { background: var(--taupe-faint); }
 .vault-row-main { flex: 1; min-width: 0; }
 .vault-row-title {
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 600;
   color: var(--ink);
   overflow: hidden;
@@ -311,7 +325,7 @@ body::after,
 }
 .vault-row-meta {
   margin-top: 2px;
-  font-size: 11.5px;
+  font-size: 12.5px;
   font-weight: 400;
   color: var(--taupe);
   overflow: hidden;
@@ -321,7 +335,7 @@ body::after,
 .vault-row-amount {
   font-family: var(--font-digits);
   font-variant-numeric: tabular-nums;
-  font-size: 15px;
+  font-size: 16px;
   font-weight: 600;
   color: var(--ink);
   flex: none;
@@ -373,7 +387,7 @@ body::after,
   border-radius: var(--r-pill);
   background: var(--clay);
   color: #fff;
-  font-size: 8.5px;
+  font-size: 9.5px;
   font-weight: 800;
   letter-spacing: 1.2px;
   text-transform: uppercase;
@@ -399,7 +413,7 @@ body::after,
   border: none;
   padding: 0;
   font-family: var(--font-ui);
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 700;
   letter-spacing: 1.6px;
   text-transform: uppercase;
@@ -484,15 +498,19 @@ body::after,
    Screen-specific pieces
    ============================================================ */
 
-/* 13a — balance carousel. Exactly ONE card per view: the rail is the
-   content column itself (no bleed/peek of the next card) and every
-   swipe snaps a full step. */
+/* 13a — balance carousel. Exactly ONE card per view, and the rail
+   bleeds to the very screen edge: cards travel through the side
+   gutters while swiping, and the 26px gap (= gutter width) keeps the
+   neighbour exactly offscreen at rest — no peek. */
 .vault-carousel {
   display: flex;
   overflow-x: auto;
   scroll-snap-type: x mandatory;
   gap: 26px;
   scrollbar-width: none;
+  margin: 0 -26px;
+  padding: 0 26px;
+  scroll-padding: 0 26px;
 }
 .vault-carousel::-webkit-scrollbar { display: none; }
 .vault-balance-card {
@@ -512,7 +530,7 @@ body::after,
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 10.5px;
+  font-size: 11.5px;
   font-weight: 600;
   letter-spacing: 2.4px;
   text-transform: uppercase;
@@ -532,14 +550,14 @@ body::after,
 }
 .vault-balance-amount .vault-currency {
   font-family: var(--font-digits);
-  font-size: 20px;
+  font-size: 22px;
   font-weight: 600;
   color: var(--sand-text);
 }
 .vault-balance-amount .vault-numeral {
   font-family: var(--font-digits);
   font-variant-numeric: tabular-nums;
-  font-size: 46px;
+  font-size: 48px;
   font-weight: 600;
   letter-spacing: -1.5px;
   line-height: 1;
@@ -550,11 +568,11 @@ body::after,
   align-items: center;
   justify-content: space-between;
   gap: 10px;
-  font-size: 12px;
+  font-size: 13px;
   color: var(--sand-text);
 }
 .vault-balance-foot .vault-swipe {
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 600;
   letter-spacing: 1.6px;
   text-transform: uppercase;
@@ -593,7 +611,7 @@ body::after,
   gap: 14px;
 }
 .vault-leak-eyebrow {
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 700;
   letter-spacing: 2px;
   text-transform: uppercase;
@@ -601,7 +619,7 @@ body::after,
 }
 .vault-leak-title {
   margin-top: 6px;
-  font-size: 15px;
+  font-size: 16px;
   font-weight: 700;
   color: var(--espresso);
 }
@@ -617,14 +635,18 @@ body::after,
   place-items: center;
 }
 
-/* 14b — wallet account cards */
+/* 14b — wallet account cards. One shared height (the cash card has no
+   masked-number line, so its content spreads to match the others). */
 .vault-wallet-card {
   border-radius: var(--r-card);
   padding: 20px 22px;
   text-align: left;
   width: 100%;
   border: none;
-  display: block;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  min-height: 156px;
 }
 .vault-wallet-card .vault-acct-top {
   display: flex;
@@ -632,9 +654,9 @@ body::after,
   justify-content: space-between;
   gap: 10px;
 }
-.vault-wallet-card .vault-acct-name { font-size: 13px; font-weight: 700; }
+.vault-wallet-card .vault-acct-name { font-size: 14.5px; font-weight: 700; }
 .vault-wallet-card .vault-acct-tag {
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 600;
   letter-spacing: 1.6px;
   text-transform: uppercase;
@@ -642,7 +664,7 @@ body::after,
 .vault-wallet-card .vault-acct-number {
   margin-top: 14px;
   font-family: var(--font-digits);
-  font-size: 14px;
+  font-size: 15px;
   letter-spacing: 3px;
 }
 .vault-wallet-card .vault-acct-foot {
@@ -655,12 +677,12 @@ body::after,
 .vault-wallet-card .vault-acct-balance {
   font-family: var(--font-digits);
   font-variant-numeric: tabular-nums;
-  font-size: 24px;
+  font-size: 26px;
   font-weight: 600;
   letter-spacing: -0.5px;
 }
 .vault-wallet-card .vault-acct-safe {
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 700;
   letter-spacing: 1.6px;
   text-transform: uppercase;
@@ -740,7 +762,7 @@ body::after,
   transform: translateX(-50%);
   font-family: var(--font-digits);
   font-variant-numeric: tabular-nums;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 600;
   color: var(--ink);
   white-space: nowrap;
@@ -750,7 +772,7 @@ body::after,
   flex: 1;
   text-align: center;
   font-family: var(--font-digits);
-  font-size: 10.5px;
+  font-size: 11.5px;
   color: var(--taupe);
 }
 .vault-bar-labels span.is-now { color: var(--ink); font-weight: 700; }
@@ -786,7 +808,7 @@ body::after,
 .vault-ring-label {
   font-family: var(--font-digits);
   font-variant-numeric: tabular-nums;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 600;
   color: var(--ink);
 }
@@ -806,7 +828,7 @@ body::after,
 .vault-goal-name {
   font-family: var(--font-display);
   font-weight: 400;
-  font-size: 20px;
+  font-size: 21px;
   letter-spacing: -0.3px;
   color: var(--ink);
 }
@@ -828,7 +850,7 @@ body::after,
   background: none;
   padding: 20px;
   text-align: center;
-  font-size: 12.5px;
+  font-size: 13.5px;
   font-weight: 700;
   color: var(--taupe);
 }
@@ -849,7 +871,7 @@ body::after,
   border-radius: 999px;
   background: var(--clay);
   color: var(--espresso);
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 800;
   padding: 7px 14px;
   flex: none;
@@ -860,7 +882,7 @@ body::after,
   background: none;
   border: none;
   padding: 0;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 800;
   letter-spacing: 1.2px;
   text-transform: uppercase;
@@ -916,7 +938,7 @@ body::after,
   text-align: center;
   font-family: var(--font-display);
   font-weight: 400;
-  font-size: 22px;
+  font-size: 23px;
   letter-spacing: -0.3px;
   color: var(--ink);
 }
@@ -937,7 +959,7 @@ body::after,
   background: transparent;
   color: var(--ink-soft);
   font-family: var(--font-ui);
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 600;
   transition: background .15s ease, color .15s ease;
 }
@@ -987,7 +1009,7 @@ body::after,
 /* Impact / preview lines (17a §4, 18a §4) */
 .vault-impact {
   text-align: center;
-  font-size: 12.5px;
+  font-size: 13.5px;
   font-weight: 500;
   color: var(--taupe);
 }
@@ -1000,7 +1022,7 @@ body::after,
 .vault-impact strong.is-clay { color: var(--clay); }
 .vault-impact-note {
   text-align: center;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 500;
   color: var(--taupe-faint);
 }
@@ -1022,7 +1044,7 @@ body::after,
   background: transparent;
   color: var(--ink-soft);
   font-family: var(--font-ui);
-  font-size: 12.5px;
+  font-size: 13.5px;
   font-weight: 600;
   white-space: nowrap;
 }
@@ -1046,7 +1068,7 @@ body::after,
   background: transparent;
   color: var(--taupe);
   font-family: var(--font-ui);
-  font-size: 11.5px;
+  font-size: 12.5px;
   font-weight: 600;
   white-space: nowrap;
 }
@@ -1078,7 +1100,7 @@ body::after,
   color: var(--ink);
   font-family: var(--font-digits);
   font-variant-numeric: tabular-nums;
-  font-size: 21px;
+  font-size: 22px;
   font-weight: 600;
   display: grid;
   place-items: center;
@@ -1104,7 +1126,7 @@ body::after,
   border: none;
   border-radius: var(--r-pill);
   font-family: var(--font-ui);
-  font-size: 15px;
+  font-size: 16px;
   font-weight: 800;
   transition: transform .1s ease, opacity .15s ease;
 }
@@ -1152,7 +1174,7 @@ body::after,
   padding: 24px 20px 20px;
 }
 .vault-move-eyebrow {
-  font-size: 9.5px;
+  font-size: 10.5px;
   font-weight: 700;
   letter-spacing: 1.8px;
   text-transform: uppercase;
@@ -1161,19 +1183,19 @@ body::after,
 .vault-move-tile.is-to .vault-move-eyebrow { color: var(--taupe); }
 .vault-move-name {
   margin-top: 4px;
-  font-size: 14.5px;
+  font-size: 15.5px;
   font-weight: 700;
 }
 .vault-move-balance {
   font-family: var(--font-digits);
   font-variant-numeric: tabular-nums;
-  font-size: 17px;
+  font-size: 18px;
   font-weight: 600;
   text-align: right;
 }
 .vault-move-change {
   margin-top: 3px;
-  font-size: 10.5px;
+  font-size: 11.5px;
   font-weight: 500;
   text-align: right;
 }
@@ -1208,7 +1230,7 @@ body::after,
   color: var(--ink-soft);
   font-family: var(--font-digits);
   font-variant-numeric: tabular-nums;
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 600;
   white-space: nowrap;
 }
@@ -1259,7 +1281,7 @@ body::after,
 .vault-fabmenu-item:active .vault-fabmenu-circle { transform: scale(.96); }
 .vault-fabmenu-label {
   font-family: var(--font-ui);
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 700;
   color: var(--bone-text);
   text-shadow: 0 2px 12px rgba(24, 20, 16, .6);
