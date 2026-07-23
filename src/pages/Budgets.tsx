@@ -1,15 +1,38 @@
-import { CalendarClock, Check, ChevronDown, Flag, Hourglass, Plus, ReceiptText, ShoppingBag, Trash2, WalletCards } from 'lucide-react'
-import { useMemo, useState, type FormEvent } from 'react'
+import { Plus } from 'lucide-react'
+import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import type { Account, Budget, Category, MoneyQuest, Transaction, UpcomingExpense, WishlistItem } from '../types/finance'
-import { budgetUsage, formatPKR } from '../utils/financeCalculations'
+import { budgetUsage } from '../utils/financeCalculations'
 import { cn } from '../utils/ui'
 import { AddUpcomingExpenseModal, RecordUpcomingExpensePaidModal } from './GoalsDebts'
+import { CoolOffSheet } from '../components/sheets/CoolOffSheet'
 import { trackEvent } from '../lib/analytics'
 import { questProgress } from '../utils/retention'
 
-type Tab = 'budgets' | 'bills' | 'wishlist' | 'quest'
+/* ============================================================
+   Plan — "The plan." (Vault spec 16a)
+   Four former tabs folded into one scroll with anchor chips.
+   Renames: Budgets → Spending limits · Bills → Locked for bills ·
+   Wishlist → Cooling off · Quest → This week's quest.
+   ============================================================ */
+
+type SectionKey = 'limits' | 'bills' | 'cooling' | 'quest'
 type QuestDraftType = Exclude<MoneyQuest['type'], 'goal_contribution'>
 type UpcomingPayload = Omit<UpcomingExpense, 'id' | 'status' | 'createdAt' | 'paidTransactionId'>
+
+const nf = (value: number) => Math.round(value).toLocaleString('en-PK')
+
+function formatDue(date: string) {
+  const value = new Date(`${date}T12:00:00`)
+  if (Number.isNaN(value.getTime())) return date
+  return value.toLocaleDateString('en-GB', { day: 'numeric', month: 'long' })
+}
+
+function daysUntil(date: string) {
+  const value = new Date(`${date}T12:00:00`)
+  if (Number.isNaN(value.getTime())) return Infinity
+  const today = new Date()
+  return Math.ceil((new Date(value.getFullYear(), value.getMonth(), value.getDate()).getTime() - new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime()) / 86_400_000)
+}
 
 export function Budgets({ budgets, upcomingExpenses, accounts, categories, transactions, wishlistItems, activeQuest, onNavigateSettings, onAddUpcoming, onUpdateUpcoming, onDeleteUpcoming, onMarkUpcomingPaid, onSaveWishlist, onDeleteWishlist, onBuyWishlist, onSaveQuest, onCancelQuest }: {
   budgets: Budget[]
@@ -30,90 +53,310 @@ export function Budgets({ budgets, upcomingExpenses, accounts, categories, trans
   onSaveQuest: (quest: MoneyQuest) => void
   onCancelQuest: (quest: MoneyQuest) => void
 }) {
-  const [tab, setTab] = useState<Tab>('budgets')
+  const [activeChip, setActiveChip] = useState<SectionKey>('limits')
+  // frozen per mount: keeps render pure (react-compiler) — the page remounts on nav
+  const [now] = useState(() => Date.now())
   const [addingBill, setAddingBill] = useState(false)
   const [editingBill, setEditingBill] = useState<UpcomingExpense | null>(null)
   const [payingBill, setPayingBill] = useState<UpcomingExpense | null>(null)
-  const tabs: Array<{ id: Tab; label: string; icon: typeof WalletCards; count?: number }> = [
-    { id: 'budgets', label: 'Budgets', icon: WalletCards, count: budgets.length },
-    { id: 'bills', label: 'Bills', icon: CalendarClock, count: upcomingExpenses.filter((item) => item.status !== 'paid').length },
-    { id: 'wishlist', label: 'Wishlist', icon: ShoppingBag, count: wishlistItems.filter((item) => item.status === 'waiting' || item.status === 'ready').length },
-    { id: 'quest', label: 'Quest', icon: Flag, count: activeQuest ? 1 : 0 },
+  const [decidingItem, setDecidingItem] = useState<WishlistItem | null>(null)
+  const [addingWish, setAddingWish] = useState(false)
+  const [startingQuest, setStartingQuest] = useState(false)
+  const sectionRefs = useRef<Record<SectionKey, HTMLElement | null>>({ limits: null, bills: null, cooling: null, quest: null })
+  const scrollingTo = useRef<SectionKey | null>(null)
+
+  const chips: Array<{ key: SectionKey; label: string }> = [
+    { key: 'limits', label: 'Limits' },
+    { key: 'bills', label: 'Bills' },
+    { key: 'cooling', label: 'Cooling off' },
+    { key: 'quest', label: 'Quest' },
   ]
 
-  return <div className="mx-auto max-w-3xl pb-6">
-    <header><h1 className="font-display text-3xl font-bold">Plan your month</h1><p className="mt-2 max-w-xl text-sm leading-6 text-[var(--muted)]">Keep limits, bills, planned purchases, and one weekly challenge in one place.</p></header>
-    <nav aria-label="Plan sections" className="mt-5 grid grid-cols-2 gap-1.5 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-1.5 sm:grid-cols-4">{tabs.map(({ id, label, icon: Icon, count }) => <button className={cn('flex min-h-12 items-center justify-center gap-2 rounded-xl px-3 text-sm font-semibold', tab === id ? 'bg-[var(--surface-3)] text-[var(--accent)]' : 'text-[var(--muted)]')} key={id} onClick={() => setTab(id)}><Icon size={17} /><span>{label}</span>{Boolean(count) && <span className="rounded-full bg-[var(--accent-soft)] px-1.5 text-[10px] text-[var(--accent)]">{count}</span>}</button>)}</nav>
+  /* Anchor chips: tapping scrolls, active follows scroll (spec 16a §2). */
+  useEffect(() => {
+    const observer = new IntersectionObserver((entries) => {
+      const visible = entries.filter((entry) => entry.isIntersecting)
+      if (!visible.length) return
+      const first = visible.sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top)[0]
+      const key = (first.target as HTMLElement).dataset.section as SectionKey | undefined
+      if (!key) return
+      if (scrollingTo.current && scrollingTo.current !== key) return
+      if (scrollingTo.current === key) scrollingTo.current = null
+      setActiveChip(key)
+    }, { rootMargin: '-20% 0px -55% 0px' })
+    for (const node of Object.values(sectionRefs.current)) if (node) observer.observe(node)
+    return () => observer.disconnect()
+  }, [])
 
-    {tab === 'budgets' && <BudgetPanel budgets={budgets} onNavigateSettings={onNavigateSettings} />}
-    {tab === 'bills' && <BillsPanel expenses={upcomingExpenses} onAdd={() => setAddingBill(true)} onDelete={onDeleteUpcoming} onEdit={setEditingBill} onPay={setPayingBill} />}
-    {tab === 'wishlist' && <WishlistPanel categories={categories} items={wishlistItems} onBuy={onBuyWishlist} onDelete={onDeleteWishlist} onSave={onSaveWishlist} />}
-    {tab === 'quest' && <QuestPanel activeQuest={activeQuest} categories={categories} transactions={transactions} onCancel={onCancelQuest} onSave={onSaveQuest} />}
-
-    <AddUpcomingExpenseModal accounts={accounts} key={addingBill ? 'add-bill' : 'closed-add'} open={addingBill} onClose={() => setAddingBill(false)} onSubmit={onAddUpcoming} />
-    <AddUpcomingExpenseModal accounts={accounts} key={editingBill?.id ?? 'closed-edit'} expense={editingBill ?? undefined} open={Boolean(editingBill)} onClose={() => setEditingBill(null)} onSubmit={(payload) => { if (editingBill) onUpdateUpcoming(editingBill.id, payload) }} />
-    <RecordUpcomingExpensePaidModal accounts={accounts} expense={payingBill} onClose={() => setPayingBill(null)} onConfirm={(payload) => { if (payingBill) onMarkUpcomingPaid(payingBill, payload) }} />
-  </div>
-}
-
-function BudgetPanel({ budgets, onNavigateSettings }: { budgets: Budget[]; onNavigateSettings: () => void }) {
-  const [showAll, setShowAll] = useState(false)
-  const total = budgets.reduce((sum, item) => sum + item.amount, 0)
-  const used = budgets.reduce((sum, item) => sum + item.used, 0)
-  const visibleBudgets = showAll ? budgets : budgets.slice(0, 4)
-  return <section className="mt-5"><div className="flex items-end justify-between gap-3"><div><p className="text-sm text-[var(--muted)]">This month</p><h2 className="mt-1 font-display text-2xl font-bold tabular-nums">{formatPKR(Math.max(0, total - used))} <span className="text-sm font-medium text-[var(--muted)]">left</span></h2></div><button className="text-sm font-semibold text-[var(--accent)]" onClick={onNavigateSettings}>Manage</button></div>{budgets.length ? <div className="mt-4 overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--surface)]">{visibleBudgets.map((budget) => { const usage = budgetUsage(budget); return <div className="border-b border-[var(--border)] px-4 py-3.5 last:border-b-0" key={budget.id}><div className="flex items-center justify-between gap-3"><div className="min-w-0"><p className="truncate font-semibold">{budget.category}</p><p className="mt-0.5 text-xs text-[var(--muted)]">{formatPKR(Math.max(0, budget.amount - budget.used))} remaining</p></div><p className={cn('shrink-0 text-sm font-semibold tabular-nums', usage >= 80 ? 'text-[var(--warning)]' : 'text-[var(--muted)]')}>{usage}%</p></div><div className="mt-2 h-1.5 overflow-hidden rounded-full bg-[var(--surface-3)]"><div className={cn('h-full rounded-full', usage >= 100 ? 'bg-[var(--negative)]' : usage >= 80 ? 'bg-[var(--warning)]' : 'bg-[var(--positive)]')} style={{ width: `${Math.min(100, usage)}%` }} /></div></div>})}{budgets.length > 4 && <button className="flex w-full items-center justify-center gap-2 border-t border-[var(--border)] px-4 py-3 text-sm font-semibold text-[var(--accent)]" onClick={() => setShowAll((value) => !value)}>{showAll ? 'Show less' : `Show all ${budgets.length}`}<ChevronDown className={cn('transition-transform', showAll && 'rotate-180')} size={16} /></button>}</div> : <div className="mt-4"><Empty icon={WalletCards} title="No budgets yet" detail="Add only the category limits that help you make decisions." action="Add in Settings" onAction={onNavigateSettings} /></div>}</section>
-}
-
-function BillsPanel({ expenses, onAdd, onDelete, onEdit, onPay }: { expenses: UpcomingExpense[]; onAdd: () => void; onDelete: (id: string) => void; onEdit: (item: UpcomingExpense) => void; onPay: (item: UpcomingExpense) => void }) {
-  const [showAll, setShowAll] = useState(false)
-  const sorted = [...expenses].sort((a, b) => a.status === 'paid' ? 1 : b.status === 'paid' ? -1 : a.dueDate.localeCompare(b.dueDate))
-  const visibleExpenses = showAll ? sorted : sorted.slice(0, 5)
-  return <section className="mt-5"><div className="flex items-center justify-between gap-4"><div><h2 className="text-lg font-semibold">Upcoming bills</h2><p className="mt-1 text-sm text-[var(--muted)]">Bills due before payday are protected automatically.</p></div><button className="btn-primary shrink-0 px-4" onClick={onAdd}><Plus size={17} /> Add</button></div>{sorted.length ? <div className="mt-4 overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--surface)]">{visibleExpenses.map((item) => <div className="flex items-center gap-3 border-b border-[var(--border)] px-4 py-3.5 last:border-b-0" key={item.id}><span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-[var(--accent-soft)] text-[var(--accent)]"><ReceiptText size={17} /></span><div className="min-w-0 flex-1"><p className="truncate font-semibold">{item.title}</p><p className="mt-0.5 truncate text-xs text-[var(--muted)]">{item.dueDate} · {item.category}</p></div><div className="shrink-0 text-right"><p className="text-sm font-semibold tabular-nums">{formatPKR(item.amount)}</p>{item.status !== 'paid' ? <div className="mt-1.5 flex justify-end gap-2.5"><button className="text-xs font-semibold text-[var(--positive)]" onClick={() => onPay(item)}>Pay</button><button className="text-xs font-semibold text-[var(--accent)]" onClick={() => onEdit(item)}>Edit</button><button aria-label={`Delete ${item.title}`} className="text-[var(--negative)]" onClick={() => onDelete(item.id)}><Trash2 size={14} /></button></div> : <span className="mt-1 inline-flex items-center gap-1 text-xs text-[var(--positive)]"><Check size={12} /> Paid</span>}</div></div>)}{sorted.length > 5 && <button className="flex w-full items-center justify-center gap-2 border-t border-[var(--border)] px-4 py-3 text-sm font-semibold text-[var(--accent)]" onClick={() => setShowAll((value) => !value)}>{showAll ? 'Show less' : `Show all ${sorted.length}`}<ChevronDown className={cn('transition-transform', showAll && 'rotate-180')} size={16} /></button>}</div> : <div className="mt-4"><Empty icon={CalendarClock} title="No upcoming bills" detail="Add rent, subscriptions, fees, or family payments." action="Add a bill" onAction={onAdd} /></div>}</section>
-}
-
-function WishlistPanel({ items, categories, onSave, onDelete, onBuy }: { items: WishlistItem[]; categories: Category[]; onSave: (item: WishlistItem) => void; onDelete: (id: string) => void; onBuy: (item: WishlistItem) => void }) {
-  const [name, setName] = useState('')
-  const [amount, setAmount] = useState('')
-  const [days, setDays] = useState('3')
-  const [showForm, setShowForm] = useState(false)
-  const [showAll, setShowAll] = useState(false)
-  const [categoryId, setCategoryId] = useState(categories.find((item) => item.kind === 'expense')?.id ?? '')
-  const activeItems = items.filter((item) => item.status === 'waiting' || item.status === 'ready')
-  const visibleItems = showAll ? activeItems : activeItems.slice(0, 4)
-  const add = (event: FormEvent) => {
-    event.preventDefault()
-    const value = Number(amount)
-    if (!name.trim() || !Number.isSafeInteger(value) || value <= 0) return
-    const reconsider = new Date()
-    reconsider.setDate(reconsider.getDate() + Number(days))
-    onSave({ id: crypto.randomUUID(), name: name.trim(), amount: value, categoryId: categoryId || undefined, reconsiderAt: reconsider.toISOString(), status: 'waiting' })
-    trackEvent('wishlist_item_added', { surface: 'plan' })
-    setName('')
-    setAmount('')
-    setShowForm(false)
+  const goTo = (key: SectionKey) => {
+    setActiveChip(key)
+    scrollingTo.current = key
+    sectionRefs.current[key]?.scrollIntoView({ behavior: 'smooth', block: 'start' })
   }
-  return <section className="mt-5">
-    <div className="flex items-start justify-between gap-4"><div><h2 className="text-lg font-semibold">Cool-Off Wishlist</h2><p className="mt-1 text-sm leading-6 text-[var(--muted)]">Pause a purchase, then decide with a clear head.</p></div><button className="btn-primary shrink-0 px-4" onClick={() => setShowForm((value) => !value)}><Plus size={17} /> Add</button></div>
-    {showForm && <form className="mt-4 grid gap-3 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4 sm:grid-cols-2" onSubmit={add}>
-      <label><span className="form-label">Item</span><input className="form-input" value={name} onChange={(event) => setName(event.target.value)} placeholder="What are you considering?" /></label>
-      <label><span className="form-label">Amount</span><input className="form-input" inputMode="numeric" min="1" step="1" type="number" value={amount} onChange={(event) => setAmount(event.target.value)} placeholder="PKR amount" /></label>
-      <label><span className="form-label">Category</span><select className="form-input" value={categoryId} onChange={(event) => setCategoryId(event.target.value)}>{categories.filter((item) => item.kind === 'expense').map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
-      <label><span className="form-label">Wait before deciding</span><div className="flex gap-2"><select aria-label="Cool-off duration" className="form-input" value={days} onChange={(event) => setDays(event.target.value)}><option value="1">24 hours</option><option value="3">3 days</option><option value="7">7 days</option></select><button className="btn-primary justify-center px-4"><Hourglass size={16} /> Wait</button></div></label>
-    </form>}
-    {activeItems.length ? <div className="mt-4 overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--surface)]">{visibleItems.map((item) => { const ready = new Date(item.reconsiderAt) <= new Date(); return <div className="border-b border-[var(--border)] px-4 py-3.5 last:border-b-0" key={item.id}><div className="flex items-start gap-3"><span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-[var(--surface-2)] text-[var(--muted)]">{ready ? <ShoppingBag size={17} /> : <Hourglass size={17} />}</span><div className="min-w-0 flex-1"><div className="flex items-start justify-between gap-3"><p className="truncate font-semibold">{item.name}</p><p className="shrink-0 text-sm font-semibold tabular-nums">{formatPKR(item.amount)}</p></div><p className="mt-0.5 text-xs text-[var(--muted)]">{ready ? 'Ready to decide' : `Wait until ${new Date(item.reconsiderAt).toLocaleDateString('en-PK', { day: 'numeric', month: 'short' })}`}</p><details className="mt-2"><summary className="cursor-pointer text-xs font-semibold text-[var(--accent)]">Actions</summary><div className="mt-2 flex flex-wrap gap-2">{ready && <button className="rounded-lg bg-[var(--accent)] px-3 py-2 text-xs font-semibold text-[var(--accent-ink)]" onClick={() => onBuy(item)}>Buy and record</button>}<button className="rounded-lg border border-[var(--border)] px-3 py-2 text-xs font-semibold" onClick={() => onSave({ ...item, reconsiderAt: new Date(Date.now() + 3 * 86_400_000).toISOString(), status: 'waiting' })}>Wait 3 days</button><button className="rounded-lg border border-[var(--border)] px-3 py-2 text-xs font-semibold text-[var(--positive)]" onClick={() => onSave({ ...item, status: 'skipped' })}>Skip</button><button aria-label={`Delete ${item.name}`} className="px-2 text-[var(--negative)]" onClick={() => onDelete(item.id)}><Trash2 size={15} /></button></div></details></div></div></div>})}{activeItems.length > 4 && <button className="flex w-full items-center justify-center gap-2 border-t border-[var(--border)] px-4 py-3 text-sm font-semibold text-[var(--accent)]" onClick={() => setShowAll((value) => !value)}>{showAll ? 'Show less' : `Show all ${activeItems.length}`}<ChevronDown className={cn('transition-transform', showAll && 'rotate-180')} size={16} /></button>}</div> : <div className="mt-4"><Empty icon={ShoppingBag} title="Nothing waiting" detail="Add a purchase you want time to think about." action="Add an item" onAction={() => setShowForm(true)} /></div>}
-  </section>
+
+  const totalBudget = budgets.reduce((sum, item) => sum + item.amount, 0)
+  const totalUsed = budgets.reduce((sum, item) => sum + item.used, 0)
+  const leftThisMonth = Math.max(0, totalBudget - totalUsed)
+
+  const sortedBills = useMemo(
+    () => [...upcomingExpenses].sort((a, b) => a.status === 'paid' ? 1 : b.status === 'paid' ? -1 : a.dueDate.localeCompare(b.dueDate)),
+    [upcomingExpenses],
+  )
+  const coolingItems = wishlistItems.filter((item) => item.status === 'waiting' || item.status === 'ready')
+  const progress = useMemo(() => activeQuest ? questProgress(activeQuest, transactions) : 0, [activeQuest, transactions])
+
+  const eyebrow = `${new Date().toLocaleDateString('en-GB', { month: 'long' })} · Plan`.toUpperCase()
+
+  return (
+    <div className="vault-screen">
+      <header className="vault-topbar">
+        <p className="vault-eyebrow">{eyebrow}</p>
+        <div className="vault-topbar-actions">
+          <button aria-label="Add a bill" className="vault-iconbtn" type="button" onClick={() => setAddingBill(true)}>
+            <Plus size={16} strokeWidth={1.8} />
+          </button>
+        </div>
+      </header>
+
+      <h1 className="vault-title">The <em>plan.</em></h1>
+
+      <div className="vault-chiprow sticky top-0 z-10 -mx-[26px] mt-6 bg-[var(--bone)] px-[26px] py-2">
+        {chips.map((chip) => (
+          <button key={chip.key} className={cn('vault-chip', activeChip === chip.key && 'is-active')} type="button" onClick={() => goTo(chip.key)}>
+            {chip.label}
+          </button>
+        ))}
+      </div>
+
+      {/* ---- Spending limits ---- */}
+      <section ref={(node) => { sectionRefs.current.limits = node }} data-section="limits" aria-label="Spending limits" className="mt-6 scroll-mt-16">
+        <div className="flex items-baseline justify-between gap-3">
+          <h2 className="vault-h2">Spending limits</h2>
+          <p className="vault-h2-sub"><span className="vault-digits font-semibold text-[var(--ink)]">Rs {nf(leftThisMonth)}</span> left this month</p>
+        </div>
+        <div className="mt-2">
+          {budgets.length ? budgets.map((budget) => {
+            const usage = budgetUsage(budget)
+            const left = Math.max(0, budget.amount - budget.used)
+            const hot = usage >= 70
+            return (
+              <div key={budget.id} className="border-b border-[var(--rule-soft)] py-3.5 last:border-b-0">
+                <div className="flex items-baseline justify-between gap-3">
+                  <p className="vault-row-title">{budget.category}</p>
+                  <p className="vault-row-amount">
+                    <span className={cn(hot && 'text-[var(--clay)]')}>{nf(left)} left</span>
+                    <span className="font-normal text-[var(--taupe)]"> · {usage}% used</span>
+                  </p>
+                </div>
+                <div className="vault-line mt-2.5">
+                  <div className={cn('vault-line-fill', hot && 'is-clay')} style={{ width: `${Math.min(100, usage)}%` }} />
+                </div>
+              </div>
+            )
+          }) : (
+            <p className="py-5 text-sm leading-6 text-[var(--taupe)]">
+              No limits yet. Add only the category limits that help you decide.{' '}
+              <button className="font-semibold text-[var(--clay)]" type="button" onClick={onNavigateSettings}>Add in Settings</button>
+            </p>
+          )}
+        </div>
+      </section>
+
+      {/* ---- Locked for bills ---- */}
+      <section ref={(node) => { sectionRefs.current.bills = node }} data-section="bills" aria-label="Locked for bills" className="mt-9 scroll-mt-16">
+        <div className="flex items-baseline justify-between gap-3">
+          <h2 className="vault-h2">Locked for bills</h2>
+          <p className="vault-h2-sub">paid before you can spend it</p>
+        </div>
+        <div className="mt-1">
+          {sortedBills.length ? sortedBills.map((bill) => {
+            const paid = bill.status === 'paid'
+            const actionable = !paid && daysUntil(bill.dueDate) <= 7
+            return (
+              <div key={bill.id} className={cn('vault-row', paid && 'is-paid')}>
+                <span className={cn('vault-row-dot', paid && 'is-paid')} />
+                <button className="vault-row-main text-left" type="button" onClick={() => { if (!paid) setEditingBill(bill) }}>
+                  <span className="vault-row-title block">{bill.title}</span>
+                  <span className="vault-row-meta block">{paid ? `Paid · ${formatDue(bill.dueDate)}` : `Due ${formatDue(bill.dueDate)}`}</span>
+                </button>
+                {actionable && <button className="vault-pay" type="button" onClick={() => setPayingBill(bill)}>Pay</button>}
+                <span className="vault-row-amount">{nf(bill.amount)}{paid && ' ✓'}</span>
+              </div>
+            )
+          }) : (
+            <p className="py-5 text-sm leading-6 text-[var(--taupe)]">
+              No bills locked yet.{' '}
+              <button className="font-semibold text-[var(--clay)]" type="button" onClick={() => setAddingBill(true)}>Add rent, fees, or a subscription</button>
+            </p>
+          )}
+        </div>
+      </section>
+
+      {/* ---- Cooling off ---- */}
+      <section ref={(node) => { sectionRefs.current.cooling = node }} data-section="cooling" aria-label="Cooling off" className="mt-9 scroll-mt-16">
+        <div className="flex items-baseline justify-between gap-3">
+          <h2 className="vault-h2">Cooling off</h2>
+          <p className="vault-h2-sub">sleep on it before you buy</p>
+        </div>
+        <div className="vault-espresso mt-4 px-5 py-1">
+          {coolingItems.map((item) => {
+            const ready = item.status === 'ready' || new Date(item.reconsiderAt).getTime() <= now
+            const daysLeft = Math.max(1, Math.ceil((new Date(item.reconsiderAt).getTime() - now) / 86_400_000))
+            const until = new Date(item.reconsiderAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'long' })
+            return (
+              <div key={item.id} className="flex items-center gap-4 border-b border-[var(--rule-dark)] py-4 last:border-b-0">
+                <button className="min-w-0 flex-1 text-left" type="button" onClick={() => setDecidingItem(item)}>
+                  <p className="truncate text-sm font-semibold text-[var(--bone-text)]">{item.name}</p>
+                  <p className="mt-1 truncate text-[11.5px] text-[var(--sand-text)]">
+                    <span className="vault-digits">Rs {nf(item.amount)}</span> · {ready ? 'your head is clear now' : `thinking until ${until}`}
+                  </p>
+                </button>
+                {ready
+                  ? <button className="vault-decide" type="button" onClick={() => setDecidingItem(item)}>Decide</button>
+                  : <span className="vault-digits flex-none text-[13px] font-medium text-[var(--sand-text)]">{daysLeft} {daysLeft === 1 ? 'day' : 'days'}</span>}
+              </div>
+            )
+          })}
+          <button className="flex w-full items-center gap-2 py-4 text-[12.5px] font-semibold text-[var(--sand-dim)]" type="button" onClick={() => setAddingWish(true)}>
+            <Plus size={14} strokeWidth={2} /> Cool off a purchase
+          </button>
+        </div>
+      </section>
+
+      {/* ---- This week's quest ---- */}
+      <section ref={(node) => { sectionRefs.current.quest = node }} data-section="quest" aria-label="This week's quest" className="mt-6 scroll-mt-16">
+        {activeQuest ? (
+          <QuestCard quest={activeQuest} progress={progress} onCancel={() => onCancelQuest(activeQuest)} />
+        ) : (
+          <button className="vault-dashed" type="button" onClick={() => setStartingQuest(true)}>
+            + Start this week&rsquo;s quest
+          </button>
+        )}
+      </section>
+
+      {/* ---- Sheets & modals ---- */}
+      <AddUpcomingExpenseModal accounts={accounts} key={addingBill ? 'add-bill' : 'closed-add'} open={addingBill} onClose={() => setAddingBill(false)} onSubmit={onAddUpcoming} />
+      <AddUpcomingExpenseModal
+        accounts={accounts}
+        key={editingBill?.id ?? 'closed-edit'}
+        expense={editingBill ?? undefined}
+        open={Boolean(editingBill)}
+        onClose={() => setEditingBill(null)}
+        onSubmit={(payload) => { if (editingBill) onUpdateUpcoming(editingBill.id, payload) }}
+        onDelete={() => { if (editingBill) onDeleteUpcoming(editingBill.id) }}
+      />
+      <RecordUpcomingExpensePaidModal accounts={accounts} expense={payingBill} onClose={() => setPayingBill(null)} onConfirm={(payload) => { if (payingBill) onMarkUpcomingPaid(payingBill, payload) }} />
+
+      {decidingItem && (
+        <DecideSheet
+          item={decidingItem}
+          onClose={() => setDecidingItem(null)}
+          onBuy={() => { onBuyWishlist(decidingItem); setDecidingItem(null) }}
+          onSkip={() => { onSaveWishlist({ ...decidingItem, status: 'skipped' }); setDecidingItem(null) }}
+          onWait={() => { onSaveWishlist({ ...decidingItem, reconsiderAt: new Date(Date.now() + 3 * 86_400_000).toISOString(), status: 'waiting' }); setDecidingItem(null) }}
+          onRemove={() => { onDeleteWishlist(decidingItem.id); setDecidingItem(null) }}
+        />
+      )}
+      <CoolOffSheet open={addingWish} categories={categories} onClose={() => setAddingWish(false)} onSave={onSaveWishlist} />
+      {startingQuest && <StartQuestSheet categories={categories} onClose={() => setStartingQuest(false)} onSave={(quest) => { onSaveQuest(quest); setStartingQuest(false) }} />}
+    </div>
+  )
 }
 
-function QuestPanel({ activeQuest, categories, transactions, onSave, onCancel }: { activeQuest?: MoneyQuest; categories: Category[]; transactions: Transaction[]; onSave: (quest: MoneyQuest) => void; onCancel: (quest: MoneyQuest) => void }) {
-  const [type, setType] = useState<QuestDraftType>('tracking_days')
+/* ---------- quest card (clay, segment ticks) ---------- */
+
+function QuestCard({ quest, progress, onCancel }: { quest: MoneyQuest; progress: number; onCancel: () => void }) {
+  const total = Math.min(7, quest.targetCount ?? 3)
+  const done = Math.max(0, Math.min(total, Math.round((progress / 100) * total)))
+  const ends = new Date(`${quest.endsOn}T12:00:00`)
+  const endsLabel = Number.isNaN(ends.getTime()) ? quest.endsOn : ends.toLocaleDateString('en-GB', { weekday: 'long' })
+  return (
+    <article className="vault-clay p-5">
+      <div className="flex items-baseline justify-between gap-3">
+        <p className="text-[10px] font-bold uppercase tracking-[2px] text-[var(--clay-ink)]">This week&rsquo;s quest</p>
+        <p className="text-[11.5px] font-semibold text-[var(--espresso)]">ends {endsLabel}</p>
+      </div>
+      <h3 className="mt-2 font-display text-[20px] text-[var(--espresso)]">{quest.title}</h3>
+      <div className="vault-ticks mt-4">
+        {Array.from({ length: total }, (_, index) => <span key={index} className={cn('vault-tick', index < done && 'is-done')} />)}
+      </div>
+      <div className="mt-3 flex items-baseline justify-between gap-3">
+        <p className="text-[12px] font-semibold text-[var(--espresso)]">{done} of {total} done — no streak shame, ever.</p>
+        <button className="text-[11px] font-bold uppercase tracking-[1.2px] text-[var(--clay-ink)]" type="button" onClick={onCancel}>End</button>
+      </div>
+    </article>
+  )
+}
+
+/* ---------- vault sheets ---------- */
+
+function SheetShell({ title, label, onClose, children }: { title: React.ReactNode; label: string; onClose: () => void; children: React.ReactNode }) {
+  return (
+    <div className="fixed inset-0 z-[60] grid items-end bg-[rgba(43,36,29,.45)]" onClick={onClose}>
+      <div className="vault-outline mx-auto w-full max-w-[27rem] rounded-b-none px-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-5" role="dialog" aria-label={label} onClick={(event) => event.stopPropagation()}>
+        <h2 className="vault-h2">{title}</h2>
+        {children}
+      </div>
+    </div>
+  )
+}
+
+function DecideSheet({ item, onClose, onBuy, onSkip, onWait, onRemove }: { item: WishlistItem; onClose: () => void; onBuy: () => void; onSkip: () => void; onWait: () => void; onRemove: () => void }) {
+  const ready = item.status === 'ready' || new Date(item.reconsiderAt) <= new Date()
+  return (
+    <SheetShell title={<>{item.name} — <span className="vault-digits">Rs {nf(item.amount)}</span></>} label={`Decide on ${item.name}`} onClose={onClose}>
+      <p className="mt-1 text-[12px] text-[var(--taupe)]">{ready ? 'The wait is over. Decide with a clear head.' : 'Still cooling off — you can decide early or keep waiting.'}</p>
+      <div className="mt-2">
+        {ready && (
+          <button className="vault-row" type="button" onClick={() => { onBuy(); trackEvent('wishlist_decision', { surface: 'plan', action: 'buy' }) }}>
+            <span className="vault-row-dot is-in" />
+            <span className="vault-row-main"><span className="vault-row-title block">Buy and record it</span><span className="vault-row-meta block">Opens the expense sheet with everything filled in</span></span>
+          </button>
+        )}
+        <button className="vault-row" type="button" onClick={onSkip}>
+          <span className="vault-row-dot" />
+          <span className="vault-row-main"><span className="vault-row-title block">Skip it</span><span className="vault-row-meta block">The money stays unspent — that counts as a win</span></span>
+        </button>
+        <button className="vault-row" type="button" onClick={onWait}>
+          <span className="vault-row-dot is-move" />
+          <span className="vault-row-main"><span className="vault-row-title block">Wait 3 more days</span><span className="vault-row-meta block">No rush. It will resurface when the time is up</span></span>
+        </button>
+        <button className="vault-row" type="button" onClick={onRemove}>
+          <span className="vault-row-dot is-paid" />
+          <span className="vault-row-main"><span className="vault-row-title block">Remove from the list</span></span>
+        </button>
+      </div>
+    </SheetShell>
+  )
+}
+
+function StartQuestSheet({ categories, onClose, onSave }: { categories: Category[]; onClose: () => void; onSave: (quest: MoneyQuest) => void }) {
+  const [type, setType] = useState<QuestDraftType>('no_spend_days')
   const [target, setTarget] = useState('3')
   const [categoryId, setCategoryId] = useState(categories.find((item) => item.kind === 'expense')?.id ?? '')
-  const progress = useMemo(() => activeQuest ? questProgress(activeQuest, transactions) : 0, [activeQuest, transactions])
-  const create = (event: FormEvent) => { event.preventDefault(); const start = new Date(); const end = new Date(); end.setDate(end.getDate() + 6); const value = Math.max(1, Number(target)); const title = type === 'tracking_days' ? `Track money on ${value} days` : type === 'no_spend_days' ? `${value} no-spend days` : `Keep category spending under ${formatPKR(value)}`; onSave({ id: crypto.randomUUID(), type, title, categoryId: type === 'category_limit' ? categoryId : undefined, targetCount: type === 'tracking_days' || type === 'no_spend_days' ? value : undefined, targetAmount: type === 'category_limit' ? value : undefined, startsOn: start.toISOString().slice(0, 10), endsOn: end.toISOString().slice(0, 10), status: 'active' }); trackEvent('quest_started', { surface: 'plan' }) }
-  if (activeQuest) return <section className="mt-5"><p className="text-sm text-[var(--muted)]">One active quest</p><article className="mt-3 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5"><div className="flex items-start gap-3"><span className="grid h-11 w-11 place-items-center rounded-2xl bg-[var(--accent-soft)] text-[var(--accent)]"><Flag size={20} /></span><div className="flex-1"><p className="font-semibold">{activeQuest.title}</p><p className="mt-1 text-sm text-[var(--muted)]">Ends {activeQuest.endsOn} · recovery is always allowed</p></div></div><div className="mt-5 h-2 rounded-full bg-[var(--surface-3)]"><div className="h-full rounded-full bg-[var(--accent)]" style={{ width: `${Math.min(100, progress)}%` }} /></div><div className="mt-2 flex justify-between text-xs text-[var(--muted)]"><span>{Math.round(progress)}% complete</span><span>No streak shame</span></div><button className="mt-5 text-sm font-semibold text-[var(--negative)]" onClick={() => onCancel(activeQuest)}>End quest</button></article></section>
-  return <section className="mt-5"><h2 className="text-lg font-semibold">Choose one weekly quest</h2><p className="mt-1 text-sm text-[var(--muted)]">Keep one small challenge active at a time.</p><form className="mt-4 grid gap-3 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4" onSubmit={create}><select className="form-input" value={type} onChange={(event) => setType(event.target.value as QuestDraftType)}><option value="tracking_days">Tracking consistency</option><option value="no_spend_days">No-spend days</option><option value="category_limit">Category spending limit</option></select>{type === 'category_limit' && <select className="form-input" value={categoryId} onChange={(event) => setCategoryId(event.target.value)}>{categories.filter((item) => item.kind === 'expense').map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select>}<label><span className="form-label">{type === 'tracking_days' || type === 'no_spend_days' ? 'Number of days' : 'PKR amount'}</span><input className="form-input" min="1" step="1" type="number" value={target} onChange={(event) => setTarget(event.target.value)} /></label><button className="btn-primary justify-center"><Flag size={17} /> Start quest</button></form></section>
-}
-
-function Empty({ icon: Icon, title, detail, action, onAction }: { icon: typeof WalletCards; title: string; detail: string; action: string; onAction: () => void }) {
-  return <div className="col-span-full rounded-2xl border border-dashed border-[var(--border-strong)] px-5 py-9 text-center"><Icon className="mx-auto text-[var(--muted-2)]" size={23} /><p className="mt-3 font-semibold">{title}</p><p className="mt-1 text-sm text-[var(--muted)]">{detail}</p><button className="mt-4 text-sm font-semibold text-[var(--accent)]" onClick={onAction}>{action}</button></div>
+  const submit = (event: FormEvent) => {
+    event.preventDefault()
+    const start = new Date()
+    const end = new Date()
+    end.setDate(end.getDate() + 6)
+    const value = Math.max(1, Number(target))
+    const title = type === 'tracking_days' ? `Track money on ${value} days` : type === 'no_spend_days' ? `${value} no-spend days` : `Keep category spending under Rs ${nf(value)}`
+    onSave({ id: crypto.randomUUID(), type, title, categoryId: type === 'category_limit' ? categoryId : undefined, targetCount: type === 'tracking_days' || type === 'no_spend_days' ? value : undefined, targetAmount: type === 'category_limit' ? value : undefined, startsOn: start.toISOString().slice(0, 10), endsOn: end.toISOString().slice(0, 10), status: 'active' })
+    trackEvent('quest_started', { surface: 'plan' })
+  }
+  return (
+    <SheetShell title={<>This week&rsquo;s <em className="italic text-[var(--clay)]">quest.</em></>} label="Start this week's quest" onClose={onClose}>
+      <p className="mt-1 text-[12px] text-[var(--taupe)]">One small challenge at a time. Recovery is always allowed.</p>
+      <form className="mt-4 grid gap-3" onSubmit={submit}>
+        <select className="form-input" value={type} onChange={(event) => setType(event.target.value as QuestDraftType)}>
+          <option value="no_spend_days">No-spend days</option>
+          <option value="tracking_days">Tracking consistency</option>
+          <option value="category_limit">Category spending limit</option>
+        </select>
+        {type === 'category_limit' && <select className="form-input" value={categoryId} onChange={(event) => setCategoryId(event.target.value)}>{categories.filter((item) => item.kind === 'expense').map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select>}
+        <label><span className="form-label">{type === 'category_limit' ? 'PKR amount' : 'Number of days'}</span><input className="form-input" min="1" step="1" type="number" value={target} onChange={(event) => setTarget(event.target.value)} /></label>
+        <button className="btn-primary justify-center">Start quest</button>
+      </form>
+    </SheetShell>
+  )
 }

@@ -12,5 +12,5 @@ export function OfflineBanner() {
     }
   }, [])
   if (online) return null
-  return <div className="fixed inset-x-3 top-3 z-[80] rounded-2xl bg-[var(--negative)] px-4 py-3 text-center text-sm font-semibold text-white shadow-xl" role="status">You are offline. Pocket Ledger is read-only until the connection returns.</div>
+  return <div className="fixed inset-x-3 top-3 z-[80] rounded-2xl bg-[var(--negative)] px-4 py-3 text-center text-sm font-semibold text-[var(--ink)] shadow-xl" role="status">You are offline. Pocket Ledger is read-only until the connection returns.</div>
 }

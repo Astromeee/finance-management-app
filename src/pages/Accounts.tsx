@@ -1,19 +1,17 @@
-import { ArrowRightLeft, Banknote, ChevronDown, Landmark, MoreVertical, PencilLine, Plus, ShoppingCart, Trash2, WalletCards, X } from 'lucide-react'
+import { ArrowRightLeft, PencilLine, Plus, ShieldCheck, Trash2, WalletCards, X } from 'lucide-react'
 import { motion } from 'framer-motion'
-import { useCallback, useEffect, useMemo, useRef, useState, type Dispatch, type SetStateAction, type UIEvent } from 'react'
-import { BalanceRailIndicator } from '../components/BalanceRailIndicator'
+import { useState, type Dispatch, type SetStateAction } from 'react'
 import type { Account, Transaction } from '../types/finance'
 import { formatPKR, totalBalance } from '../utils/financeCalculations'
 import { cn } from '../utils/ui'
-import { localDateKey, localMonthKey } from '../lib/date'
+import { localDateKey } from '../lib/date'
 
 /* ============================================================
-   Accounts — V3 redesign (mock 5a)
-   Carousel of full-size identity cards + per-card spending trends.
-   All modals, the color picker, and account CRUD are preserved.
-
-   ONE integration change in App.tsx (non-breaking, prop is optional):
-     <Accounts accounts={accounts} transactions={transactions} ... />
+   Accounts — "Your wallet." (Vault spec 14b)
+   Stacked account cards cycling exactly three surface treatments
+   (espresso / clay / outlined), a TOTAL + SAFE SPEND USES strip,
+   and the cash helper line. All modals, the color picker, and
+   account CRUD are preserved.
    ============================================================ */
 
 const cardColorOptions = [
@@ -22,7 +20,7 @@ const cardColorOptions = [
   { name: 'Silver', value: '#b9bec7' },
   { name: 'Navy Blue', value: '#162a4a' },
   { name: 'Green', value: '#1f4938' },
-  { name: 'Orange', value: '#ff7a1a' },
+  { name: 'Clay', value: '#E2703A' },
   { name: 'Yellow', value: '#c9b431' },
 ]
 
@@ -46,14 +44,6 @@ function adjustHexLightness(hex: string, amount: number) {
   return `#${adjusted.map((channel) => channel.toString(16).padStart(2, '0')).join('')}`
 }
 
-function railStep(rail: HTMLElement) {
-  const firstCard = rail.firstElementChild
-  if (!(firstCard instanceof HTMLElement)) return 1
-  const styles = window.getComputedStyle(rail)
-  const gap = Number.parseFloat(styles.columnGap || styles.gap)
-  return firstCard.offsetWidth + (Number.isFinite(gap) ? gap : 0)
-}
-
 interface AccountsProps {
   accounts: Account[]
   setAccounts: Dispatch<SetStateAction<Account[]>>
@@ -70,360 +60,154 @@ interface AccountsProps {
 
 const makeAccountId = (name: string) => `${name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'account'}-${Date.now().toString(36)}`
 
-/* ---------- per-card trend helpers ---------- */
+const nf = (value: number) => Math.round(value).toLocaleString('en-PK')
 
-function monthKey(date: string) {
-  return date.slice(0, 7)
-}
-
-function labelForMonthKey(key: string) {
-  const [year, month] = key.split('-').map(Number)
-  const date = new Date(year, (month || 1) - 1, 1)
-  return date.toLocaleDateString('en-US', year === new Date().getFullYear() ? { month: 'long' } : { month: 'short', year: 'numeric' })
-}
-
-/** Plain amounts (no "Rs") for the In / Out / Kept pills and top-category line, per mock 5a */
-function formatPlain(amount: number) {
-  return Math.round(Math.abs(amount)).toLocaleString('en-US')
-}
-
-function accountMonthStats(account: Account, transactions: Transaction[], key: string) {
-  let moneyIn = 0
-  let moneyOut = 0
-  const categoryTotals = new Map<string, number>()
-  const weeklySpend = [0, 0, 0, 0, 0]
-
-  for (const transaction of transactions) {
-    if (monthKey(transaction.date) !== key) continue
-    const isSource = transaction.accountId === account.id || transaction.fromAccountId === account.id
-    const isTarget = transaction.toAccountId === account.id
-    if (!isSource && !isTarget) continue
-
-    const outflow =
-      (transaction.type === 'expense' || transaction.type === 'goal_saving' || transaction.type === 'debt_payment') && transaction.accountId === account.id
-        ? transaction.amount
-        : transaction.type === 'transfer' && transaction.fromAccountId === account.id
-          ? transaction.amount
-          : 0
-    const inflow =
-      transaction.type === 'income' && transaction.accountId === account.id
-        ? transaction.amount
-        : transaction.type === 'transfer' && transaction.toAccountId === account.id
-          ? transaction.amount
-          : 0
-
-    moneyIn += inflow
-    moneyOut += outflow
-
-    if (outflow > 0 && transaction.type === 'expense' && transaction.category) {
-      categoryTotals.set(transaction.category, (categoryTotals.get(transaction.category) ?? 0) + outflow)
+/* Exactly three surface treatments, one per account type; clay at most
+   once per viewport (spec 14b §3). */
+function cardTreatments(accounts: Account[]) {
+  let clayUsed = false
+  return accounts.map((account) => {
+    if (account.type === 'cash') return 'is-outline'
+    if (account.type === 'wallet' && !clayUsed) {
+      clayUsed = true
+      return 'is-clay'
     }
-    if (outflow > 0) {
-      const day = Number(transaction.date.slice(8, 10))
-      const week = Math.min(4, Math.floor((day - 1) / 7))
-      weeklySpend[week] += outflow
-    }
-  }
+    return 'is-espresso'
+  })
+}
 
-  let topCategory: { name: string; amount: number } | null = null
-  for (const [name, amount] of categoryTotals) {
-    if (!topCategory || amount > topCategory.amount) topCategory = { name, amount }
-  }
-
-  return { moneyIn, moneyOut, kept: moneyIn - moneyOut, weeklySpend, topCategory }
+function typeTag(account: Account) {
+  if (account.type === 'cash') return 'On hand'
+  if (account.type === 'wallet') return 'Wallet'
+  return 'Bank'
 }
 
 /* ============================================================ */
 
-export function Accounts({ accounts, setAccounts, setTransactions, onTransfer, onOpenTransactions, onSaveAccount, onAdjustBalance, onArchiveAccount, transactions = [] }: AccountsProps) {
+export function Accounts({ accounts, setAccounts, setTransactions, onTransfer, onSaveAccount, onAdjustBalance, onArchiveAccount }: AccountsProps) {
   const [addingAccount, setAddingAccount] = useState(false)
   const [selectedAccount, setSelectedAccount] = useState<Account | null>(null)
   const [editingAccount, setEditingAccount] = useState<Account | null>(null)
   const [menuAccount, setMenuAccount] = useState<Account | null>(null)
   const [notice, setNotice] = useState('')
-  const [activeIndex, setActiveIndex] = useState(0)
-  const carouselRef = useRef<HTMLDivElement>(null)
-  const carouselFrame = useRef<number | undefined>(undefined)
-  const activeCardIndex = useRef(0)
 
   const total = totalBalance(accounts)
-  const activeAccount = accounts[Math.min(activeIndex, Math.max(0, accounts.length - 1))] ?? null
+  const treatments = cardTreatments(accounts)
+  const safeSpendUses = accounts.filter((account) => account.includeInSafeSpend !== false).length
+  const hasCash = accounts.some((account) => account.type === 'cash' && account.includeInSafeSpend === false)
 
-  const now = new Date()
-  const [thisMonthKey] = useState(() => localMonthKey(now))
-  const [selectedMonthKey, setSelectedMonthKey] = useState(thisMonthKey)
-
-  const monthOptions = useMemo(() => {
-    const keys = new Set<string>([thisMonthKey])
-    for (const transaction of transactions) if (transaction.date) keys.add(monthKey(transaction.date))
-    return [...keys].sort().reverse()
-  }, [transactions, thisMonthKey])
-
-  const previousMonthKey = useMemo(() => {
-    const [year, month] = selectedMonthKey.split('-').map(Number)
-    const previous = new Date(year, (month || 1) - 2, 1)
-    return `${previous.getFullYear()}-${String(previous.getMonth() + 1).padStart(2, '0')}`
-  }, [selectedMonthKey])
-
-  const monthLabel = labelForMonthKey(selectedMonthKey)
-  const previousMonthLabel = labelForMonthKey(previousMonthKey)
-  const viewingCurrentMonth = selectedMonthKey === thisMonthKey
-
-  const stats = useMemo(
-    () => (activeAccount ? accountMonthStats(activeAccount, transactions, selectedMonthKey) : null),
-    [activeAccount, transactions, selectedMonthKey],
-  )
-  const lastStats = useMemo(
-    () => (activeAccount ? accountMonthStats(activeAccount, transactions, previousMonthKey) : null),
-    [activeAccount, transactions, previousMonthKey],
-  )
-
-  const spendDelta = stats && lastStats && lastStats.moneyOut > 0
-    ? Math.round(((stats.moneyOut - lastStats.moneyOut) / lastStats.moneyOut) * 100)
-    : null
-
-  const onCarouselScroll = useCallback((event: UIEvent<HTMLDivElement>) => {
-    const node = event.currentTarget
-    if (carouselFrame.current !== undefined) window.cancelAnimationFrame(carouselFrame.current)
-    carouselFrame.current = window.requestAnimationFrame(() => {
-      const index = Math.max(0, Math.min(accounts.length - 1, Math.round(node.scrollLeft / railStep(node))))
-      if (index === activeCardIndex.current) return
-      activeCardIndex.current = index
-      setActiveIndex(index)
-      if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) navigator.vibrate?.(8)
-    })
-  }, [accounts.length])
-
-  useEffect(() => () => {
-    if (carouselFrame.current !== undefined) window.cancelAnimationFrame(carouselFrame.current)
-  }, [])
-
-  const scrollToIndex = (index: number) => {
-    const node = carouselRef.current
-    if (!node) return
-    node.scrollTo({ left: index * railStep(node), behavior: 'smooth' })
+  const toggleSafeSpend = async (account: Account) => {
+    const updated = { ...account, includeInSafeSpend: account.includeInSafeSpend === false }
+    try {
+      await onSaveAccount?.(updated)
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : 'Could not update account.')
+      return
+    }
+    setAccounts((current) => current.map((item) => item.id === account.id ? updated : item))
+    setNotice(updated.includeInSafeSpend ? `${account.name} now counts toward safe spend.` : `${account.name} excluded from safe spend.`)
+    setMenuAccount(null)
   }
 
-  const maxWeeklySpend = stats ? Math.max(...stats.weeklySpend, 1) : 1
-  const highlightWeek = viewingCurrentMonth
-    ? Math.min(4, Math.floor((now.getDate() - 1) / 7))
-    : stats
-      ? Math.max(0, stats.weeklySpend.indexOf(Math.max(...stats.weeklySpend)))
-      : 0
-  const weeksToShow = viewingCurrentMonth
-    ? (now.getDate() > 28 ? 5 : 4)
-    : (stats && stats.weeklySpend[4] > 0 ? 5 : 4)
-  const selectionScope = `${activeAccount?.id ?? 'none'}:${selectedMonthKey}`
-  const [selectedWeek, setSelectedWeek] = useState<{ scope: string; week: number } | null>(null)
-  const selectedWeekNumber = selectedWeek?.scope === selectionScope ? selectedWeek.week : null
-  const displayWeek = selectedWeekNumber ?? highlightWeek
-
   return (
-    <div className="space-y-5">
-      {notice && <div className="rounded-2xl border border-[rgba(255, 122, 26,.25)] bg-[var(--accent-soft)] px-4 py-3 text-sm text-[var(--accent)]">{notice}</div>}
+    <div className="vault-screen">
+      {notice && <div className="vault-outline mb-4 px-4 py-3 text-sm text-[var(--clay)]" role="status">{notice}</div>}
 
-      {/* ---- Header: Wallet / Accounts + add button (mock 5a) ---- */}
-      <section className="flex items-start justify-between gap-4">
-        <div>
-          <p className="text-sm text-[var(--muted)]">Wallet</p>
-          <h2 className="mt-0.5 text-[32px] font-semibold leading-tight text-white">Accounts</h2>
+      <header className="vault-topbar">
+        <p className="vault-eyebrow">{accounts.length} {accounts.length === 1 ? 'account' : 'accounts'}</p>
+        <div className="vault-topbar-actions">
+          <button aria-label="Add account" className="vault-iconbtn" type="button" onClick={() => setAddingAccount(true)}>
+            <Plus size={16} strokeWidth={1.8} />
+          </button>
         </div>
-        <button
-          aria-label="Add account"
-          className="grid h-[52px] w-[52px] place-items-center rounded-full border border-white/12 bg-white/[.055] text-white backdrop-blur-xl transition hover:border-[rgba(255, 122, 26,.35)]"
-          onClick={() => setAddingAccount(true)}
-        >
-          <Plus size={21} />
-        </button>
-      </section>
+      </header>
 
-      {/* ---- Total balance ---- */}
-      <section>
-        <p className="text-sm text-[var(--muted)]">Total balance</p>
-        <h3 className="mt-1 text-[42px] font-semibold leading-none tracking-tight text-white sm:text-5xl">{formatPKR(total)}</h3>
-      </section>
+      <h1 className="vault-title">Your <em>wallet.</em></h1>
 
-      {/* ---- Card carousel ---- */}
       {accounts.length > 0 ? (
-        <section>
-          <div
-            ref={carouselRef}
-            aria-label="Accounts. Swipe to view each account."
-            className="home-balance-rail cards-balance-rail"
-            onScroll={onCarouselScroll}
-            role="region"
-          >
-            {accounts.map((account) => {
-              const share = total > 0 ? Math.round((account.balance / total) * 100) : 0
-              const Icon = account.type === 'bank' ? Landmark : account.type === 'cash' ? Banknote : WalletCards
-              return (
-                <article
-                  key={account.id}
-                  className="home-balance-card cards-balance-card"
-                >
-                  <div className="home-balance-card-topline">
-                    <div>
-                      <p className="text-[15px] font-semibold">{account.name}</p>
-                    </div>
-                    <button
-                      aria-label={`${account.name} options`}
-                      className="home-balance-card-icon transition hover:bg-white/30"
-                      onClick={() => setMenuAccount(account)}
-                    >
-                      <MoreVertical size={18} />
-                    </button>
-                  </div>
-                  <p className="home-balance-card-amount">{formatPKR(account.balance)}</p>
-                  <div className="home-balance-card-footer">
-                    <span className="capitalize"><Icon className="mr-1 inline-block align-[-2px]" size={13} />{account.type}</span>
-                    <span>{account.cardLabel || `${share}% of total balance`}</span>
-                  </div>
-                </article>
-              )
-            })}
-          </div>
-
-          <BalanceRailIndicator activeIndex={activeIndex} items={accounts.map((account) => ({ id: account.id, label: account.name }))} onSelect={scrollToIndex} />
+        <section aria-label="Your accounts" className="mt-7 grid gap-3">
+          {accounts.map((account, index) => {
+            const treatment = treatments[index]
+            const included = account.includeInSafeSpend !== false
+            return (
+              <button key={account.id} className={cn('vault-wallet-card', treatment)} type="button" onClick={() => setMenuAccount(account)}>
+                <span className="vault-acct-top">
+                  <span className="vault-acct-name">{account.name}</span>
+                  <span className="vault-acct-tag">{typeTag(account)}</span>
+                </span>
+                {account.type !== 'cash' && (
+                  <span className="vault-acct-number block">···· ···· {account.cardLabel || '····'}</span>
+                )}
+                <span className="vault-acct-foot">
+                  <span className="vault-acct-balance">Rs {nf(account.balance)}</span>
+                  <span className="vault-acct-safe">{included ? 'In safe spend' : 'Excluded'}</span>
+                </span>
+              </button>
+            )
+          })}
         </section>
       ) : (
-        <button className="w-full rounded-[1.5rem] border border-dashed border-white/15 bg-white/[.03] px-5 py-10 text-left transition hover:border-[rgba(255, 122, 26,.35)] hover:bg-[rgba(255, 122, 26,.06)]" onClick={() => setAddingAccount(true)}>
-          <span className="grid h-12 w-12 place-items-center rounded-2xl bg-[var(--accent)] text-[#16130F]"><Plus size={22} /></span>
-          <span className="mt-5 block text-xl font-semibold text-white">Add your first account</span>
-          <span className="mt-2 block text-sm text-[var(--muted)]">Create cash, bank, or wallet accounts to start tracking.</span>
+        <button className="vault-dashed mt-7" type="button" onClick={() => setAddingAccount(true)}>
+          + Add your first account
         </button>
       )}
 
-      {/* ---- Per-card spending trends ---- */}
-      {activeAccount && stats && (
-        <motion.section key={activeAccount.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.22 }} className="space-y-3">
-          <div className="flex items-baseline justify-between">
-            <p className="text-[17px] font-semibold text-white">{activeAccount.name} · {viewingCurrentMonth ? 'this month' : monthLabel}</p>
-            <label className="relative inline-flex cursor-pointer items-center gap-1 text-[13px] font-semibold text-[var(--accent)]">
-              {monthLabel}
-              <ChevronDown size={14} />
-              <select
-                aria-label="Select month"
-                className="absolute inset-0 cursor-pointer opacity-0"
-                value={selectedMonthKey}
-                onChange={(event) => setSelectedMonthKey(event.target.value)}
-              >
-                {monthOptions.map((key) => <option key={key} value={key}>{labelForMonthKey(key)}</option>)}
-              </select>
-            </label>
-          </div>
+      <section aria-label="Wallet totals" className="vault-strip mt-7">
+        <div className="vault-cell">
+          <p className="vault-cell-label">Total</p>
+          <p className="vault-cell-value">Rs {nf(total)}</p>
+        </div>
+        <div className="vault-cell">
+          <p className="vault-cell-label">Safe spend uses</p>
+          <p className="vault-cell-value">{safeSpendUses} <span className="vault-sub">of {accounts.length}</span></p>
+        </div>
+      </section>
 
-          {/* in / out / kept */}
-          <div className="grid grid-cols-3 gap-2">
-            <div className="rounded-[18px] border border-white/10 bg-white/[.055] px-4 py-3.5 backdrop-blur-xl">
-              <p className="text-[11px] text-[var(--muted-2)]">In</p>
-              <p className="mt-1 text-lg font-semibold text-[var(--positive)]">{formatPlain(stats.moneyIn)}</p>
-            </div>
-            <div className="rounded-[18px] border border-white/10 bg-white/[.055] px-4 py-3.5 backdrop-blur-xl">
-              <p className="text-[11px] text-[var(--muted-2)]">Out</p>
-              <p className="mt-1 text-lg font-semibold text-[var(--negative)]">{formatPlain(stats.moneyOut)}</p>
-            </div>
-            <div className="rounded-[18px] border border-[rgba(255, 122, 26,.28)] bg-[rgba(255, 122, 26,.14)] px-4 py-3.5 backdrop-blur-xl">
-              <p className="text-[11px] text-[#ff7a1a]">Kept</p>
-              <p className="mt-1 text-lg font-semibold text-white">{stats.kept >= 0 ? '+' : '-'}{formatPlain(stats.kept)}</p>
-            </div>
-          </div>
-
-          {/* weekly spend bars */}
-          <div className="rounded-[22px] border border-white/10 bg-white/[.055] px-4.5 py-4 backdrop-blur-xl">
-            <div className="mb-3 flex items-baseline justify-between">
-              <p className="text-[12px] text-[var(--muted-2)]">
-                {selectedWeekNumber === null ? 'Weekly spend from this card' : `Week ${selectedWeekNumber + 1} · ${formatPKR(stats.weeklySpend[selectedWeekNumber])}`}
-              </p>
-              {spendDelta !== null && (
-                <p className={cn('text-[12px] font-semibold', spendDelta > 0 ? 'text-[var(--negative)]' : 'text-[var(--positive)]')}>
-                  {spendDelta > 0 ? '▲' : '▼'} {Math.abs(spendDelta)}% vs {previousMonthLabel}
-                </p>
-              )}
-            </div>
-            <div className="flex h-[56px] items-end gap-3">
-              {stats.weeklySpend.slice(0, weeksToShow).map((amount, week) => {
-                const isActive = week === displayWeek
-                return (
-                  <button
-                    key={week}
-                    type="button"
-                    aria-label={`Week ${week + 1}: ${formatPKR(amount)}`}
-                    className="flex h-full flex-1 flex-col items-center justify-end gap-1.5"
-                    onClick={() => setSelectedWeek((current) => (current?.scope === selectionScope && current.week === week ? null : { scope: selectionScope, week }))}
-                  >
-                    <span
-                      className="w-full rounded-[7px] transition-all"
-                      style={{
-                        height: `${Math.max(10, (amount / maxWeeklySpend) * 100)}%`,
-                        background: isActive ? 'linear-gradient(180deg,#ff7a1a,#ff7a1a)' : '#3A3A3E',
-                        boxShadow: isActive ? '0 0 16px rgba(255, 122, 26,.4)' : undefined,
-                      }}
-                    />
-                    <span className={cn('text-[10px]', isActive ? 'text-[#ff7a1a]' : 'text-[var(--muted-2)]')}>W{week + 1}</span>
-                  </button>
-                )
-              })}
-            </div>
-          </div>
-
-          {/* top category */}
-          {stats.topCategory && (
-            <div className="flex items-center gap-3 rounded-[20px] border border-white/10 bg-white/[.055] px-4 py-3.5 backdrop-blur-xl">
-              <span className="grid h-10 w-10 place-items-center rounded-[13px] border border-[rgba(255, 122, 26,.28)] bg-[rgba(255, 122, 26,.16)] text-[var(--accent)]">
-                <ShoppingCart size={17} />
-              </span>
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-[13.5px] font-semibold text-white">Top category: {stats.topCategory.name}</p>
-                <p className="mt-0.5 text-[11.5px] text-[var(--muted-2)]">
-                  {formatPlain(stats.topCategory.amount)} · {stats.moneyOut > 0 ? Math.round((stats.topCategory.amount / stats.moneyOut) * 100) : 0}% of this card's spend
-                </p>
-              </div>
-              {onOpenTransactions && (
-                <button className="shrink-0 text-[12.5px] font-semibold text-[var(--accent)]" onClick={onOpenTransactions}>
-                  Details →
-                </button>
-              )}
-            </div>
-          )}
-          {!stats.topCategory && stats.moneyIn === 0 && stats.moneyOut === 0 && (
-            <p className="rounded-[20px] border border-white/10 bg-white/[.035] px-4 py-3 text-xs text-[var(--muted)]">No activity on this account yet this month.</p>
-          )}
-        </motion.section>
+      {hasCash && (
+        <p className="mt-5 text-xs leading-5 text-[var(--taupe)]">
+          Cash stays out of your daily number — flip it on anytime from the card&rsquo;s settings.
+        </p>
       )}
 
-      {/* ---- Card ⋮ action sheet ---- */}
+      {/* ---- Card action sheet ---- */}
       {menuAccount && (
-        <div className="fixed inset-0 z-50 grid items-end bg-black/60 backdrop-blur-sm sm:items-center sm:p-6" onClick={() => setMenuAccount(null)}>
+        <div className="fixed inset-0 z-50 grid items-end bg-[rgba(43,36,29,.45)] sm:items-center sm:p-6" onClick={() => setMenuAccount(null)}>
           <motion.div
             initial={{ opacity: 0, y: 36 }}
             animate={{ opacity: 1, y: 0 }}
-            className="mx-auto w-full max-w-lg rounded-t-[1.75rem] border border-white/10 bg-[var(--surface)] p-4 pb-[max(1.25rem,env(safe-area-inset-bottom))] shadow-2xl sm:rounded-[2rem]"
+            className="vault-outline mx-auto w-full max-w-lg rounded-b-none p-4 pb-[max(1.25rem,env(safe-area-inset-bottom))] shadow-xl sm:rounded-[26px]"
             onClick={(event) => event.stopPropagation()}
           >
-            <p className="px-1 text-xs text-[var(--muted)]">{menuAccount.name}</p>
+            <p className="vault-eyebrow px-1">{menuAccount.name}</p>
             <div className="mt-3 grid gap-2">
               <button
-                className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/[.045] px-4 py-3.5 text-sm font-semibold text-white"
+                className="flex items-center gap-3 rounded-2xl border border-[var(--rule)] px-4 py-3.5 text-sm font-semibold text-[var(--ink)]"
                 onClick={() => { setEditingAccount(menuAccount); setMenuAccount(null) }}
               >
-                <PencilLine size={17} className="text-[var(--accent)]" /> Edit card
+                <PencilLine size={17} className="text-[var(--clay)]" /> Edit card
               </button>
               <button
-                className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/[.045] px-4 py-3.5 text-sm font-semibold text-white"
+                className="flex items-center gap-3 rounded-2xl border border-[var(--rule)] px-4 py-3.5 text-sm font-semibold text-[var(--ink)]"
                 onClick={() => { setSelectedAccount(menuAccount); setMenuAccount(null) }}
               >
-                <WalletCards size={17} className="text-[var(--accent)]" /> Adjust balance
+                <WalletCards size={17} className="text-[var(--clay)]" /> Adjust balance
               </button>
               <button
-                className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/[.045] px-4 py-3.5 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-45"
+                className="flex items-center gap-3 rounded-2xl border border-[var(--rule)] px-4 py-3.5 text-sm font-semibold text-[var(--ink)]"
+                onClick={() => void toggleSafeSpend(menuAccount)}
+              >
+                <ShieldCheck size={17} className="text-[var(--clay)]" /> {menuAccount.includeInSafeSpend === false ? 'Include in safe spend' : 'Exclude from safe spend'}
+              </button>
+              <button
+                className="flex items-center gap-3 rounded-2xl border border-[var(--rule)] px-4 py-3.5 text-sm font-semibold text-[var(--ink)] disabled:cursor-not-allowed disabled:opacity-45"
                 disabled={accounts.length < 2}
                 title={accounts.length < 2 ? 'Add at least two accounts to transfer money.' : undefined}
                 onClick={() => { setMenuAccount(null); onTransfer() }}
               >
-                <ArrowRightLeft size={17} className="text-[var(--accent)]" /> Transfer money
+                <ArrowRightLeft size={17} className="text-[var(--clay)]" /> Transfer money
               </button>
               <button
-                className="flex items-center gap-3 rounded-2xl border border-[rgba(232,105,74,.25)] bg-[rgba(232,105,74,.06)] px-4 py-3.5 text-sm font-semibold text-[var(--negative)] disabled:cursor-not-allowed disabled:opacity-45"
+                className="flex items-center gap-3 rounded-2xl border border-[var(--rule)] px-4 py-3.5 text-sm font-semibold text-[var(--clay)] disabled:cursor-not-allowed disabled:opacity-45"
                 disabled={accounts.length < 2}
                 onClick={async () => {
                   if (!menuAccount || accounts.length < 2) return
@@ -440,7 +224,7 @@ export function Accounts({ accounts, setAccounts, setTransactions, onTransfer, o
                 <Trash2 size={17} /> Archive account
               </button>
             </div>
-            <button className="mt-3 w-full rounded-2xl bg-[var(--surface-2)] px-4 py-3 text-sm font-semibold text-white" onClick={() => setMenuAccount(null)}>
+            <button className="vault-chip is-active mt-3 w-full justify-center" onClick={() => setMenuAccount(null)}>
               Cancel
             </button>
           </motion.div>
@@ -549,12 +333,12 @@ function AddAccountModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 grid items-end bg-black/70 p-0 backdrop-blur-sm sm:items-center sm:p-6">
-      <motion.section initial={{ opacity: 0, y: 44, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }} className="mx-auto max-h-[88svh] w-full max-w-lg overflow-y-auto rounded-t-[1.75rem] border border-white/10 bg-[var(--surface)] p-4 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-2xl sm:max-h-[90vh] sm:rounded-[2rem] sm:p-5">
+    <div className="fixed inset-0 z-50 grid items-end bg-[rgba(43,36,29,.45)] p-0 sm:items-center sm:p-6">
+      <motion.section initial={{ opacity: 0, y: 44, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }} className="mx-auto max-h-[88svh] w-full max-w-lg overflow-y-auto rounded-t-[1.75rem] border border-[var(--rule)] bg-[var(--vault-surface)] p-4 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-2xl sm:max-h-[90vh] sm:rounded-[2rem] sm:p-5">
         <div className="flex items-center justify-between">
           <div>
             <p className="text-xs text-[var(--muted)]">New account card</p>
-            <h2 className="text-xl font-semibold text-white">Add account</h2>
+            <h2 className="text-xl font-semibold text-[var(--ink)]">Add account</h2>
           </div>
           <button className="icon-button" onClick={onClose} aria-label="Close add account"><X size={19} /></button>
         </div>
@@ -591,7 +375,7 @@ function AddAccountModal({
         </div>
 
         <div className="mt-5 grid grid-cols-2 gap-3">
-          <button className="rounded-2xl bg-[var(--surface-2)] px-4 py-3 text-sm font-semibold text-white" onClick={onClose}>Cancel</button>
+          <button className="rounded-2xl bg-[var(--surface-2)] px-4 py-3 text-sm font-semibold text-[var(--ink)]" onClick={onClose}>Cancel</button>
           <button className="btn-primary justify-center disabled:opacity-60" onClick={saveAccount} disabled={!name.trim() || !Number.isFinite(Number(balance || 0)) || !isValidHex(color)}>Save</button>
         </div>
       </motion.section>
@@ -693,12 +477,12 @@ function EditAccountModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 grid items-end bg-black/70 p-0 backdrop-blur-sm sm:items-center sm:p-6">
-      <motion.section initial={{ opacity: 0, y: 44, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }} className="mx-auto max-h-[88svh] w-full max-w-lg overflow-y-auto rounded-t-[1.75rem] border border-white/10 bg-[var(--surface)] p-4 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-2xl sm:max-h-[90vh] sm:rounded-[2rem] sm:p-5">
+    <div className="fixed inset-0 z-50 grid items-end bg-[rgba(43,36,29,.45)] p-0 sm:items-center sm:p-6">
+      <motion.section initial={{ opacity: 0, y: 44, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }} className="mx-auto max-h-[88svh] w-full max-w-lg overflow-y-auto rounded-t-[1.75rem] border border-[var(--rule)] bg-[var(--vault-surface)] p-4 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-2xl sm:max-h-[90vh] sm:rounded-[2rem] sm:p-5">
         <div className="flex items-center justify-between">
           <div>
             <p className="text-xs text-[var(--muted)]">Edit account card</p>
-            <h2 className="text-xl font-semibold text-white">{account.name}</h2>
+            <h2 className="text-xl font-semibold text-[var(--ink)]">{account.name}</h2>
           </div>
           <button className="icon-button" onClick={onClose} aria-label="Close edit account"><X size={19} /></button>
         </div>
@@ -735,7 +519,7 @@ function EditAccountModal({
         </div>
 
         <div className="mt-5 grid grid-cols-2 gap-3">
-          <button className="rounded-2xl bg-[var(--surface-2)] px-4 py-3 text-sm font-semibold text-white" onClick={onClose}>Cancel</button>
+          <button className="rounded-2xl bg-[var(--surface-2)] px-4 py-3 text-sm font-semibold text-[var(--ink)]" onClick={onClose}>Cancel</button>
           <button className="btn-primary justify-center disabled:opacity-60" onClick={saveAccount} disabled={!name.trim() || !Number.isFinite(Number(balance)) || !isValidHex(color)}>Save</button>
         </div>
       </motion.section>
@@ -766,7 +550,7 @@ function CardColorPicker({
           <button
             key={option.name}
             aria-label={`Use ${option.name}`}
-            className={cn('h-12 rounded-2xl border transition', baseColor === option.value ? 'border-[var(--accent)] ring-2 ring-[rgba(255, 122, 26,.25)]' : 'border-white/10')}
+            className={cn('h-12 rounded-2xl border transition', baseColor === option.value ? 'border-[var(--accent)] ring-2 ring-[rgba(255, 122, 26,.25)]' : 'border-[var(--rule)]')}
             title={option.name}
             style={{ background: option.value }}
             onClick={() => setColorFromBase(option.value, 0)}
@@ -787,7 +571,7 @@ function CardColorPicker({
         </div>
         {!isValidHex(hexInput) && <p className="mt-2 text-xs text-[var(--negative)]">Use a 6-digit hex color, like #162A4A.</p>}
       </label>
-      <div className="mt-4 h-12 rounded-2xl border border-white/10" style={{ background: isValidHex(color) ? color : '#1d2026' }} />
+      <div className="mt-4 h-12 rounded-2xl border border-[var(--rule)]" style={{ background: isValidHex(color) ? color : '#1d2026' }} />
     </div>
   )
 }
@@ -854,19 +638,19 @@ function AdjustBalanceModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 grid items-end bg-black/70 p-0 backdrop-blur-sm sm:items-center sm:p-6">
-      <motion.section initial={{ opacity: 0, y: 44, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }} className="mx-auto max-h-[88svh] w-full max-w-lg overflow-y-auto rounded-t-[1.75rem] border border-white/10 bg-[var(--surface)] p-4 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-2xl sm:max-h-[90vh] sm:rounded-[2rem] sm:p-5">
+    <div className="fixed inset-0 z-50 grid items-end bg-[rgba(43,36,29,.45)] p-0 sm:items-center sm:p-6">
+      <motion.section initial={{ opacity: 0, y: 44, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }} className="mx-auto max-h-[88svh] w-full max-w-lg overflow-y-auto rounded-t-[1.75rem] border border-[var(--rule)] bg-[var(--vault-surface)] p-4 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-2xl sm:max-h-[90vh] sm:rounded-[2rem] sm:p-5">
         <div className="flex items-center justify-between">
           <div>
             <p className="text-xs text-[var(--muted)]">Adjust Balance</p>
-            <h2 className="text-xl font-semibold text-white">{account.name}</h2>
+            <h2 className="text-xl font-semibold text-[var(--ink)]">{account.name}</h2>
           </div>
           <button className="icon-button" onClick={onClose} aria-label="Close adjust balance"><X size={19} /></button>
         </div>
 
         <div className="mt-5 rounded-3xl bg-[var(--surface-2)] p-4">
           <p className="text-sm text-[var(--muted)]">Recorded balance</p>
-          <strong className="mt-1 block text-3xl text-white">{formatPKR(account.balance)}</strong>
+          <strong className="mt-1 block text-3xl text-[var(--ink)]">{formatPKR(account.balance)}</strong>
         </div>
 
         <div className="mt-4 grid gap-4">
@@ -884,7 +668,7 @@ function AdjustBalanceModal({
           </label>
         </div>
 
-        <div className="mt-4 rounded-3xl border border-white/8 bg-[var(--surface-2)] p-4">
+        <div className="mt-4 rounded-3xl border border-[var(--rule)] bg-[var(--surface-2)] p-4">
           <div className="flex items-center justify-between gap-3">
             <span className="text-sm text-[var(--muted)]">Difference</span>
             <strong className={cn(isIncrease && 'amount-positive', isDecrease && 'amount-negative', !difference && 'amount-neutral')}>
@@ -899,7 +683,7 @@ function AdjustBalanceModal({
         </div>
 
         <div className="mt-5 grid grid-cols-2 gap-3">
-          <button className="rounded-2xl bg-[var(--surface-2)] px-4 py-3 text-sm font-semibold text-white" onClick={onClose}>Cancel</button>
+          <button className="rounded-2xl bg-[var(--surface-2)] px-4 py-3 text-sm font-semibold text-[var(--ink)]" onClick={onClose}>Cancel</button>
           <button className="btn-primary justify-center" onClick={confirmAdjustment}>Confirm</button>
         </div>
       </motion.section>

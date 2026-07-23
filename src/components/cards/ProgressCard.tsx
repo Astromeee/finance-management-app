@@ -20,7 +20,7 @@ export function ProgressCard({ title, current, total, label, status, dueDate, wa
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0">
           <p className="text-xs font-semibold uppercase text-[var(--muted)] sm:text-sm">{label}</p>
-          <h3 className="mt-1 text-base font-semibold text-white sm:text-lg">{title}</h3>
+          <h3 className="mt-1 text-base font-semibold text-[var(--ink)] sm:text-lg">{title}</h3>
         </div>
         {status && (
           <span className={cn('rounded-full px-3 py-1 text-xs font-medium', status === 'Overdue' || warning ? 'bg-[rgba(233,141,103,.13)] text-[var(--negative)]' : 'bg-[var(--accent-soft)] text-[var(--accent)]')}>
@@ -36,7 +36,7 @@ export function ProgressCard({ title, current, total, label, status, dueDate, wa
           <p className="text-xs text-[var(--muted)] sm:text-sm">{formatPKR(current)} of {formatPKR(total)}</p>
           <p className="mt-1 text-xs text-[var(--muted-2)]">{formatPKR(remaining)} remaining{dueDate ? ` · Due ${dueDate}` : ''}</p>
         </div>
-        <strong className="text-xl text-white">{progress}%</strong>
+        <strong className="text-xl text-[var(--ink)]">{progress}%</strong>
       </div>
     </article>
   )

@@ -8,9 +8,9 @@ const iconMap: Record<Account['type'], LucideIcon> = { cash: Banknote, bank: Bui
 
 function readableTextClass(color: string) {
   const hex = color.replace('#', '')
-  if (hex.length !== 6) return 'text-white'
+  if (hex.length !== 6) return 'text-[var(--ink)]'
   const [r, g, b] = [0, 2, 4].map((start) => Number.parseInt(hex.slice(start, start + 2), 16))
-  return (r * 299 + g * 587 + b * 114) / 1000 > 150 ? 'text-[#151719]' : 'text-white'
+  return (r * 299 + g * 587 + b * 114) / 1000 > 150 ? 'text-[#151719]' : 'text-[var(--ink)]'
 }
 
 function cardStyle(color: string): CSSProperties {
@@ -34,9 +34,9 @@ export function AccountPreviewCard({ account, stacked, onEdit, action = 'edit' }
   return (
     <article className={cn('account-card', readableTextClass(account.color), stacked && 'account-card-stacked')} style={cardStyle(account.color)}>
       <div className="relative z-10 flex items-start justify-between">
-        <span className="grid h-11 w-11 place-items-center rounded-2xl bg-black/18 shadow-inner shadow-white/10"><Icon size={21} /></span>
+        <span className="grid h-11 w-11 place-items-center rounded-2xl bg-[rgba(43,36,29,.45)] shadow-inner shadow-white/10"><Icon size={21} /></span>
         {onEdit && (
-          <button className="grid h-9 w-9 place-items-center rounded-full bg-black/18" aria-label={`${action === 'edit' ? 'Edit' : 'Adjust'} ${account.name}`} onClick={() => onEdit(account)}>
+          <button className="grid h-9 w-9 place-items-center rounded-full bg-[rgba(43,36,29,.45)]" aria-label={`${action === 'edit' ? 'Edit' : 'Adjust'} ${account.name}`} onClick={() => onEdit(account)}>
             <ActionIcon size={18} />
           </button>
         )}
@@ -49,7 +49,7 @@ export function AccountPreviewCard({ account, stacked, onEdit, action = 'edit' }
         <div>
           <p className="text-xs uppercase tracking-[.16em] opacity-60">{account.type}</p>
         </div>
-        <span className="rounded-full bg-black/15 px-3 py-1.5 text-xs font-semibold">**** {label}</span>
+        <span className="rounded-full bg-[rgba(43,36,29,.45)] px-3 py-1.5 text-xs font-semibold">**** {label}</span>
       </div>
     </article>
   )

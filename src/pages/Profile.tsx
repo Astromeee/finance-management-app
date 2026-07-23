@@ -59,12 +59,12 @@ export function ProfilePage({ onBack }: { onBack: () => void }) {
       <section className="card p-6">
         <div className="flex flex-col items-center">
           <div className="relative">
-            <div className="grid h-28 w-28 place-items-center overflow-hidden rounded-full bg-[var(--accent)] text-3xl font-extrabold text-[#16130F]">
+            <div className="grid h-28 w-28 place-items-center overflow-hidden rounded-full bg-[var(--accent)] text-3xl font-extrabold text-[var(--accent-ink)]">
               {avatar ? <img alt="Profile" className="h-full w-full object-cover" src={avatar} /> : initialsOf(name)}
             </div>
             <button
               aria-label="Change photo"
-              className="absolute -bottom-1 -right-1 grid h-10 w-10 place-items-center rounded-full border border-white/15 bg-[var(--surface-2)] text-[var(--accent)] shadow-lg"
+              className="absolute -bottom-1 -right-1 grid h-10 w-10 place-items-center rounded-full border border-[var(--rule)] bg-[var(--surface-2)] text-[var(--accent)] shadow-lg"
               onClick={() => fileRef.current?.click()}
             >
               <Camera size={17} />
@@ -93,7 +93,7 @@ export function ProfilePage({ onBack }: { onBack: () => void }) {
       {/* ---- App ---- */}
       <section className="card flex items-center justify-between gap-4 p-5">
         <div>
-          <h3 className="text-[15px] font-semibold text-white">Install Pocket Ledger</h3>
+          <h3 className="text-[15px] font-semibold text-[var(--ink)]">Install Pocket Ledger</h3>
           <p className="mt-0.5 text-[13px] text-[var(--muted)]">Add the app to your home screen.</p>
         </div>
         <InstallAppButton />

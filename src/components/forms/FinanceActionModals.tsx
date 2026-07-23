@@ -20,11 +20,6 @@ function rememberedAccount(accounts: Account[]) {
   return accounts.some((account) => account.id === saved) ? saved! : accounts[0]?.id ?? ''
 }
 
-function rememberAccount(id: string, onChange: (value: string) => void) {
-  localStorage.setItem('pl-last-account', id)
-  onChange(id)
-}
-
 function SubmitButton({ children, disabled }: SubmitButtonProps) {
   return <button className="btn-primary justify-center disabled:opacity-60" type="submit" disabled={disabled}>{children}</button>
 }
@@ -32,144 +27,9 @@ function SubmitButton({ children, disabled }: SubmitButtonProps) {
 function ActionFooter({ submit, disabled, onCancel }: { submit: ReactNode; disabled?: boolean; onCancel: () => void }) {
   return (
     <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-      <button className="hidden rounded-2xl bg-[var(--surface-2)] px-4 py-3 text-sm font-semibold text-white sm:block" type="button" onClick={onCancel}>Cancel</button>
+      <button className="hidden rounded-2xl bg-[var(--surface-2)] px-4 py-3 text-sm font-semibold text-[var(--ink)] sm:block" type="button" onClick={onCancel}>Cancel</button>
       <SubmitButton disabled={disabled}>{submit}</SubmitButton>
     </div>
-  )
-}
-
-function ErrorText({ children }: { children?: ReactNode }) {
-  return children ? <p className="rounded-2xl border border-[rgba(233,141,103,.18)] bg-[rgba(233,141,103,.08)] px-3 py-2 text-xs text-[var(--negative)]">{children}</p> : null
-}
-
-export function AddIncomeModal({
-  open,
-  accounts,
-  incomeCategories,
-  onManageCategories,
-  onClose,
-  onSubmit,
-}: {
-  open: boolean
-  accounts: Account[]
-  incomeCategories: string[]
-  onManageCategories: () => void
-  onClose: () => void
-  onSubmit: (payload: { amount: number; source: string; accountId: string; date: string; notes?: string }) => void
-}) {
-  const [amount, setAmount] = useState('')
-  const [source, setSource] = useState(incomeCategories[0] ?? 'Other Income')
-  const [accountId, setAccountId] = useState(() => rememberedAccount(accounts))
-  const [date, setDate] = useState(today())
-  const [notes, setNotes] = useState('')
-  const selectedAccountId = accountId || accounts[0]?.id || ''
-  const invalid = numeric(amount) <= 0 || !source || !selectedAccountId || !date
-
-  return (
-    <Sheet title="Add income" eyebrow="Money received" open={open} onClose={onClose}>
-      <form className="mt-5 grid gap-4" onSubmit={(event) => {
-        event.preventDefault()
-        if (!invalid) {
-          onSubmit({ amount: numeric(amount), source, accountId: selectedAccountId, date, notes })
-          onClose()
-        }
-      }}>
-        <Field label="Amount" type="number" value={amount} onChange={setAmount} placeholder="Rs. 5,000" />
-        <Select label="Source" value={source} onChange={setSource} options={incomeCategories} />
-        <ManageCategories onClick={onManageCategories} />
-        <Select label="Account received in" value={selectedAccountId} onChange={(id) => rememberAccount(id, setAccountId)} options={accounts.map((account) => ({ value: account.id, label: account.name }))} />
-        <Field label="Date" type="date" value={date} onChange={setDate} />
-        <TextArea label="Notes" value={notes} onChange={setNotes} />
-        <ActionFooter submit="Add income" disabled={invalid} onCancel={onClose} />
-      </form>
-    </Sheet>
-  )
-}
-
-export function AddExpenseModal({
-  open,
-  accounts,
-  categories,
-  initialAmount,
-  initialCategory,
-  onManageCategories,
-  onClose,
-  onSubmit,
-}: {
-  open: boolean
-  accounts: Account[]
-  categories: string[]
-  initialAmount?: number
-  initialCategory?: string
-  onManageCategories: () => void
-  onClose: () => void
-  onSubmit: (payload: { amount: number; category: string; accountId: string; date: string; notes?: string }) => void
-}) {
-  const [amount, setAmount] = useState(initialAmount ? String(initialAmount) : '')
-  const [category, setCategory] = useState(initialCategory ?? categories[0] ?? 'Miscellaneous')
-  const [accountId, setAccountId] = useState(() => rememberedAccount(accounts))
-  const [date, setDate] = useState(today())
-  const [notes, setNotes] = useState('')
-  const selectedAccountId = accountId || accounts[0]?.id || ''
-  const account = accounts.find((item) => item.id === selectedAccountId)
-  const parsedAmount = numeric(amount)
-  const invalid = parsedAmount <= 0 || !category || !selectedAccountId || !date
-  const warning = account && parsedAmount > account.balance ? 'This will make the account balance negative.' : ''
-
-  return (
-    <Sheet title="Add expense" eyebrow="Record spending" open={open} onClose={onClose}>
-      <form className="mt-5 grid gap-4" onSubmit={(event) => { event.preventDefault(); if (!invalid) { onSubmit({ amount: parsedAmount, category, accountId: selectedAccountId, date, notes }); onClose() } }}>
-        <Field label="Amount" type="number" value={amount} onChange={setAmount} placeholder="Rs. 2,500" />
-        <Select label="Category" value={category} onChange={setCategory} options={categories} />
-        <ManageCategories onClick={onManageCategories} />
-        <Select label="Account paid from" value={selectedAccountId} onChange={(id) => rememberAccount(id, setAccountId)} options={accounts.map((item) => ({ value: item.id, label: `${item.name} · ${formatPKR(item.balance)}` }))} />
-        <Field label="Date" type="date" value={date} onChange={setDate} />
-        <TextArea label="Notes" value={notes} onChange={setNotes} />
-        <ErrorText>{warning}</ErrorText>
-        <ActionFooter submit="Record expense" disabled={invalid} onCancel={onClose} />
-      </form>
-    </Sheet>
-  )
-}
-
-export function TransferModal({
-  open,
-  accounts,
-  onClose,
-  onSubmit,
-}: {
-  open: boolean
-  accounts: Account[]
-  onClose: () => void
-  onSubmit: (payload: { amount: number; fromAccountId: string; toAccountId: string; date: string; notes?: string }) => void
-}) {
-  const fromAccounts = accounts
-  const [amount, setAmount] = useState('')
-  const [fromAccountId, setFromAccountId] = useState(() => rememberedAccount(fromAccounts))
-  const [toAccountId, setToAccountId] = useState(accounts.find((account) => account.id !== rememberedAccount(fromAccounts))?.id ?? '')
-  const [date, setDate] = useState(today())
-  const [notes, setNotes] = useState('')
-  const selectedFromAccountId = fromAccountId || fromAccounts[0]?.id || ''
-  const selectedToAccountId = toAccountId || accounts.find((item) => item.id !== selectedFromAccountId)?.id || ''
-  const fromAccount = fromAccounts.find((item) => item.id === selectedFromAccountId)
-  const parsedAmount = numeric(amount)
-  const insufficient = fromAccount ? parsedAmount > fromAccount.balance : false
-  const sameAccount = selectedFromAccountId === selectedToAccountId
-  const invalid = parsedAmount <= 0 || !selectedFromAccountId || !selectedToAccountId || !date || insufficient || sameAccount
-
-  return (
-    <Sheet title="Transfer money" eyebrow="Move between accounts" open={open} onClose={onClose}>
-      <form className="mt-5 grid gap-4" onSubmit={(event) => { event.preventDefault(); if (!invalid) { onSubmit({ amount: parsedAmount, fromAccountId: selectedFromAccountId, toAccountId: selectedToAccountId, date, notes }); onClose() } }}>
-        {fromAccounts.length < 2 && <ErrorText>Add at least two accounts before transferring money.</ErrorText>}
-        <Field label="Amount" type="number" value={amount} onChange={setAmount} placeholder="Rs. 10,000" />
-        <Select label="From account" value={selectedFromAccountId} onChange={(id) => rememberAccount(id, setFromAccountId)} options={fromAccounts.map((item) => ({ value: item.id, label: `${item.name} · ${formatPKR(item.balance)}` }))} />
-        <Select label="To account" value={selectedToAccountId} onChange={setToAccountId} options={accounts.map((item) => ({ value: item.id, label: item.name }))} />
-        <Field label="Date" type="date" value={date} onChange={setDate} />
-        <TextArea label="Notes" value={notes} onChange={setNotes} />
-        <ErrorText>{sameAccount ? 'From and To account cannot be the same.' : insufficient ? 'Insufficient balance in selected account.' : ''}</ErrorText>
-        <ActionFooter submit="Transfer" disabled={invalid} onCancel={onClose} />
-      </form>
-    </Sheet>
   )
 }
 
@@ -258,6 +118,3 @@ function Select({ label, value, onChange, options }: { label: string; value: str
   )
 }
 
-function ManageCategories({ onClick }: { onClick: () => void }) {
-  return <button className="-mt-2 w-fit text-xs font-semibold text-[var(--accent)] hover:underline" onClick={onClick} type="button">Manage categories in Settings</button>
-}

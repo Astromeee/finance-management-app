@@ -97,7 +97,7 @@ export function AuthPage({ mode }: { mode: AuthMode }) {
         <section className="auth-card w-full max-w-md rounded-[2rem] p-6 text-center">
           <img className="mx-auto h-16 w-16 rounded-[20px]" src="/pocket-ledger-icon.png" alt="" aria-hidden="true" />
           <p className="mt-5 text-xs font-semibold uppercase tracking-[.18em] text-[var(--muted)]">Pocket Ledger · Private Beta</p>
-          <h1 className="mt-2 text-3xl font-semibold text-white">Signup is not open yet</h1>
+          <h1 className="mt-2 text-3xl font-semibold text-[var(--ink)]">Signup is not open yet</h1>
           <p className="mt-3 text-sm leading-6 text-[var(--muted)]">We are finishing authentication, email delivery, and security checks before accepting public accounts.</p>
           <Link className="btn-primary mt-6 justify-center" to="/login">Back to login</Link>
         </section>
@@ -112,11 +112,11 @@ export function AuthPage({ mode }: { mode: AuthMode }) {
         <img className="mx-auto h-16 w-16 rounded-[20px]" src="/pocket-ledger-icon.png" alt="" aria-hidden="true" />
         <div className="mt-5 text-center">
           <div className="flex items-center justify-center gap-2"><p className="text-xs font-semibold uppercase tracking-[.18em] text-[var(--muted)]">Pocket Ledger</p><span className="rounded-full bg-[var(--accent-soft)] px-2 py-0.5 text-[10px] font-bold text-[var(--accent)]">PUBLIC BETA</span></div>
-          <h1 className="mt-2 text-3xl font-semibold text-white">{copy[0]}</h1>
+          <h1 className="mt-2 text-3xl font-semibold text-[var(--ink)]">{copy[0]}</h1>
           <p className="mt-2 text-sm text-[var(--muted)]">{copy[1]}</p>
         </div>
 
-        {googleEnabled && (mode === 'login' || mode === 'signup') && <button className="auth-translucent-control mt-6 flex min-h-12 w-full items-center justify-center gap-3 rounded-2xl text-sm font-semibold text-white disabled:opacity-60" disabled={loading} onClick={google}><img className="h-5 w-5 object-contain" src="/google-g.png" alt="" aria-hidden="true" />Continue with Google</button>}
+        {googleEnabled && (mode === 'login' || mode === 'signup') && <button className="auth-translucent-control mt-6 flex min-h-12 w-full items-center justify-center gap-3 rounded-2xl text-sm font-semibold text-[var(--ink)] disabled:opacity-60" disabled={loading} onClick={google}><img className="h-5 w-5 object-contain" src="/google-g.png" alt="" aria-hidden="true" />Continue with Google</button>}
         {googleEnabled && (mode === 'login' || mode === 'signup') && <div className="my-4 flex items-center gap-3 text-xs text-[var(--muted-2)]"><span className="h-px flex-1 bg-[var(--border)]" />or use email<span className="h-px flex-1 bg-[var(--border)]" /></div>}
 
         <form className="grid gap-4" onSubmit={submit}>
@@ -188,7 +188,7 @@ export function AuthCallback() {
   return (
     <main className="auth-shell grid min-h-screen place-items-center p-5">
       <section className="auth-card w-full max-w-md rounded-[2rem] p-6 text-center">
-        {effectiveError ? <><h1 className="text-xl font-semibold text-white">Sign-in could not be completed</h1><p className="mt-3 text-sm leading-6 text-[var(--muted)]" role="alert">{effectiveError}</p><Link className="btn-primary mt-6 justify-center" to="/login">Back to login</Link></> : <p className="text-sm font-semibold text-[var(--muted)]" role="status">Completing secure sign-in…</p>}
+        {effectiveError ? <><h1 className="text-xl font-semibold text-[var(--ink)]">Sign-in could not be completed</h1><p className="mt-3 text-sm leading-6 text-[var(--muted)]" role="alert">{effectiveError}</p><Link className="btn-primary mt-6 justify-center" to="/login">Back to login</Link></> : <p className="text-sm font-semibold text-[var(--muted)]" role="status">Completing secure sign-in…</p>}
       </section>
     </main>
   )

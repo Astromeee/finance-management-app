@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
 
 /**
- * Pocket Ledger splash — "the ledger boots".
+ * Pocket Ledger splash — "the ledger boots", Vault edition.
+ * One warm theme: bone canvas, espresso tile, clay cursor.
  * Mount once near the root (see main.tsx). Self-dismisses after `duration` ms.
  * Pure overlay: no interaction with app state.
  */
@@ -16,15 +17,12 @@ export function SplashScreen({ duration = 2000 }: { duration?: number }) {
 
   if (phase === 'gone') return null
 
-  const light = document.documentElement.getAttribute('data-theme') === 'light'
-  const barColor = '#F6F3EF'
-
   const bar = (width: string, delay: string) => ({
     display: 'block',
     width,
     height: 9,
     borderRadius: 2.5,
-    background: barColor,
+    background: '#F3EEE4',
     transformOrigin: 'left center',
     animation: `pl-bar-grow 3.4s ease-in-out ${delay} infinite`,
   } as const)
@@ -41,9 +39,7 @@ export function SplashScreen({ duration = 2000 }: { duration?: number }) {
         alignItems: 'center',
         justifyContent: 'center',
         gap: 26,
-        background: light
-          ? 'radial-gradient(80% 46% at 76% 22%, rgba(242,100,25,.85) 0%, rgba(255,138,71,.45) 42%, transparent 72%), radial-gradient(55% 32% at 8% 100%, rgba(255,178,122,.5), transparent 68%), #FFFDFB'
-          : 'radial-gradient(85% 48% at 82% 12%, #ff7a1a 0%, #ff7a1a 30%, rgba(199,75,14,.38) 55%, transparent 76%), radial-gradient(60% 35% at 12% 96%, rgba(242,100,25,.22), transparent 68%), #1B1A19',
+        background: '#F3EEE4',
         opacity: phase === 'leaving' ? 0 : 1,
         transition: 'opacity 420ms ease',
         pointerEvents: phase === 'leaving' ? 'none' : 'auto',
@@ -55,18 +51,18 @@ export function SplashScreen({ duration = 2000 }: { duration?: number }) {
         @keyframes pl-sweep { 0%{left:0} 100%{left:138px} }
       `}</style>
 
-      {/* Logo C tile */}
+      {/* Logo tile */}
       <div
         style={{
           width: 100,
           height: 100,
           borderRadius: 24,
-          background: '#16130F',
+          background: '#2B241D',
           display: 'flex',
           flexDirection: 'column',
           justifyContent: 'center',
           alignItems: 'center',
-          boxShadow: '0 24px 60px rgba(0,0,0,.45), 0 0 0 1px rgba(255,255,255,.07) inset',
+          boxShadow: '0 20px 40px rgba(43,36,29,.35)',
         }}
       >
         <div style={{ display: 'flex', flexDirection: 'column', gap: 11, width: 52 }}>
@@ -74,19 +70,21 @@ export function SplashScreen({ duration = 2000 }: { duration?: number }) {
           <span style={bar('52px', '0.35s')} />
           <div style={{ display: 'flex', gap: 5, alignItems: 'center' }}>
             <span style={bar('30px', '0.7s')} />
-            <span style={{ display: 'block', width: 9, height: 9, borderRadius: 2.5, background: '#ff7a1a', animation: 'pl-cursor 1.1s steps(1) infinite' }} />
+            <span style={{ display: 'block', width: 9, height: 9, borderRadius: 2.5, background: '#E2703A', animation: 'pl-cursor 1.1s steps(1) infinite' }} />
           </div>
         </div>
       </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
-        <p style={{ margin: 0, fontFamily: "'Sora',sans-serif", fontSize: 19, fontWeight: 700, letterSpacing: '-0.5px', color: light ? '#16130F' : '#F6F3EF' }}>Pocket Ledger</p>
-        <p style={{ margin: 0, fontSize: 11.5, letterSpacing: 3, textTransform: 'uppercase', color: light ? 'rgba(22,19,15,.5)' : 'rgba(246,243,239,.55)' }}>Every rupee, written</p>
+        <p style={{ margin: 0, fontFamily: "'Instrument Serif',Georgia,serif", fontSize: 24, fontWeight: 400, letterSpacing: '-0.5px', color: '#2B241D' }}>
+          Pocket <em style={{ color: '#E2703A' }}>ledger.</em>
+        </p>
+        <p style={{ margin: 0, fontFamily: "'Schibsted Grotesk',sans-serif", fontSize: 11, fontWeight: 600, letterSpacing: 2.2, textTransform: 'uppercase', color: '#9A8F7D' }}>Every rupee, written</p>
       </div>
 
       {/* sweep loader */}
-      <div style={{ position: 'relative', width: 148, height: 4, borderRadius: 2, background: light ? 'rgba(22,19,15,.14)' : 'rgba(255,255,255,.14)' }}>
-        <span style={{ position: 'absolute', top: -3, left: 0, width: 10, height: 10, borderRadius: 3, background: '#ff7a1a', animation: 'pl-sweep 1.6s ease-in-out infinite alternate' }} />
+      <div style={{ position: 'relative', width: 148, height: 4, borderRadius: 2, background: '#E6DECD' }}>
+        <span style={{ position: 'absolute', top: -3, left: 0, width: 10, height: 10, borderRadius: 3, background: '#E2703A', animation: 'pl-sweep 1.6s ease-in-out infinite alternate' }} />
       </div>
     </div>
   )

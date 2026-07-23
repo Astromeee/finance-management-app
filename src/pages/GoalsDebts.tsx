@@ -1,22 +1,18 @@
-import { ArrowRight, CheckCircle2, Landmark, PencilLine, Plus, Repeat2, Trash2, WalletCards, X, type LucideIcon } from 'lucide-react'
-import { animate, motion } from 'framer-motion'
-import { useEffect, useId, useMemo, useRef, useState } from 'react'
+import { ArrowRight, Check, CircleAlert, Plus, X } from 'lucide-react'
+import { useState } from 'react'
 import type { ReactNode } from 'react'
 import { BottomSheet as Sheet } from '../components/BottomSheet'
 import { expenseCategories } from '../data/mockData'
-import type { Account, Debt, DebtCategory, DebtStatus, Goal, RecurringFrequency, UpcomingExpense, UpcomingExpenseStatus } from '../types/finance'
+import type { Account, Debt, DebtCategory, DebtStatus, Goal, RecurringFrequency, UpcomingExpense } from '../types/finance'
 import { formatPKR, percent } from '../utils/financeCalculations'
 import { cn } from '../utils/ui'
 
 /* ============================================================
-   Goals & Debts — V3 redesign
-   Same data, props, and modals. New skin + motion:
-   - Goal cards: animated SVG progress ring (orange gradient stroke,
-     spring draw-in) with count-up percentage
-   - Debt cards: spring-animated progress bar with glow + count-up
-   - Overview: glass stat cards with animated mini-rings
-   - Segmented pill tabs
-   Drop-in replacement for src/pages/GoalsDebts.tsx.
+   Goals & Debts — "Your paths." (Vault spec 15b)
+   Goals are journeys on one vertical milestone trail: 48px SVG
+   progress rings (clay on-pace / espresso needs-attention), a clay
+   debt node card, and a dashed "+ Start a new path". Same data,
+   props, and modals as before.
    ============================================================ */
 
 type UpcomingPayload = Omit<UpcomingExpense, 'id' | 'status' | 'createdAt' | 'paidTransactionId'>
@@ -33,7 +29,6 @@ type DebtPayload = {
 }
 type GoalPayload = { name: string; target: number; saved: number; dueDate?: string; linkedAccountId?: string; notes?: string; status: Goal['status'] }
 type SavingsPayload = { goalId: string; amount: number; accountId: string; date: string; notes?: string }
-type GoalsDebtsTab = 'goals' | 'debts' | 'upcoming'
 type DeleteTarget =
   | { kind: 'upcoming'; id: string; title: string }
   | { kind: 'goal'; id: string; title: string }
@@ -50,100 +45,11 @@ const frequencyLabels: Record<RecurringFrequency, string> = {
 const debtCategoryOptions: DebtCategory[] = ['Debt', 'Overdue Payment', 'Money I Owe', 'Installment', 'Other']
 const debtStatusOptions: DebtStatus[] = ['Active', 'Due Soon', 'Overdue', 'Paid']
 
-const EASE = [0.22, 1, 0.36, 1] as const
-
-/* ---------- shared motion atoms ---------- */
-
-/** Number that counts up from 0 when it enters. */
-function CountUp({ value, format = (v: number) => String(Math.round(v)), duration = 1 }: { value: number; format?: (v: number) => string; duration?: number }) {
-  const ref = useRef<HTMLSpanElement>(null)
-  useEffect(() => {
-    const node = ref.current
-    if (!node) return
-    const controls = animate(0, value, {
-      duration,
-      ease: EASE,
-      onUpdate: (latest) => { node.textContent = format(latest) },
-    })
-    return () => controls.stop()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [value])
-  return <span ref={ref}>{format(value)}</span>
-}
-
-/** Animated SVG progress ring with gradient stroke + glow. */
-function ProgressRing({
-  progress,
-  size = 96,
-  stroke = 9,
-  from = '#ff7a1a',
-  to = '#ff7a1a',
-  track = 'rgba(246,243,239,.08)',
-  children,
-}: {
-  progress: number
-  size?: number
-  stroke?: number
-  from?: string
-  to?: string
-  track?: string
-  children?: ReactNode
-}) {
-  const clamped = Math.max(0, Math.min(100, progress))
-  const radius = (size - stroke) / 2
-  const circumference = 2 * Math.PI * radius
-  const id = useId().replaceAll(':', '')
-  return (
-    <div className="relative flex-none" style={{ width: size, height: size }}>
-      <svg width={size} height={size} className="-rotate-90">
-        <defs>
-          <linearGradient id={id} x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stopColor={from} />
-            <stop offset="100%" stopColor={to} />
-          </linearGradient>
-        </defs>
-        <circle cx={size / 2} cy={size / 2} r={radius} fill="none" stroke={track} strokeWidth={stroke} />
-        <motion.circle
-          cx={size / 2}
-          cy={size / 2}
-          r={radius}
-          fill="none"
-          stroke={`url(#${id})`}
-          strokeWidth={stroke}
-          strokeLinecap="round"
-          strokeDasharray={circumference}
-          initial={{ strokeDashoffset: circumference }}
-          animate={{ strokeDashoffset: circumference * (1 - clamped / 100) }}
-          transition={{ duration: 1.2, ease: EASE }}
-          style={{ filter: `drop-shadow(0 0 8px ${from}55)` }}
-        />
-      </svg>
-      <div className="absolute inset-0 flex flex-col items-center justify-center">{children}</div>
-    </div>
-  )
-}
-
-/** Spring-animated horizontal progress bar with glow. */
-function ProgressBar({ progress, color = '#ff7a1a', glow = true, height = 8 }: { progress: number; color?: string; glow?: boolean; height?: number }) {
-  const clamped = Math.max(0, Math.min(100, progress))
-  return (
-    <div className="w-full overflow-hidden rounded-full bg-white/[.07]" style={{ height }}>
-      <motion.div
-        className="h-full rounded-full"
-        style={{ background: `linear-gradient(90deg, ${color}, color-mix(in srgb, ${color} 70%, #000))`, boxShadow: glow ? `0 0 14px ${color}66` : undefined }}
-        initial={{ width: 0 }}
-        animate={{ width: `${clamped}%` }}
-        transition={{ type: 'spring', stiffness: 60, damping: 16, mass: 1 }}
-      />
-    </div>
-  )
-}
 
 export function GoalsDebts({
   goals,
   debts,
   accounts,
-  upcomingExpenses,
   onAddGoal,
   onDebtPayment,
   onAddDebt,
@@ -152,10 +58,6 @@ export function GoalsDebts({
   onUpdateDebt,
   onDeleteDebt,
   onAddSavings,
-  onAddUpcomingExpense,
-  onUpdateUpcomingExpense,
-  onDeleteUpcomingExpense,
-  onMarkUpcomingPaid,
 }: {
   goals: Goal[]
   debts: Debt[]
@@ -174,209 +76,99 @@ export function GoalsDebts({
   onDeleteUpcomingExpense: (expenseId: string) => void
   onMarkUpcomingPaid: (expense: UpcomingExpense, payload: PaidPayload) => void
 }) {
-  const [editingExpense, setEditingExpense] = useState<UpcomingExpense | null>(null)
-  const [showAddExpense, setShowAddExpense] = useState(false)
   const [showAddDebt, setShowAddDebt] = useState(false)
   const [savingGoal, setSavingGoal] = useState<Goal | null>(null)
   const [editingGoal, setEditingGoal] = useState<Goal | null>(null)
   const [editingDebt, setEditingDebt] = useState<Debt | null>(null)
-  const [payingExpense, setPayingExpense] = useState<UpcomingExpense | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<DeleteTarget | null>(null)
-  const [activeTab, setActiveTab] = useState<GoalsDebtsTab>('goals')
-  const sortedUpcoming = useMemo(
-    () => [...upcomingExpenses].sort((a, b) => a.status === 'paid' && b.status !== 'paid' ? 1 : b.status === 'paid' && a.status !== 'paid' ? -1 : a.dueDate.localeCompare(b.dueDate)),
-    [upcomingExpenses],
-  )
+  const [chooserOpen, setChooserOpen] = useState(false)
+
   const totalSavings = goals.reduce((sum, goal) => sum + goal.saved, 0)
   const totalGoalTarget = goals.reduce((sum, goal) => sum + goal.target, 0)
-  const totalDebt = debts.reduce((sum, debt) => sum + debtTotal(debt), 0)
-  const totalDebtPaid = debts.reduce((sum, debt) => sum + debtPaid(debt), 0)
-  const totalDebtToPay = debts.reduce((sum, debt) => sum + debtRemaining(debt), 0)
-  const activeGoals = goals.filter((goal) => goal.status !== 'Completed').length
-  const activeDebts = debts.filter((debt) => debtDisplayStatus(debt) !== 'Paid').length
-  const goalProgress = percent(totalSavings, totalGoalTarget)
-  const debtProgress = totalDebt > 0 ? Math.round((totalDebtPaid / totalDebt) * 100) : 100
+  const there = percent(totalSavings, totalGoalTarget)
+  const activeDebtCount = debts.filter((debt) => debtDisplayStatus(debt) !== 'Paid').length
 
-  const tabs: Array<{ key: GoalsDebtsTab; label: string; count: number }> = [
-    { key: 'goals', label: 'Goals', count: activeGoals },
-    { key: 'debts', label: 'Debts', count: activeDebts },
-  ]
+  const eyebrow = `${goals.length} ${goals.length === 1 ? 'goal' : 'goals'} · ${activeDebtCount} ${activeDebtCount === 1 ? 'debt' : 'debts'}`
 
   return (
-    <div className="space-y-6 pb-32">
-      {/* ---- Header: Plans / Goals & Debts + add button (mock 6b) ---- */}
-      <section className="flex items-start justify-between gap-4">
-        <div>
-          <p className="text-sm text-[var(--muted)]">Plans</p>
-          <h2 className="mt-0.5 text-[32px] font-semibold leading-tight text-white">Goals &amp; Debts</h2>
+    <div className="vault-screen">
+      <header className="vault-topbar">
+        <p className="vault-eyebrow">{eyebrow}</p>
+        <div className="vault-topbar-actions">
+          <button aria-label="Start a new path" className="vault-iconbtn" type="button" onClick={() => setChooserOpen(true)}>
+            <Plus size={16} strokeWidth={1.8} />
+          </button>
         </div>
-        <button
-          aria-label={activeTab === 'debts' ? 'Add debt' : activeTab === 'upcoming' ? 'Add upcoming expense' : 'Add goal'}
-          className="grid h-[52px] w-[52px] place-items-center rounded-full bg-gradient-to-br from-[#ff7a1a] to-[#ff7a1a] text-[#16130F] shadow-[0_12px_28px_rgba(255, 122, 26,.25)]"
-          onClick={() => {
-            if (activeTab === 'debts') setShowAddDebt(true)
-            else if (activeTab === 'upcoming') setShowAddExpense(true)
-            else onAddGoal()
-          }}
-        >
-          <Plus size={22} />
-        </button>
-      </section>
+      </header>
 
-      {/* ---- Overview: animated glass stats ---- */}
-      <section className="grid grid-cols-2 gap-3">
-        <OverviewCard
-          label="Total savings"
-          value={totalSavings}
-          icon={WalletCards}
-          color="#ff7a1a"
-          ring={goalProgress}
-          ringLabel={totalGoalTarget > 0 ? `${goalProgress}% of goals` : 'No goals yet'}
-        />
-        <OverviewCard
-          label="Debt to pay"
-          value={totalDebtToPay}
-          icon={Landmark}
-          color="#ff7a1a"
-          ring={debtProgress}
-          ringLabel={totalDebt > 0 ? `${debtProgress}% paid` : 'All clear'}
-        />
-      </section>
+      <h1 className="vault-title">Your <em>paths.</em></h1>
 
-      {/* ---- Segmented pill tabs ---- */}
-      <section className="flex rounded-full border border-[var(--glass-border)] bg-[var(--glass-bg)] p-1 backdrop-blur-xl" aria-label="Goals and debts sections">
-        {tabs.map((tab) => {
-          const active = activeTab === tab.key
-          return (
-            <button
-              key={tab.key}
-              className={cn(
-                'relative flex flex-1 items-center justify-center gap-2 rounded-full px-4 py-2.5 text-sm font-medium transition',
-                active ? 'text-[#16130F]' : 'text-[var(--muted)]',
-              )}
-              onClick={() => setActiveTab(tab.key)}
-            >
-              {active && (
-                <motion.span
-                  layoutId="goals-tab-pill"
-                  className="absolute inset-0 rounded-full bg-gradient-to-br from-[#ff7a1a] to-[#ff7a1a]"
-                  transition={{ type: 'spring', stiffness: 380, damping: 32 }}
-                />
-              )}
-              <span className="relative">{tab.label}</span>
-              <strong className={cn('relative rounded-full px-1.5 text-xs', active ? 'bg-black/15' : 'bg-white/[.07] text-[var(--muted-2)]')}>{tab.count}</strong>
-            </button>
-          )
-        })}
-      </section>
-
-      {activeTab === 'goals' && <section>
-        <div className="mb-4 flex items-end justify-between gap-3">
-          <div><p className="text-sm text-[var(--muted)]">Savings Goals</p><h3 className="text-2xl font-semibold tracking-tight text-white">Build future money</h3></div>
-          <button className="btn-primary" onClick={onAddGoal}>Add goal</button>
+      <section aria-label="Progress across all paths" className="vault-strip mt-7">
+        <div className="vault-cell">
+          <p className="vault-cell-label">Saved so far</p>
+          <p className="vault-cell-value">Rs {nf(totalSavings)}</p>
         </div>
-        {goals.length ? <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {goals.map((goal, index) => (
-            <GoalRingCard
+        <div className="vault-cell">
+          <p className="vault-cell-label">Toward</p>
+          <p className="vault-cell-value">Rs {nf(totalGoalTarget)}</p>
+        </div>
+        <div className="vault-cell">
+          <p className="vault-cell-label">There</p>
+          <p className="vault-cell-value is-clay">{there}%</p>
+        </div>
+      </section>
+
+      {(goals.length > 0 || debts.length > 0) && (
+        <section aria-label="Your paths" className="vault-trail mt-4">
+          {goals.map((goal) => (
+            <GoalNode
               key={goal.id}
               goal={goal}
-              index={index}
-              onAddSavings={() => setSavingGoal(goal)}
+              onQuickAdd={() => setSavingGoal(goal)}
               onEdit={() => setEditingGoal(goal)}
               onDelete={() => setDeleteTarget({ kind: 'goal', id: goal.id, title: goal.name })}
             />
           ))}
-        </div> : <GoalsEmptyState title="No savings goals yet" note="Create a target for a laptop, emergency fund, fee payment, or anything you want to save toward." action="Add goal" onAction={onAddGoal} />}
-      </section>}
-
-      {activeTab === 'debts' && <section>
-        <div className="mb-4 flex items-end justify-between gap-3">
-          <div><p className="text-sm text-[var(--muted)]">Debts / Overdue / Money I Owe</p><h3 className="text-2xl font-semibold tracking-tight text-white">Debts</h3></div>
-          <button className="btn-primary" onClick={() => setShowAddDebt(true)}><Plus size={18} /> Add debt</button>
-        </div>
-        {debts.length ? <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {debts.map((debt, index) => (
-            <DebtGlowCard
+          {debts.map((debt) => (
+            <DebtNode
               key={debt.id}
               debt={debt}
-              index={index}
-              onPayDebt={() => onDebtPayment(debt.id)}
+              onPay={() => onDebtPayment(debt.id)}
               onEdit={() => setEditingDebt(debt)}
               onDelete={() => setDeleteTarget({ kind: 'debt', id: debt.id, title: debtTitle(debt) })}
             />
           ))}
-        </div> : <GoalsEmptyState title="No debts tracked" note="Add money you owe, installments, overdue payments, or borrowed amounts so you always know what is left." action="Add debt" onAction={() => setShowAddDebt(true)} />}
-      </section>}
+        </section>
+      )}
 
-      {activeTab === 'upcoming' && <section>
-        <div className="mb-4 flex items-end justify-between gap-3">
-          <div>
-            <p className="text-sm text-[var(--muted)]">Upcoming Expenses</p>
-            <h3 className="text-2xl font-semibold tracking-tight text-white">Plan future payments</h3>
+      <button className="vault-dashed mt-6" type="button" onClick={() => setChooserOpen(true)}>
+        + Start a new path
+      </button>
+
+      {chooserOpen && (
+        <div className="fixed inset-0 z-[60] grid items-end bg-[rgba(43,36,29,.45)]" onClick={() => setChooserOpen(false)}>
+          <div className="vault-outline mx-auto w-full max-w-[27rem] rounded-b-none px-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-5" role="dialog" aria-label="Start a new path" onClick={(event) => event.stopPropagation()}>
+            <h2 className="vault-h2">Start a new <em className="italic text-[var(--clay)]">path.</em></h2>
+            <div className="mt-2">
+              <button className="vault-row" type="button" onClick={() => { setChooserOpen(false); onAddGoal() }}>
+                <span className="vault-row-dot is-in" />
+                <span className="vault-row-main">
+                  <span className="vault-row-title block">A goal to save toward</span>
+                  <span className="vault-row-meta block">A laptop, a fund, a trip — anything ahead of you</span>
+                </span>
+              </button>
+              <button className="vault-row" type="button" onClick={() => { setChooserOpen(false); setShowAddDebt(true) }}>
+                <span className="vault-row-dot" />
+                <span className="vault-row-main">
+                  <span className="vault-row-title block">A debt to clear</span>
+                  <span className="vault-row-meta block">Installments, borrowed money, overdue payments</span>
+                </span>
+              </button>
+            </div>
           </div>
-          <button className="btn-primary" onClick={() => setShowAddExpense(true)}><Plus size={18} /> Add Upcoming Expense</button>
         </div>
+      )}
 
-        {sortedUpcoming.length ? <div className="grid gap-3 xl:grid-cols-2">
-          {sortedUpcoming.map((expense, index) => {
-            const displayStatus = upcomingDisplayStatus(expense)
-            const account = accounts.find((item) => item.id === expense.linkedAccountId)
-            return (
-              <motion.article
-                key={expense.id}
-                initial={{ opacity: 0, y: 12 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.35, delay: index * 0.05, ease: EASE }}
-                className={cn(
-                  'rounded-[24px] border p-5 backdrop-blur-xl',
-                  displayStatus === 'overdue'
-                    ? 'border-[rgba(232,105,74,.3)] bg-[rgba(232,105,74,.07)]'
-                    : 'border-[var(--glass-border)] bg-[var(--glass-bg)]',
-                  displayStatus === 'paid' && 'opacity-60',
-                )}
-              >
-                <div className="flex min-w-0 items-start justify-between gap-4">
-                  <div className="min-w-0">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <h4 className="truncate text-lg font-semibold text-white">{expense.title}</h4>
-                      <StatusBadge status={displayStatus} />
-                      {expense.isRecurring && <span className="inline-flex items-center gap-1 rounded-full border border-[rgba(255, 122, 26,.22)] bg-[var(--accent-soft)] px-2.5 py-1 text-xs font-semibold text-[var(--accent)]"><Repeat2 size={13} />Recurring</span>}
-                    </div>
-                    <p className="mt-2 text-sm text-[var(--muted)]">{expense.category} · Due {formatDate(expense.dueDate)}{account ? ` · ${account.name}` : ''}</p>
-                    {expense.isRecurring && expense.recurringFrequency && <p className="mt-1 text-xs text-[var(--muted-2)]">{frequencyLabels[expense.recurringFrequency]} commitment</p>}
-                  </div>
-                  <strong className="shrink-0 text-2xl font-semibold tracking-tight text-white">{formatPKR(expense.amount)}</strong>
-                </div>
-                {expense.notes && <p className="mt-3 rounded-2xl bg-white/[.035] px-3 py-2 text-sm text-[var(--muted)]">{expense.notes}</p>}
-                <div className="mt-4 grid gap-2">
-                  <button className="btn-primary justify-center px-4 py-2 text-sm disabled:opacity-50" disabled={displayStatus === 'paid'} onClick={() => setPayingExpense(expense)}><CheckCircle2 size={16} /> Mark as Paid</button>
-                  <div className="grid grid-cols-2 gap-2">
-                    <button className="flex items-center justify-center gap-1.5 rounded-full border border-[var(--border)] px-4 py-2 text-sm font-medium text-[var(--muted)] transition hover:text-white" onClick={() => setEditingExpense(expense)}><PencilLine size={15} /> Edit</button>
-                    <button className="flex items-center justify-center gap-1.5 rounded-full border border-[rgba(232,105,74,.25)] px-4 py-2 text-sm font-medium text-[var(--negative)]" onClick={() => setDeleteTarget({ kind: 'upcoming', id: expense.id, title: expense.title })}><Trash2 size={15} /> Delete</button>
-                  </div>
-                </div>
-              </motion.article>
-            )
-          })}
-        </div> : <GoalsEmptyState title="No upcoming expenses" note="Plan future payments like rent, subscriptions, bills, or family support before they hit your balance." action="Add upcoming" onAction={() => setShowAddExpense(true)} />}
-      </section>}
-
-      <AddUpcomingExpenseModal
-        open={showAddExpense}
-        accounts={accounts}
-        onClose={() => setShowAddExpense(false)}
-        onSubmit={onAddUpcomingExpense}
-      />
-      <AddUpcomingExpenseModal
-        key={editingExpense?.id ?? 'edit-upcoming-closed'}
-        open={Boolean(editingExpense)}
-        accounts={accounts}
-        expense={editingExpense ?? undefined}
-        onClose={() => setEditingExpense(null)}
-        onSubmit={(payload) => {
-          if (editingExpense) onUpdateUpcomingExpense(editingExpense.id, payload)
-        }}
-      />
       <AddDebtModal
         open={showAddDebt}
         onClose={() => setShowAddDebt(false)}
@@ -407,20 +199,11 @@ export function GoalsDebts({
         onClose={() => setSavingGoal(null)}
         onSubmit={onAddSavings}
       />
-      <RecordUpcomingExpensePaidModal
-        key={payingExpense?.id ?? 'paid-upcoming-closed'}
-        expense={payingExpense}
-        accounts={accounts}
-        onClose={() => setPayingExpense(null)}
-        onConfirm={(payload) => {
-          if (payingExpense) onMarkUpcomingPaid(payingExpense, payload)
-        }}
-      />
       <ConfirmDeleteModal
         target={deleteTarget}
         onClose={() => setDeleteTarget(null)}
         onConfirm={() => {
-          if (deleteTarget?.kind === 'upcoming') onDeleteUpcomingExpense(deleteTarget.id)
+          if (deleteTarget?.kind === 'upcoming') return
           if (deleteTarget?.kind === 'goal') onDeleteGoal(deleteTarget.id)
           if (deleteTarget?.kind === 'debt') onDeleteDebt(deleteTarget.id)
           setDeleteTarget(null)
@@ -430,159 +213,98 @@ export function GoalsDebts({
   )
 }
 
-/* ---------- redesigned cards ---------- */
+/* ---------- trail nodes (Vault spec 15b) ---------- */
 
-function OverviewCard({ label, value, icon: Icon, color, ring, ringLabel }: { label: string; value: number; icon: LucideIcon; color: string; ring?: number; ringLabel?: string }) {
-  return (
-    <article className="flex items-center gap-3.5 rounded-[22px] border border-[var(--glass-border)] bg-[var(--glass-bg)] p-4 backdrop-blur-xl">
-      {ring !== undefined ? (
-        <ProgressRing progress={ring} size={56} stroke={6} from={color} to={color}>
-          <Icon size={18} style={{ color }} />
-        </ProgressRing>
-      ) : (
-        <span className="grid h-11 w-11 flex-none place-items-center rounded-[16px]" style={{ color, background: 'color-mix(in srgb, currentColor 12%, transparent)', border: '1px solid color-mix(in srgb, currentColor 24%, transparent)' }}>
-          <Icon size={19} />
-        </span>
-      )}
-      <div className="min-w-0">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--muted-2)]">{label}</p>
-        <h3 className="mt-0.5 truncate text-lg font-semibold tracking-tight text-white">
-          <CountUp value={value} format={(v) => formatPKR(Math.round(v))} />
-        </h3>
-        {ringLabel && <p className="text-[11px] text-[var(--muted-2)]">{ringLabel}</p>}
-      </div>
-    </article>
-  )
-}
+const nf = (value: number) => Math.round(value).toLocaleString('en-PK')
 
-function GoalRingCard({ goal, index, onAddSavings, onEdit, onDelete }: { goal: Goal; index: number; onAddSavings: () => void; onEdit: () => void; onDelete: () => void }) {
-  const progress = percent(goal.saved, goal.target)
+const RING_R = 20
+const RING_C = 2 * Math.PI * RING_R
+
+/** Plain-language arrival line under each goal (bold detail in clay). */
+function goalEta(goal: Goal): { text: ReactNode; onPace: boolean } {
   const remaining = Math.max(0, goal.target - goal.saved)
-  const done = goal.status === 'Completed' || progress >= 100
-
-  return (
-    <motion.article
-      initial={{ opacity: 0, y: 12 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.35, delay: index * 0.06, ease: EASE }}
-      className="rounded-[26px] border border-[var(--glass-border)] bg-[var(--glass-bg)] p-5 backdrop-blur-xl"
-    >
-      <div className="flex items-start gap-4">
-        <ProgressRing progress={progress} size={92} stroke={9} from={done ? '#ff7a1a' : '#ff7a1a'} to={done ? '#ff7a1a' : '#ff7a1a'}>
-          <strong className="text-lg font-semibold tracking-tight text-white"><CountUp value={progress} format={(v) => `${Math.round(v)}%`} /></strong>
-          <span className="text-[10px] text-[var(--muted-2)]">saved</span>
-        </ProgressRing>
-        <div className="min-w-0 flex-1">
-          <div className="flex items-start justify-between gap-2">
-            <h4 className="truncate text-lg font-semibold text-white">{goal.name}</h4>
-            <span className={cn(
-              'flex-none rounded-full border px-2.5 py-0.5 text-[11px] font-semibold',
-              done ? 'border-[rgba(255, 122, 26,.28)] bg-[rgba(255, 122, 26,.13)] text-[var(--positive)]' : 'border-[rgba(255, 122, 26,.25)] bg-[var(--accent-soft)] text-[var(--accent)]',
-            )}>{goal.status}</span>
-          </div>
-          <p className="mt-2 text-xl font-semibold tracking-tight text-white">
-            <CountUp value={goal.saved} format={(v) => formatPKR(Math.round(v))} />
-            <span className="text-sm font-normal text-[var(--muted-2)]"> / {formatPKR(goal.target)}</span>
-          </p>
-          <p className="mt-1 text-xs text-[var(--muted-2)]">{formatPKR(remaining)} remaining{goal.dueDate ? ` · Due ${goal.dueDate}` : ''}</p>
-        </div>
-      </div>
-      <div className="mt-4 grid gap-2">
-        <button className="btn-primary justify-center px-4 py-2 text-sm" onClick={onAddSavings}><WalletCards size={16} /> Add savings</button>
-        <div className="grid grid-cols-2 gap-2">
-          <button className="flex items-center justify-center gap-1.5 rounded-full border border-[var(--border)] px-4 py-2 text-sm font-medium text-[var(--muted)] transition hover:text-white" onClick={onEdit}><PencilLine size={15} /> Edit</button>
-          <button className="flex items-center justify-center gap-1.5 rounded-full border border-[rgba(232,105,74,.25)] px-4 py-2 text-sm font-medium text-[var(--negative)]" onClick={onDelete}><Trash2 size={15} /> Delete</button>
-        </div>
-      </div>
-    </motion.article>
-  )
+  if (remaining <= 0 || goal.status === 'Completed') {
+    return { text: <>Fully funded — you have <strong className="font-bold text-[var(--clay)]">arrived</strong>.</>, onPace: true }
+  }
+  if (goal.dueDate) {
+    const due = new Date(`${goal.dueDate}T12:00:00`)
+    if (!Number.isNaN(due.getTime())) {
+      const monthsLeft = Math.max(1, Math.ceil((due.getTime() - Date.now()) / (30 * 86_400_000)))
+      const perCycle = Math.ceil(remaining / monthsLeft)
+      const arriveLabel = due.toLocaleDateString('en-US', { month: 'long' })
+      const elapsedShare = percent(goal.saved, goal.target)
+      return {
+        text: <>Add <strong className="font-bold text-[var(--clay)]">Rs {nf(perCycle)}</strong>/cycle to arrive by {arriveLabel}</>,
+        onPace: elapsedShare >= 40,
+      }
+    }
+  }
+  return { text: <>Rs {nf(remaining)} to go — set a date to plan your pace</>, onPace: percent(goal.saved, goal.target) >= 40 }
 }
 
-function DebtGlowCard({ debt, index, onPayDebt, onEdit, onDelete }: { debt: Debt; index: number; onPayDebt: () => void; onEdit: () => void; onDelete: () => void }) {
-  const total = debtTotal(debt)
-  const paid = debtPaid(debt)
-  const progress = percent(paid, total)
-  const remaining = Math.max(0, total - paid)
-  const status = debtDisplayStatus(debt)
-  const overdue = status === 'Overdue'
-  const paidOff = status === 'Paid'
-  const category = debt.category ?? 'Debt'
-  const barColor = overdue ? '#E8481C' : paidOff ? '#ff7a1a' : '#ff7a1a'
-
+function GoalNode({ goal, onQuickAdd, onEdit, onDelete }: { goal: Goal; onQuickAdd: () => void; onEdit: () => void; onDelete: () => void }) {
+  const progress = percent(goal.saved, goal.target)
+  const eta = goalEta(goal)
+  const arc = eta.onPace ? 'var(--clay)' : 'var(--espresso)'
   return (
-    <motion.article
-      initial={{ opacity: 0, y: 12 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.35, delay: index * 0.06, ease: EASE }}
-      className={cn(
-        'rounded-[26px] border p-5 backdrop-blur-xl',
-        overdue ? 'border-[rgba(232,105,74,.3)] bg-[rgba(232,105,74,.07)]' : 'border-[var(--glass-border)] bg-[var(--glass-bg)]',
-      )}
-    >
-      <div className="flex min-w-0 items-start justify-between gap-4">
-        <div className="min-w-0">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="rounded-full border border-[var(--border)] bg-white/[.04] px-2.5 py-0.5 text-[11px] font-semibold text-[var(--muted)]">{category}</span>
-            {debt.personOrCompany && <span className="rounded-full border border-[var(--border)] bg-white/[.04] px-2.5 py-0.5 text-[11px] font-semibold text-[var(--muted)]">{debt.personOrCompany}</span>}
-          </div>
-          <h4 className="mt-2.5 truncate text-lg font-semibold text-white">{debtTitle(debt)}</h4>
-        </div>
-        <span className={cn(
-          'flex-none rounded-full border px-2.5 py-0.5 text-[11px] font-semibold',
-          paidOff ? 'border-[rgba(255, 122, 26,.28)] bg-[rgba(255, 122, 26,.13)] text-[var(--positive)]'
-            : overdue ? 'border-[rgba(232,105,74,.35)] bg-[rgba(232,105,74,.12)] text-[var(--negative)]'
-              : status === 'Due Soon' ? 'border-[rgba(255, 122, 26,.3)] bg-[var(--accent-soft)] text-[var(--accent)]'
-                : 'border-[var(--border)] bg-white/[.04] text-[var(--muted)]',
-        )}>{status}</span>
+    <div className="vault-trail-node">
+      <div className="vault-ring">
+        <svg width={48} height={48} aria-hidden="true">
+          <circle cx={24} cy={24} r={RING_R} fill="none" stroke="var(--rule-soft)" strokeWidth={4} />
+          <circle cx={24} cy={24} r={RING_R} fill="none" stroke={arc} strokeWidth={4} strokeLinecap="round" strokeDasharray={`${(RING_C * Math.min(100, progress)) / 100} ${RING_C}`} />
+        </svg>
+        <span className="vault-ring-label">{progress}%</span>
       </div>
-
-      <div className="mt-4 flex items-end justify-between gap-3">
-        <p className="text-xl font-semibold tracking-tight text-white">
-          <CountUp value={paid} format={(v) => formatPKR(Math.round(v))} />
-          <span className="text-sm font-normal text-[var(--muted-2)]"> / {formatPKR(total)}</span>
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center justify-between gap-3">
+          <h3 className="vault-goal-name truncate">{goal.name}</h3>
+          <button aria-label={`Add savings to ${goal.name}`} className="vault-quickadd" type="button" onClick={onQuickAdd}>
+            <Plus size={14} strokeWidth={2} />
+          </button>
+        </div>
+        <p className="vault-digits mt-1 text-[13.5px] font-medium text-[var(--ink-soft)]">{nf(goal.saved)} of {nf(goal.target)}</p>
+        <p className="mt-1.5 text-[11.5px] leading-5 text-[var(--taupe)]">{eta.text}</p>
+        <p className="mt-1.5 text-[11px] font-semibold text-[var(--taupe)]">
+          <button className="underline-offset-2 hover:underline" type="button" onClick={onEdit}>Edit</button>
+          <span aria-hidden="true"> · </span>
+          <button className="underline-offset-2 hover:underline" type="button" onClick={onDelete}>Delete</button>
         </p>
-        <strong className="text-lg font-semibold text-white"><CountUp value={progress} format={(v) => `${Math.round(v)}%`} /></strong>
       </div>
-      <div className="mt-2.5">
-        <ProgressBar progress={progress} color={barColor} />
-      </div>
-      <p className="mt-2 text-xs text-[var(--muted-2)]">{formatPKR(remaining)} left{debt.dueDate ? ` · Due ${formatDate(debt.dueDate)}` : ''}</p>
-      {debt.notes && <p className="mt-3 rounded-2xl bg-white/[.035] px-3 py-2 text-sm text-[var(--muted)]">{debt.notes}</p>}
-      <div className="mt-4 grid gap-2">
-        <button className="btn-primary justify-center px-4 py-2 text-sm disabled:opacity-50" disabled={paidOff} onClick={onPayDebt}><CheckCircle2 size={16} /> Add Payment</button>
-        <div className="grid grid-cols-2 gap-2">
-          <button className="flex items-center justify-center gap-1.5 rounded-full border border-[var(--border)] px-4 py-2 text-sm font-medium text-[var(--muted)] transition hover:text-white" onClick={onEdit}><PencilLine size={15} /> Edit</button>
-          <button className="flex items-center justify-center gap-1.5 rounded-full border border-[rgba(232,105,74,.25)] px-4 py-2 text-sm font-medium text-[var(--negative)]" onClick={onDelete}><Trash2 size={15} /> Delete</button>
-        </div>
-      </div>
-    </motion.article>
-  )
-}
-
-function GoalsEmptyState({ title, note, action, onAction }: { title: string; note: string; action: string; onAction: () => void }) {
-  return (
-    <div className="flex flex-col items-start gap-4 rounded-[26px] border border-dashed border-[var(--border)] bg-white/[.02] p-6">
-      <div className="grid h-13 w-13 place-items-center rounded-2xl bg-gradient-to-br from-[#ff7a1a] to-[#ff7a1a] p-3 text-[#16130F]">
-        <Plus size={26} />
-      </div>
-      <div>
-        <h4 className="text-xl font-semibold text-white">{title}</h4>
-        <p className="mt-2 max-w-xl text-sm leading-6 text-[var(--muted)]">{note}</p>
-      </div>
-      <button className="btn-primary justify-center" onClick={onAction}>{action}</button>
     </div>
   )
 }
 
-function StatusBadge({ status }: { status: UpcomingExpenseStatus }) {
-  const config: Record<UpcomingExpenseStatus, { label: string; cls: string }> = {
-    upcoming: { label: 'Upcoming', cls: 'border-[var(--border)] bg-white/[.04] text-[var(--muted)]' },
-    due_soon: { label: 'Due Soon', cls: 'border-[rgba(255, 122, 26,.3)] bg-[var(--accent-soft)] text-[var(--accent)]' },
-    overdue: { label: 'Overdue', cls: 'border-[rgba(232,105,74,.35)] bg-[rgba(232,105,74,.12)] text-[var(--negative)]' },
-    paid: { label: 'Paid', cls: 'border-[rgba(255, 122, 26,.28)] bg-[rgba(255, 122, 26,.13)] text-[var(--positive)]' },
-  }
-  return <span className={cn('rounded-full border px-2.5 py-0.5 text-[11px] font-semibold', config[status].cls)}>{config[status].label}</span>
+function DebtNode({ debt, onPay, onEdit, onDelete }: { debt: Debt; onPay: () => void; onEdit: () => void; onDelete: () => void }) {
+  const remaining = debtRemaining(debt)
+  const paidOff = debtDisplayStatus(debt) === 'Paid'
+  const meta = [
+    debt.dueDate ? `Due ${formatDate(debt.dueDate)}` : null,
+    debt.personOrCompany ?? null,
+    debt.category && debt.category !== 'Debt' ? debt.category : null,
+  ].filter(Boolean).join(' · ')
+  return (
+    <div className="vault-trail-node">
+      <span className="vault-debt-badge">{paidOff ? <Check size={18} strokeWidth={2.4} /> : <CircleAlert size={18} strokeWidth={2} />}</span>
+      <div className={cn('flex-1 rounded-[22px] p-4', paidOff ? 'vault-outline opacity-70' : 'vault-clay')}>
+        <div className="flex items-baseline justify-between gap-3">
+          <h3 className={cn('min-w-0 truncate font-display text-[19px]', paidOff ? 'text-[var(--taupe-faint)]' : 'text-[var(--espresso)]')}>{debtTitle(debt)}</h3>
+          <p className={cn('vault-digits flex-none text-[14px] font-bold', paidOff ? 'text-[var(--taupe-faint)]' : 'text-[var(--espresso)]')}>
+            {paidOff ? 'Cleared' : <>{nf(remaining)} left</>}
+          </p>
+        </div>
+        {meta && <p className={cn('mt-1.5 text-[11.5px] font-medium', paidOff ? 'text-[var(--taupe-faint)]' : 'text-[var(--clay-ink)]')}>{meta}</p>}
+        <p className={cn('mt-2 text-[11px] font-bold', paidOff ? 'text-[var(--taupe-faint)]' : 'text-[var(--clay-ink)]')}>
+          {!paidOff && <><button className="uppercase tracking-[1.2px]" type="button" onClick={onPay}>Pay</button><span aria-hidden="true"> · </span></>}
+          <button className="uppercase tracking-[1.2px]" type="button" onClick={onEdit}>Edit</button>
+          <span aria-hidden="true"> · </span>
+          <button className="uppercase tracking-[1.2px]" type="button" onClick={onDelete}>Delete</button>
+        </p>
+      </div>
+    </div>
+  )
 }
+
+
 
 /* ---------- modals (behavior unchanged, accents recolored) ---------- */
 
@@ -592,12 +314,14 @@ export function AddUpcomingExpenseModal({
   expense,
   onClose,
   onSubmit,
+  onDelete,
 }: {
   open: boolean
   accounts: Account[]
   expense?: UpcomingExpense
   onClose: () => void
   onSubmit: (payload: UpcomingPayload) => void
+  onDelete?: () => void
 }) {
   const [title, setTitle] = useState(expense?.title ?? '')
   const [amount, setAmount] = useState(expense?.amount.toString() ?? '')
@@ -639,9 +363,9 @@ export function AddUpcomingExpenseModal({
         <Field label="Due date" type="date" value={dueDate} onChange={setDueDate} />
         <Select label="Linked account optional" value={linkedAccountId} onChange={setLinkedAccountId} options={[{ value: '', label: 'No linked account' }, ...accounts.map((item) => ({ value: item.id, label: item.name }))]} />
         <TextArea label="Notes" value={notes} onChange={setNotes} />
-        <label className="flex items-center justify-between rounded-2xl border border-white/10 bg-[var(--surface-2)] px-4 py-3">
+        <label className="flex items-center justify-between rounded-2xl border border-[var(--rule)] bg-[var(--surface-2)] px-4 py-3">
           <span>
-            <span className="block font-semibold text-white">Recurring</span>
+            <span className="block font-semibold text-[var(--ink)]">Recurring</span>
             <span className="text-xs text-[var(--muted)]">Create the next planned payment after this one is paid.</span>
           </span>
           <input className="h-5 w-5 accent-[var(--accent)]" type="checkbox" checked={isRecurring} onChange={(event) => setIsRecurring(event.target.checked)} />
@@ -655,6 +379,7 @@ export function AddUpcomingExpenseModal({
           </div>
         )}
         <button className="btn-primary justify-center disabled:opacity-60" disabled={invalid}>{expense ? 'Save upcoming expense' : 'Add Upcoming Expense'}</button>
+        {expense && onDelete && <button className="justify-self-center text-sm font-semibold text-[var(--clay)]" type="button" onClick={() => { onDelete(); onClose() }}>Delete this bill</button>}
       </form>
     </Sheet>
   )
@@ -815,10 +540,10 @@ function AddSavingsModal({
         <button className="btn-primary justify-center disabled:opacity-60" disabled={invalid}>Add savings</button>
       </form>
       {showInsufficient && (
-        <div className="fixed inset-0 z-[70] grid place-items-center bg-black/55 p-5 backdrop-blur-sm">
+        <div className="fixed inset-0 z-[70] grid place-items-center bg-[rgba(43,36,29,.45)] p-5 backdrop-blur-sm">
           <div className="w-full max-w-sm rounded-[1.5rem] border border-[rgba(232,105,74,.24)] bg-[var(--surface)] p-5 shadow-2xl">
             <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--negative)]">Not enough savings</p>
-            <h3 className="mt-2 text-xl font-semibold text-white">Savings balance is too low</h3>
+            <h3 className="mt-2 text-xl font-semibold text-[var(--ink)]">Savings balance is too low</h3>
             <p className="mt-2 text-sm text-[var(--muted)]">{selectedAccount?.name ?? 'The selected account'} has {formatPKR(selectedAccount?.balance ?? 0)} available.</p>
             <button className="btn-primary mt-5 w-full justify-center" type="button" onClick={() => setShowInsufficient(false)}>Got it</button>
           </div>
@@ -855,26 +580,24 @@ function ConfirmDeleteModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-black/60 p-5 backdrop-blur-sm" onMouseDown={onClose}>
-      <motion.section
-        initial={{ opacity: 0, y: 14, scale: 0.96 }}
-        animate={{ opacity: 1, y: 0, scale: 1 }}
-        className="w-full max-w-sm rounded-[1.6rem] border border-white/10 bg-[var(--surface)] p-5 shadow-2xl"
+    <div className="fixed inset-0 z-50 grid place-items-center bg-[rgba(43,36,29,.45)] p-5" onMouseDown={onClose}>
+      <section
+        className="vault-outline w-full max-w-sm p-5 shadow-xl"
         onMouseDown={(event) => event.stopPropagation()}
       >
         <div className="flex items-start justify-between gap-4">
           <div>
-            <p className="text-xs text-[var(--muted)]">{labels[target.kind].eyebrow}</p>
-            <h2 className="mt-1 text-xl font-semibold text-white">Delete {target.title}?</h2>
+            <p className="vault-eyebrow">{labels[target.kind].eyebrow}</p>
+            <h2 className="vault-h2 mt-1">Delete {target.title}?</h2>
           </div>
-          <button className="icon-button" onClick={onClose} aria-label="Close delete confirmation"><X size={18} /></button>
+          <button className="vault-iconbtn" onClick={onClose} aria-label="Close delete confirmation"><X size={15} strokeWidth={1.8} /></button>
         </div>
-        <p className="mt-3 text-sm text-[var(--muted)]">{labels[target.kind].note}</p>
+        <p className="mt-3 text-sm text-[var(--ink-soft)]">{labels[target.kind].note}</p>
         <div className="mt-5 grid grid-cols-2 gap-3">
-          <button className="rounded-2xl bg-[var(--surface-2)] px-4 py-3 text-sm font-semibold text-white" onClick={onClose}>Keep it</button>
-          <button className="rounded-2xl border border-[rgba(232,105,74,.24)] bg-[rgba(232,105,74,.1)] px-4 py-3 text-sm font-semibold text-[var(--negative)]" onClick={onConfirm}>Delete</button>
+          <button className="vault-chip is-active justify-center" onClick={onClose}>Keep it</button>
+          <button className="vault-chip justify-center text-[var(--clay)]" onClick={onConfirm}>Delete</button>
         </div>
-      </motion.section>
+      </section>
     </div>
   )
 }
@@ -941,7 +664,8 @@ function today() {
 }
 
 function formatDate(date: string) {
-  return new Intl.DateTimeFormat('en-PK', { month: 'short', day: 'numeric', year: 'numeric' }).format(new Date(date))
+  // "5 August" — matches the debt-node meta in the Vault mock (15b)
+  return new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'long' }).format(new Date(date))
 }
 
 function debtTitle(debt: Debt) {
@@ -971,16 +695,6 @@ function debtDisplayStatus(debt: Debt): DebtStatus {
     if (daysUntilDue <= 7) return 'Due Soon'
   }
   return debt.status === 'Overdue' || debt.status === 'Due Soon' ? debt.status : 'Active'
-}
-
-function upcomingDisplayStatus(expense: UpcomingExpense): UpcomingExpenseStatus {
-  if (expense.status === 'paid') return 'paid'
-  const due = startOfDay(expense.dueDate).getTime()
-  const now = startOfDay(today()).getTime()
-  const daysUntilDue = Math.ceil((due - now) / 86400000)
-  if (daysUntilDue < 0) return 'overdue'
-  if (daysUntilDue <= 7) return 'due_soon'
-  return 'upcoming'
 }
 
 function startOfDay(date: string) {

@@ -1,0 +1,1261 @@
+/* ============================================================
+   Pocket Ledger — "The Vault" design layer (design-package spec).
+   One warm theme, no light/dark modes, zero gradients.
+   Imported LAST in main.tsx — after index.css, theme.css and
+   theme-v5.css — so it is the final token + surface authority.
+   Clay (#E2703A) is the ONLY saturated color; depth comes from
+   shade steps + SVG paper grain + the three approved shadows.
+   ============================================================ */
+
+:root {
+  /* ---- Vault tokens (tokens.css, copied verbatim) ---- */
+  --bone: #F3EEE4;
+  --vault-surface: #FBF8F1;
+  --espresso: #2B241D;
+  --clay: #E2703A;
+  --clay-ink: #5C2E14;
+
+  --ink: #2B241D;
+  --ink-soft: #5C544A;
+  --taupe: #9A8F7D;
+  --taupe-faint: #B9AE97;
+
+  --bone-text: #F3EEE4;
+  --bone-bright: #F8F4EC;
+  --sand-text: #B3A793;
+  --sand-dim: #877B67;
+
+  --rule: #D8CFBD;
+  --rule-soft: #E0D8C7;
+  --rule-dark: rgba(243, 238, 228, .13);
+  --track: #E6DECD;
+  --track-alt: #DDD4C1;
+  --dot-idle: #CFC5AF;
+
+  --font-display: 'Instrument Serif', Georgia, serif;
+  --font-ui: 'Schibsted Grotesk', ui-sans-serif, system-ui, sans-serif;
+  --font-digits: 'Space Grotesk', ui-sans-serif, system-ui, sans-serif;
+
+  --r-hero: 32px;
+  --r-card: 26px;
+  --r-pill: 999px;
+
+  --shadow-dock: 0 20px 40px rgba(43, 36, 29, .35);
+  --shadow-fab: 0 16px 32px rgba(226, 112, 58, .4);
+
+  /* Paper grain — layered over flat fills, never a gradient.
+     .04 on bone pages, .06 on espresso cards. */
+  --noise-04: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+  --noise-06: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)' opacity='0.06'/%3E%3C/svg%3E");
+
+  /* ---- Legacy variable remap ----------------------------------
+     Screens not covered by the package (Settings, Profile, Auth,
+     Onboarding, modals) style themselves from these hooks, so the
+     whole app lands on the warm palette without a rewrite. */
+  --bg: var(--bone);
+  --bg-deep: var(--bone);
+  --surface: var(--vault-surface);
+  --surface-2: #EDE6D6;
+  --surface-3: #E6DECD;
+  --surface-raised: var(--vault-surface);
+  --surface-elevated: var(--vault-surface);
+  --border: var(--rule);
+  --border-strong: #C9BFA9;
+  --text: var(--ink);
+  --text-dark: var(--ink);
+  --accent-ink: var(--espresso);
+  --muted: var(--ink-soft);
+  --muted-2: var(--taupe);
+  --accent: var(--clay);
+  --accent-2: var(--clay);
+  --accent-pressed: #CE6231;
+  --accent-soft: rgba(226, 112, 58, 0.14);
+  --positive: var(--clay);
+  --warning: var(--clay);
+  --negative: var(--clay);
+  --info: var(--taupe);
+  --glass-bg: var(--vault-surface);
+  --glass-border: var(--rule);
+
+  color-scheme: light;
+  background: var(--bone);
+  color: var(--ink);
+  font-family: var(--font-ui);
+  letter-spacing: normal;
+}
+
+html,
+:root[data-page] { background: var(--bone); }
+
+/* ---- Canvas: flat bone + grain. Retires every previous canvas —
+   V4 ember blooms, V5 ledger grids, film-grain overlays. ---- */
+body,
+#root,
+:root[data-page] body,
+:root[data-page] #root {
+  background: var(--noise-04), var(--bone);
+  color: var(--ink);
+  font-family: var(--font-ui);
+  letter-spacing: normal;
+}
+
+body::after,
+:root[data-page] body::before { content: none; display: none; }
+
+/* Old display font hook → Instrument Serif everywhere. */
+.font-display {
+  font-family: var(--font-display);
+  font-weight: 400;
+  letter-spacing: -0.02em;
+}
+
+/* ============================================================
+   Shared Vault components (spec §5)
+   ============================================================ */
+
+/* Screen column — phone-first editorial page. */
+.vault-screen {
+  width: 100%;
+  max-width: 27rem;
+  margin: 0 auto;
+  padding: 32px 26px 118px;
+  font-family: var(--font-ui);
+  color: var(--ink);
+}
+
+/* 5.1 Top bar */
+.vault-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.vault-eyebrow {
+  font-family: var(--font-ui);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 2.2px;
+  text-transform: uppercase;
+  color: var(--taupe);
+}
+.vault-topbar-actions { display: flex; align-items: center; gap: 10px; }
+.vault-iconbtn {
+  width: 38px;
+  height: 38px;
+  border-radius: var(--r-pill);
+  border: 1px solid var(--rule);
+  background: transparent;
+  color: var(--ink);
+  display: grid;
+  place-items: center;
+  flex: none;
+}
+.vault-iconbtn:active { transform: scale(.96); }
+.vault-avatar {
+  width: 38px;
+  height: 38px;
+  border-radius: var(--r-pill);
+  background: var(--espresso);
+  color: var(--bone-text);
+  font-size: 13px;
+  font-weight: 700;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  flex: none;
+  border: none;
+}
+.vault-avatar img { width: 100%; height: 100%; object-fit: cover; }
+
+/* 5.2 Page title — final word italic + clay via <em>. */
+.vault-title {
+  margin-top: 12px;
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: 34px;
+  line-height: 1.1;
+  letter-spacing: -0.5px;
+  color: var(--ink);
+}
+.vault-title em { font-style: italic; color: var(--clay); }
+
+/* Section titles */
+.vault-h2 {
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: 22px;
+  line-height: 1.15;
+  letter-spacing: -0.3px;
+  color: var(--ink);
+}
+.vault-h2-sub {
+  font-family: var(--font-ui);
+  font-size: 11.5px;
+  font-weight: 500;
+  color: var(--taupe);
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+/* Digits — ALL numerals run through this. */
+.vault-digits {
+  font-family: var(--font-digits);
+  font-variant-numeric: tabular-nums;
+}
+
+/* 5.3 Hairline stat strip */
+.vault-strip {
+  display: flex;
+  border-top: 1px solid var(--rule);
+  border-bottom: 1px solid var(--rule);
+}
+.vault-cell {
+  flex: 1;
+  min-width: 0;
+  padding: 16px 10px 16px 0;
+}
+.vault-cell + .vault-cell {
+  border-left: 1px solid var(--rule);
+  padding-left: 14px;
+}
+.vault-cell-label {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 1.4px;
+  text-transform: uppercase;
+  color: var(--taupe);
+  white-space: nowrap;
+}
+.vault-cell-value {
+  margin-top: 7px;
+  font-family: var(--font-digits);
+  font-variant-numeric: tabular-nums;
+  font-size: clamp(17px, 5.2vw, 20px);
+  font-weight: 600;
+  letter-spacing: -0.5px;
+  color: var(--ink);
+  white-space: nowrap;
+}
+.vault-cell-value.is-clay { color: var(--clay); }
+.vault-cell-value .vault-sub {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--taupe);
+  letter-spacing: 0;
+}
+
+/* 5.4 Chips */
+.vault-chiprow {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.vault-chiprow::-webkit-scrollbar { display: none; }
+.vault-chip {
+  height: 33px;
+  padding: 0 16px;
+  display: inline-flex;
+  align-items: center;
+  border-radius: var(--r-pill);
+  border: 1px solid var(--rule);
+  background: transparent;
+  color: var(--ink-soft);
+  font-family: var(--font-ui);
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  flex: none;
+}
+.vault-chip.is-active {
+  background: var(--espresso);
+  border-color: var(--espresso);
+  color: var(--bone-text);
+  font-weight: 700;
+}
+
+/* 5.5 Editorial rows — hairline-divided, never boxed. */
+.vault-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--rule-soft);
+  width: 100%;
+  text-align: left;
+  background: none;
+}
+.vault-row:last-child { border-bottom: none; }
+.vault-row-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: var(--r-pill);
+  background: var(--espresso);
+  flex: none;
+}
+.vault-row-dot.is-in { background: var(--clay); }
+.vault-row-dot.is-move { background: var(--taupe); }
+.vault-row-dot.is-paid { background: var(--taupe-faint); }
+.vault-row-main { flex: 1; min-width: 0; }
+.vault-row-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.vault-row-meta {
+  margin-top: 2px;
+  font-size: 11.5px;
+  font-weight: 400;
+  color: var(--taupe);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.vault-row-amount {
+  font-family: var(--font-digits);
+  font-variant-numeric: tabular-nums;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--ink);
+  flex: none;
+}
+.vault-row-amount.is-in { color: var(--clay); }
+.vault-row-amount.is-move { color: var(--taupe); }
+.vault-row.is-paid .vault-row-title,
+.vault-row.is-paid .vault-row-meta,
+.vault-row.is-paid .vault-row-amount { color: var(--taupe-faint); }
+
+/* 5.6 Progress lines */
+.vault-line {
+  height: 4px;
+  border-radius: var(--r-pill);
+  background: var(--track);
+  overflow: hidden;
+}
+.vault-line-fill {
+  height: 100%;
+  border-radius: var(--r-pill);
+  background: var(--espresso);
+  transition: width .6s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.vault-line-fill.is-clay { background: var(--clay); }
+
+/* Cards */
+.vault-card { border-radius: var(--r-card); }
+.vault-espresso {
+  background: var(--noise-06), var(--espresso);
+  color: var(--bone-text);
+  border-radius: var(--r-card);
+}
+.vault-clay {
+  background: var(--clay);
+  color: var(--espresso);
+  border-radius: var(--r-card);
+}
+.vault-outline {
+  background: var(--vault-surface);
+  border: 1px solid var(--rule);
+  border-radius: var(--r-card);
+}
+
+/* Small clay pill (Protect / PAY / Decide) */
+.vault-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border-radius: var(--r-pill);
+  background: var(--clay);
+  color: #fff;
+  font-size: 8.5px;
+  font-weight: 800;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  padding: 3px 8px;
+  border: none;
+}
+.vault-pill::before {
+  content: '';
+  width: 4px;
+  height: 4px;
+  border-radius: 999px;
+  background: #fff;
+}
+.vault-pill.is-espresso { background: var(--espresso); color: var(--bone-text); }
+.vault-pill.is-espresso::before { background: var(--bone-text); }
+
+/* Inline uppercase clay link ("LEDGER →", "FULL REPORT →") */
+.vault-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: none;
+  border: none;
+  padding: 0;
+  font-family: var(--font-ui);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 1.6px;
+  text-transform: uppercase;
+  color: var(--clay);
+}
+
+/* ============================================================
+   5.7 Bottom dock + FAB — identical on every screen
+   ============================================================ */
+.vault-dock-wrap {
+  position: fixed;
+  z-index: 40; /* below modals/sheets (z-50+) */
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: calc(22px + env(safe-area-inset-bottom));
+  width: min(100% - 48px, 384px);
+  display: flex;
+  align-items: center;
+  gap: 13px;
+}
+.vault-dock {
+  flex: 1;
+  height: 64px;
+  border-radius: var(--r-pill);
+  background: var(--espresso);
+  box-shadow: var(--shadow-dock);
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  padding: 0 8px;
+}
+.vault-dock-btn {
+  position: relative;
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  background: none;
+  border: none;
+  color: var(--sand-dim);
+  border-radius: var(--r-pill);
+}
+.vault-dock-btn.is-active { color: var(--bone-text); }
+.vault-dock-btn.is-active::after {
+  content: '';
+  position: absolute;
+  bottom: 2px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 4px;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--clay);
+}
+.vault-fab {
+  width: 64px;
+  height: 64px;
+  flex: none;
+  border-radius: var(--r-pill);
+  border: none;
+  background: var(--clay);
+  color: var(--espresso);
+  box-shadow: var(--shadow-fab);
+  display: grid;
+  place-items: center;
+  transition: transform .12s ease;
+}
+.vault-fab:active { transform: scale(0.97); }
+
+/* Desktop uses the sidebar; the dock is a mobile-only surface. This media
+   query must live here because .vault-dock-wrap's display:flex would
+   otherwise out-cascade Tailwind's lg:hidden utility. */
+@media (min-width: 1024px) {
+  .vault-dock-wrap { display: none; }
+}
+
+/* ============================================================
+   Screen-specific pieces
+   ============================================================ */
+
+/* 13a — balance carousel */
+.vault-carousel {
+  display: flex;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  gap: 12px;
+  scrollbar-width: none;
+  margin: 0 -26px;
+  padding: 0 26px;
+}
+.vault-carousel::-webkit-scrollbar { display: none; }
+.vault-balance-card {
+  flex: 0 0 100%;
+  scroll-snap-align: center;
+  min-height: 196px;
+  border-radius: var(--r-hero);
+  background: var(--noise-06), var(--espresso);
+  color: var(--bone-text);
+  padding: 22px 24px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+.vault-balance-eyebrow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 2.4px;
+  text-transform: uppercase;
+  color: var(--sand-text);
+}
+.vault-balance-eyebrow::before {
+  content: '';
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: var(--clay);
+}
+.vault-balance-amount {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+.vault-balance-amount .vault-currency {
+  font-family: var(--font-digits);
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--sand-text);
+}
+.vault-balance-amount .vault-numeral {
+  font-family: var(--font-digits);
+  font-variant-numeric: tabular-nums;
+  font-size: 46px;
+  font-weight: 600;
+  letter-spacing: -1.5px;
+  line-height: 1;
+  color: var(--bone-bright);
+}
+.vault-balance-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 12px;
+  color: var(--sand-text);
+}
+.vault-balance-foot .vault-swipe {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 1.6px;
+  text-transform: uppercase;
+  color: var(--sand-dim);
+  white-space: nowrap;
+}
+/* carousel indicator */
+.vault-carousel-dots {
+  margin-top: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+.vault-carousel-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 999px;
+  background: var(--dot-idle);
+  border: none;
+  padding: 0;
+  transition: width .25s ease-out, background .25s ease-out;
+}
+.vault-carousel-dot.is-active { width: 26px; background: var(--clay); }
+
+/* 13a — money leak card */
+.vault-leak {
+  width: 100%;
+  text-align: left;
+  border: none;
+  border-radius: var(--r-card);
+  background: var(--clay);
+  padding: 18px 22px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.vault-leak-eyebrow {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--clay-ink);
+}
+.vault-leak-title {
+  margin-top: 6px;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--espresso);
+}
+.vault-leak-arrow {
+  width: 40px;
+  height: 40px;
+  flex: none;
+  margin-left: auto;
+  border-radius: 999px;
+  background: var(--espresso);
+  color: var(--bone-text);
+  display: grid;
+  place-items: center;
+}
+
+/* 14b — wallet account cards */
+.vault-wallet-card {
+  border-radius: var(--r-card);
+  padding: 20px 22px;
+  text-align: left;
+  width: 100%;
+  border: none;
+  display: block;
+}
+.vault-wallet-card .vault-acct-top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+.vault-wallet-card .vault-acct-name { font-size: 13px; font-weight: 700; }
+.vault-wallet-card .vault-acct-tag {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 1.6px;
+  text-transform: uppercase;
+}
+.vault-wallet-card .vault-acct-number {
+  margin-top: 14px;
+  font-family: var(--font-digits);
+  font-size: 14px;
+  letter-spacing: 3px;
+}
+.vault-wallet-card .vault-acct-foot {
+  margin-top: 14px;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+.vault-wallet-card .vault-acct-balance {
+  font-family: var(--font-digits);
+  font-variant-numeric: tabular-nums;
+  font-size: 24px;
+  font-weight: 600;
+  letter-spacing: -0.5px;
+}
+.vault-wallet-card .vault-acct-safe {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1.6px;
+  text-transform: uppercase;
+}
+.vault-wallet-card.is-espresso {
+  background: var(--noise-06), var(--espresso);
+  color: var(--bone-text);
+}
+.vault-wallet-card.is-espresso .vault-acct-tag,
+.vault-wallet-card.is-espresso .vault-acct-number { color: var(--sand-text); }
+.vault-wallet-card.is-espresso .vault-acct-tag { color: var(--sand-dim); }
+.vault-wallet-card.is-espresso .vault-acct-safe { color: var(--clay); }
+.vault-wallet-card.is-clay { background: var(--clay); color: var(--espresso); }
+.vault-wallet-card.is-clay .vault-acct-tag,
+.vault-wallet-card.is-clay .vault-acct-number,
+.vault-wallet-card.is-clay .vault-acct-safe { color: var(--clay-ink); }
+.vault-wallet-card.is-outline {
+  background: var(--vault-surface);
+  border: 1px solid var(--rule);
+  color: var(--ink);
+}
+.vault-wallet-card.is-outline .vault-acct-tag,
+.vault-wallet-card.is-outline .vault-acct-safe { color: var(--taupe); }
+
+/* 15a — week-by-week chart */
+.vault-bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 14px;
+  height: 110px;
+  margin-top: 30px;
+}
+.vault-bar {
+  flex: 1;
+  position: relative;
+  border-radius: 10px 10px 5px 5px;
+  background: var(--track-alt);
+  transition: height .6s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.vault-bar.is-now { background: var(--clay); }
+.vault-bar-value {
+  position: absolute;
+  top: -22px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-family: var(--font-digits);
+  font-variant-numeric: tabular-nums;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--ink);
+  white-space: nowrap;
+}
+.vault-bar-labels { display: flex; gap: 14px; margin-top: 10px; }
+.vault-bar-labels span {
+  flex: 1;
+  text-align: center;
+  font-family: var(--font-digits);
+  font-size: 10.5px;
+  color: var(--taupe);
+}
+.vault-bar-labels span.is-now { color: var(--ink); font-weight: 700; }
+
+/* 15b — goal trail */
+.vault-trail { position: relative; }
+.vault-trail::before {
+  content: '';
+  position: absolute;
+  left: 23px;
+  top: 24px;
+  bottom: 24px;
+  width: 2px;
+  background: var(--track-alt);
+}
+.vault-trail-node {
+  position: relative;
+  display: flex;
+  gap: 18px;
+  padding: 18px 0;
+}
+.vault-ring {
+  flex: none;
+  width: 48px;
+  height: 48px;
+  position: relative;
+  background: var(--bone);
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+}
+.vault-ring svg { position: absolute; inset: 0; transform: rotate(-90deg); }
+.vault-ring-label {
+  font-family: var(--font-digits);
+  font-variant-numeric: tabular-nums;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--ink);
+}
+.vault-debt-badge {
+  flex: none;
+  width: 48px;
+  height: 48px;
+  border-radius: 999px;
+  background: var(--clay);
+  color: var(--espresso);
+  display: grid;
+  place-items: center;
+  box-shadow: 0 0 0 4px var(--bone);
+  position: relative;
+  z-index: 1;
+}
+.vault-goal-name {
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: 20px;
+  letter-spacing: -0.3px;
+  color: var(--ink);
+}
+.vault-quickadd {
+  width: 30px;
+  height: 30px;
+  flex: none;
+  border-radius: 999px;
+  border: 1px solid var(--rule);
+  background: transparent;
+  color: var(--ink);
+  display: grid;
+  place-items: center;
+}
+.vault-dashed {
+  width: 100%;
+  border: 1.5px dashed #C9BFA9;
+  border-radius: 22px;
+  background: none;
+  padding: 20px;
+  text-align: center;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--taupe);
+}
+
+/* 16a — quest ticks */
+.vault-ticks { display: flex; gap: 6px; }
+.vault-tick {
+  flex: 1;
+  height: 7px;
+  border-radius: 999px;
+  background: rgba(43, 36, 29, .25);
+}
+.vault-tick.is-done { background: var(--espresso); }
+
+/* Decide pill (cooling-off, on espresso) */
+.vault-decide {
+  border: none;
+  border-radius: 999px;
+  background: var(--clay);
+  color: var(--espresso);
+  font-size: 11px;
+  font-weight: 800;
+  padding: 7px 14px;
+  flex: none;
+}
+
+/* PAY marker (bills) */
+.vault-pay {
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  color: var(--clay);
+  flex: none;
+}
+
+/* ============================================================
+   Sheets & FAB menu (spec 17a/17b/18a/19a)
+   ============================================================ */
+
+/* Shared sheet shell */
+.vault-sheet-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: grid;
+  align-items: end;
+  background: rgba(24, 20, 16, .65);
+}
+.vault-sheet {
+  width: 100%;
+  max-width: 27rem;
+  margin: 0 auto;
+  max-height: 94svh;
+  display: flex;
+  flex-direction: column;
+  border-radius: 36px 36px 0 0;
+  background: var(--noise-04), var(--bone);
+  color: var(--ink);
+  font-family: var(--font-ui);
+}
+.vault-sheet-handle {
+  width: 40px;
+  height: 4px;
+  border-radius: 999px;
+  background: #C9BFA9;
+  margin: 12px auto 0;
+  flex: none;
+}
+.vault-sheet-body {
+  min-height: 0;
+  flex: 1;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 14px 26px calc(20px + env(safe-area-inset-bottom));
+  scrollbar-width: none;
+}
+.vault-sheet-body::-webkit-scrollbar { display: none; }
+.vault-sheet-title {
+  text-align: center;
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: 22px;
+  letter-spacing: -0.3px;
+  color: var(--ink);
+}
+.vault-sheet-title em { font-style: italic; color: var(--clay); }
+
+/* Segmented direction toggle (17a/17b §2) */
+.vault-seg {
+  display: flex;
+  padding: 4px;
+  border-radius: var(--r-pill);
+  background: var(--track);
+}
+.vault-seg-btn {
+  flex: 1;
+  height: 44px;
+  border: none;
+  border-radius: var(--r-pill);
+  background: transparent;
+  color: var(--ink-soft);
+  font-family: var(--font-ui);
+  font-size: 14px;
+  font-weight: 600;
+  transition: background .15s ease, color .15s ease;
+}
+.vault-seg-btn.is-spent { background: var(--espresso); color: var(--bone-text); font-weight: 800; }
+.vault-seg-btn.is-received { background: var(--clay); color: #fff; font-weight: 800; }
+
+/* Amount display + caret (17a §3) */
+.vault-amount {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 12px;
+  min-height: 62px;
+}
+.vault-amount-currency {
+  font-family: var(--font-digits);
+  font-size: 22px;
+  font-weight: 600;
+  color: var(--taupe);
+}
+.vault-amount-value {
+  font-family: var(--font-digits);
+  font-variant-numeric: tabular-nums;
+  font-size: 54px;
+  font-weight: 600;
+  letter-spacing: -2px;
+  line-height: 1;
+  color: var(--ink);
+  white-space: nowrap;
+}
+.vault-amount.is-received .vault-amount-value { color: var(--clay); }
+.vault-amount-caret {
+  display: inline-block;
+  width: 2.5px;
+  height: 40px;
+  border-radius: 2px;
+  margin-left: 2px;
+  background: var(--clay);
+  transform: translateY(4px);
+  animation: vault-caret 1.1s steps(1) infinite;
+}
+@keyframes vault-caret { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) {
+  .vault-amount-caret { animation: none; }
+}
+
+/* Impact / preview lines (17a §4, 18a §4) */
+.vault-impact {
+  text-align: center;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--taupe);
+}
+.vault-impact strong {
+  font-family: var(--font-digits);
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  color: var(--ink);
+}
+.vault-impact strong.is-clay { color: var(--clay); }
+.vault-impact-note {
+  text-align: center;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--taupe-faint);
+}
+.vault-impact-note.is-warn { color: var(--clay); }
+.vault-impact-note strong {
+  font-family: var(--font-digits);
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+}
+
+/* Big category chips — 44px (17a §5) */
+.vault-chip-lg {
+  height: 44px;
+  padding: 0 18px;
+  display: inline-flex;
+  align-items: center;
+  border-radius: var(--r-pill);
+  border: 1px solid var(--rule);
+  background: transparent;
+  color: var(--ink-soft);
+  font-family: var(--font-ui);
+  font-size: 12.5px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.vault-chip-lg.is-active {
+  background: var(--espresso);
+  border-color: var(--espresso);
+  color: var(--bone-text);
+  font-weight: 700;
+}
+
+/* Account + date pills — 36px (17a §6) */
+.vault-pill-sm {
+  position: relative;
+  height: 36px;
+  padding: 0 14px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border-radius: var(--r-pill);
+  border: 1px solid var(--rule);
+  background: transparent;
+  color: var(--taupe);
+  font-family: var(--font-ui);
+  font-size: 11.5px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.vault-pill-sm.is-selected {
+  background: var(--vault-surface);
+  border-color: var(--rule);
+  color: var(--ink);
+  font-weight: 700;
+}
+.vault-pill-sm.is-selected::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--clay);
+}
+
+/* Custom numpad (17a §7) */
+.vault-numpad {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 9px;
+}
+.vault-key {
+  height: 60px;
+  border-radius: 20px;
+  border: 1px solid var(--track);
+  background: var(--vault-surface);
+  color: var(--ink);
+  font-family: var(--font-digits);
+  font-variant-numeric: tabular-nums;
+  font-size: 21px;
+  font-weight: 600;
+  display: grid;
+  place-items: center;
+  transition: transform .08s ease, background .08s ease;
+}
+.vault-key.is-quiet {
+  border-color: transparent;
+  background: transparent;
+  color: var(--taupe);
+}
+.vault-key:active { transform: scale(.96); background: var(--track); }
+.vault-sheet.is-compact .vault-key { height: 58px; }
+
+/* Commit row (17a §8) */
+.vault-commit-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.vault-commit {
+  flex: 1;
+  height: 58px;
+  border: none;
+  border-radius: var(--r-pill);
+  font-family: var(--font-ui);
+  font-size: 15px;
+  font-weight: 800;
+  transition: transform .1s ease, opacity .15s ease;
+}
+.vault-commit:active { transform: scale(.98); }
+.vault-commit:disabled { opacity: .45; }
+.vault-commit.is-clay { background: var(--clay); color: #fff; }
+.vault-commit.is-espresso { background: var(--espresso); color: var(--bone-text); }
+.vault-commit .vault-digits { font-weight: 700; }
+.vault-note-btn {
+  width: 58px;
+  height: 58px;
+  flex: none;
+  border-radius: var(--r-pill);
+  border: 1px solid var(--rule);
+  background: transparent;
+  color: var(--ink-soft);
+  display: grid;
+  place-items: center;
+}
+.vault-note-btn.is-open { background: var(--espresso); border-color: var(--espresso); color: var(--bone-text); }
+
+/* Move sheet tiles (18a §2–3) */
+.vault-move-tiles { position: relative; }
+.vault-move-tile {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  text-align: left;
+  border: none;
+}
+.vault-move-tile.is-from {
+  background: var(--noise-06), var(--espresso);
+  color: var(--bone-text);
+  border-radius: 24px 24px 6px 6px;
+  padding: 20px 20px 24px;
+  margin-bottom: 6px;
+}
+.vault-move-tile.is-to {
+  background: var(--vault-surface);
+  border: 1px solid var(--rule);
+  color: var(--ink);
+  border-radius: 6px 6px 24px 24px;
+  padding: 24px 20px 20px;
+}
+.vault-move-eyebrow {
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 1.8px;
+  text-transform: uppercase;
+}
+.vault-move-tile.is-from .vault-move-eyebrow { color: var(--sand-dim); }
+.vault-move-tile.is-to .vault-move-eyebrow { color: var(--taupe); }
+.vault-move-name {
+  margin-top: 4px;
+  font-size: 14.5px;
+  font-weight: 700;
+}
+.vault-move-balance {
+  font-family: var(--font-digits);
+  font-variant-numeric: tabular-nums;
+  font-size: 17px;
+  font-weight: 600;
+  text-align: right;
+}
+.vault-move-change {
+  margin-top: 3px;
+  font-size: 10.5px;
+  font-weight: 500;
+  text-align: right;
+}
+.vault-move-tile.is-from .vault-move-change { color: var(--sand-dim); }
+.vault-move-tile.is-to .vault-move-change { color: var(--taupe); }
+.vault-swap {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 44px;
+  height: 44px;
+  border: none;
+  border-radius: 999px;
+  background: var(--clay);
+  color: #fff;
+  display: grid;
+  place-items: center;
+  box-shadow: 0 0 0 5px var(--bone);
+  z-index: 1;
+  transition: transform .15s ease;
+}
+.vault-swap:active { transform: translate(-50%, -50%) scale(.94); }
+
+/* Quick-amount chips (18a §5) */
+.vault-quick {
+  height: 40px;
+  padding: 0 16px;
+  border-radius: var(--r-pill);
+  border: 1px solid var(--rule);
+  background: transparent;
+  color: var(--ink-soft);
+  font-family: var(--font-digits);
+  font-variant-numeric: tabular-nums;
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.vault-quick.is-word { font-family: var(--font-ui); }
+.vault-quick.is-active {
+  background: var(--espresso);
+  border-color: var(--espresso);
+  color: var(--bone-text);
+  font-weight: 700;
+}
+
+/* FAB menu (19a) */
+.vault-fabmenu-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 45;
+  background: rgba(24, 20, 16, .55);
+}
+/* While the fan is open the wrap rises above the scrim so the FAB stays
+   bright; the dock pill itself fades to 40% (spec 19a §1). */
+.vault-dock-wrap.is-menu-open { z-index: 47; }
+.vault-dock-wrap.is-menu-open .vault-dock { opacity: .4; pointer-events: none; }
+.vault-dock { transition: opacity .15s ease; }
+.vault-fab .vault-fab-icon {
+  display: grid;
+  place-items: center;
+  transition: transform .15s ease;
+}
+.vault-fab.is-open .vault-fab-icon { transform: rotate(45deg); }
+.vault-fabmenu {
+  position: fixed;
+  z-index: 48;
+  right: calc(50% - min(50% - 24px, 192px));
+  bottom: calc(22px + 64px + 14px + env(safe-area-inset-bottom));
+  display: flex;
+  flex-direction: column-reverse; /* bottom→top order in DOM order */
+  align-items: flex-end;
+  gap: 14px;
+}
+.vault-fabmenu-item {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  border: none;
+  background: none;
+  padding: 0;
+}
+.vault-fabmenu-item:active .vault-fabmenu-circle { transform: scale(.96); }
+.vault-fabmenu-label {
+  font-family: var(--font-ui);
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--bone-text);
+  text-shadow: 0 2px 12px rgba(24, 20, 16, .6);
+  white-space: nowrap;
+}
+.vault-fabmenu-circle {
+  width: 56px;
+  height: 56px;
+  flex: none;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  transition: transform .1s ease;
+}
+.vault-fabmenu-circle.is-bone { background: var(--vault-surface); color: var(--espresso); }
+.vault-fabmenu-circle.is-clay { background: var(--clay); color: #fff; }
+.vault-fabmenu-circle.is-espresso {
+  background: var(--espresso);
+  color: var(--bone-text);
+  border: 1px solid rgba(243, 238, 228, .2);
+}
+.vault-fabmenu-circle.is-dashed {
+  background: rgba(43, 36, 29, .5);
+  color: var(--bone-text);
+  border: 1.5px dashed #C9BFA9;
+}
+
+/* ============================================================
+   Desktop sidebar re-skin (uncovered by the package; kept
+   coherent with the Vault palette)
+   ============================================================ */
+.nav-button {
+  color: var(--ink-soft);
+}
+.nav-button-active {
+  background: var(--espresso) !important;
+  color: var(--bone-text) !important;
+}
+
+/* Old dock classes die with the old dock; keep them inert if any
+   stale CSS still matches. */
+.dock-v3, .dock-v3-more { display: none !important; }

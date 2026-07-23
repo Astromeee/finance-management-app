@@ -1,35 +1,29 @@
-import { X } from 'lucide-react'
 import { animate, motion, useMotionValue } from 'framer-motion'
-import { useEffect, useId, useRef, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react'
+import { useEffect, useRef, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react'
+import { hapticTap } from './numpad'
 
 /**
- * Bottom sheet that can be swiped down to dismiss from ANYWHERE on it, not
- * just the top handle — and still lets tall forms scroll normally.
- *
- * The trick for touchscreens: the sheet frame is the drag surface
- * (touch-action: none) while the content lives in a separate inner scroller
- * (touch-action: pan-y). A downward drag only becomes a dismiss gesture when
- * the content is already scrolled to the top; otherwise the browser scrolls
- * the content as usual. Drag is driven manually via pointer events (with
- * pointer capture) so the browser never steals the gesture the way it did
- * when the scroll container and the draggable were the same element.
+ * "The Vault" bottom-sheet shell (spec 17a §1 / CHANGES "System consistency"):
+ * bone + paper-grain surface, 36px top radius, 40×4 drag handle, scrim #181410.
+ * Drag down anywhere (when the content is scrolled to the top) or tap the scrim
+ * to dismiss — same pointer-capture trick as BottomSheet so tall content still
+ * scrolls normally. Escape closes; focus is trapped while open.
  */
-export function BottomSheet({
-  title,
-  eyebrow,
+export function VaultSheet({
   open,
+  label,
+  compact,
   onClose,
   children,
 }: {
-  title: string
-  eyebrow: string
   open: boolean
+  label: string
+  /** Move sheet uses the slightly shorter 58px numpad keys (spec 18a §6). */
+  compact?: boolean
   onClose: () => void
   children: ReactNode
 }) {
   const y = useMotionValue(0)
-  const titleId = useId()
-  const descriptionId = useId()
   const dialogRef = useRef<HTMLElement>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
   const drag = useRef({ startY: 0, active: false, pointerId: -1 })
@@ -37,16 +31,17 @@ export function BottomSheet({
   // slide-up entrance each time it opens
   useEffect(() => {
     if (!open) return
-    y.set(56)
+    y.set(64)
     const controls = animate(y, 0, { type: 'spring', stiffness: 260, damping: 30 })
     return () => controls.stop()
   }, [open, y])
 
+  // Escape + focus trap
   useEffect(() => {
     if (!open) return
     const previous = document.activeElement instanceof HTMLElement ? document.activeElement : null
     const dialog = dialogRef.current
-    const focusable = () => Array.from(dialog?.querySelectorAll<HTMLElement>('button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), a[href], [tabindex]:not([tabindex="-1"])') ?? [])
+    const focusable = () => Array.from(dialog?.querySelectorAll<HTMLElement>('button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])') ?? [])
     window.setTimeout(() => (focusable()[0] ?? dialog)?.focus(), 0)
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
@@ -107,11 +102,10 @@ export function BottomSheet({
   }
 
   return (
-    <div className="fixed inset-0 z-50 grid items-end bg-[rgba(43,36,29,.45)] p-0 backdrop-blur-sm sm:items-center sm:p-6" onPointerDown={onClose}>
+    <div className="vault-sheet-scrim" onPointerDown={onClose}>
       <motion.section
         ref={dialogRef}
-        aria-describedby={descriptionId}
-        aria-labelledby={titleId}
+        aria-label={label}
         aria-modal="true"
         role="dialog"
         tabIndex={-1}
@@ -119,30 +113,39 @@ export function BottomSheet({
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.2 }}
-        className="mx-auto flex max-h-[86svh] w-full max-w-lg select-none flex-col rounded-t-[1.75rem] border border-[var(--rule)] bg-[var(--surface)] shadow-2xl sm:max-h-[90vh] sm:rounded-[2rem]"
+        className={`vault-sheet${compact ? ' is-compact' : ''}`}
         onPointerDown={(event) => { event.stopPropagation(); onPointerDown(event) }}
         onPointerMove={onPointerMove}
         onPointerUp={endDrag}
         onPointerCancel={endDrag}
       >
-        <div className="shrink-0 px-4 pt-3 sm:px-5">
-          <span aria-hidden className="mx-auto mb-3 block h-1.5 w-14 rounded-full bg-[var(--rule)]" />
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-xs text-[var(--muted)]" id={descriptionId}>{eyebrow}</p>
-              <h2 className="text-xl font-semibold text-[var(--ink)]" id={titleId}>{title}</h2>
-            </div>
-            <button className="icon-button" type="button" onClick={onClose} aria-label={`Close ${title}`}><X size={19} /></button>
-          </div>
-        </div>
-        <div
-          ref={scrollRef}
-          className="modal-sheet-scroll min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-1 sm:px-5"
-          style={{ touchAction: 'pan-y' }}
-        >
+        <span aria-hidden className="vault-sheet-handle" />
+        <div ref={scrollRef} className="vault-sheet-body" style={{ touchAction: 'pan-y' }}>
           {children}
         </div>
       </motion.section>
+    </div>
+  )
+}
+
+export function Numpad({ onKey }: { onKey: (key: string) => void }) {
+  const press = (key: string) => {
+    hapticTap()
+    onKey(key)
+  }
+  return (
+    <div className="vault-numpad">
+      {['1', '2', '3', '4', '5', '6', '7', '8', '9'].map((digit) => (
+        <button key={digit} className="vault-key" type="button" onClick={() => press(digit)}>{digit}</button>
+      ))}
+      <button aria-label="Decimal point" className="vault-key is-quiet" type="button" onClick={() => press('.')}>·</button>
+      <button className="vault-key" type="button" onClick={() => press('0')}>0</button>
+      <button aria-label="Delete last digit" className="vault-key is-quiet" type="button" onClick={() => press('back')}>
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <path d="M21 6H8l-5 6 5 6h13a1 1 0 0 0 1-1V7a1 1 0 0 0-1-1Z" />
+          <path d="m12 9 6 6M18 9l-6 6" />
+        </svg>
+      </button>
     </div>
   )
 }

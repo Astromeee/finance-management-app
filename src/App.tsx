@@ -3,6 +3,7 @@ import type { ReactNode } from 'react'
 import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
 import { AppShell } from './components/layout/AppShell'
 import { accounts as initialAccounts, budgets as initialBudgets, debts as initialDebts, expenseCategories as initialExpenseCategories, goals as initialGoals, incomeSources as initialIncomeSources, transactions as initialTransactions, upcomingExpenses as initialUpcomingExpenses } from './data/mockData'
+import * as vaultPreview from './data/vaultPreviewData'
 import { adjustAccountBalance, archiveAccount, archiveCategory, deleteBudget, deleteDebt, deleteFinanceTransaction, deleteGoal, deleteUpcomingExpense, deleteWishlistItem, loadFinanceData, markUpcomingExpensePaid, recordFinanceAction, saveAccount, saveBudget, saveCategory, saveDebt, saveGoal, saveJourneySettings, saveMoneyQuest, saveMoneyWin, saveUpcomingExpense, saveUserSettings, saveWishlistItem, updateFinanceTransaction } from './lib/financeRepository'
 import { addRecurringDate, localDateKey } from './lib/date'
 import { setAnalyticsConsent, trackEvent } from './lib/analytics'
@@ -14,11 +15,11 @@ import type { Budget, Category, Debt, DebtCategory, DebtStatus, Goal, JourneySet
 import { calculateSafeSpend } from './utils/journeyCalculations'
 import { resolveQuestStatus } from './utils/retention'
 
-const AddExpenseModal = lazy(() => import('./components/forms/FinanceActionModals').then((module) => ({ default: module.AddExpenseModal })))
 const AddGoalModal = lazy(() => import('./components/forms/FinanceActionModals').then((module) => ({ default: module.AddGoalModal })))
-const AddIncomeModal = lazy(() => import('./components/forms/FinanceActionModals').then((module) => ({ default: module.AddIncomeModal })))
 const DebtPaymentModal = lazy(() => import('./components/forms/FinanceActionModals').then((module) => ({ default: module.DebtPaymentModal })))
-const TransferModal = lazy(() => import('./components/forms/FinanceActionModals').then((module) => ({ default: module.TransferModal })))
+const RecordSheet = lazy(() => import('./components/sheets/RecordSheet').then((module) => ({ default: module.RecordSheet })))
+const MoveSheet = lazy(() => import('./components/sheets/MoveSheet').then((module) => ({ default: module.MoveSheet })))
+const CoolOffSheet = lazy(() => import('./components/sheets/CoolOffSheet').then((module) => ({ default: module.CoolOffSheet })))
 const PurchaseSimulator = lazy(() => import('./components/PurchaseSimulator').then((module) => ({ default: module.PurchaseSimulator })))
 const Accounts = lazy(() => import('./pages/Accounts').then((module) => ({ default: module.Accounts })))
 const Budgets = lazy(() => import('./pages/Budgets').then((module) => ({ default: module.Budgets })))
@@ -30,7 +31,7 @@ const Settings = lazy(() => import('./pages/Settings').then((module) => ({ defau
 const Transactions = lazy(() => import('./pages/Transactions').then((module) => ({ default: module.Transactions })))
 const Onboarding = lazy(() => import('./pages/Onboarding').then((module) => ({ default: module.Onboarding })))
 
-type ActionModal = 'income' | 'expense' | 'transfer' | 'goal' | 'debt' | 'simulator' | null
+type ActionModal = 'income' | 'expense' | 'transfer' | 'cooloff' | 'goal' | 'debt' | 'simulator' | null
 
 const defaultJourneySettings: JourneySettings = {
   typicalIncome: 0,
@@ -129,22 +130,25 @@ function App() {
   const [toast, setToast] = useState('')
   const [authReady, setAuthReady] = useState(!isSupabaseConfigured)
   const [dataReady, setDataReady] = useState(!isSupabaseConfigured)
+  // Dev-only design QA: /app?vault-preview renders the mock ledger without auth.
+  // Never active in production builds.
+  const [designPreview] = useState(() => import.meta.env.DEV && window.location.search.includes('vault-preview'))
   const [financeUserId, setFinanceUserId] = useState<string | null>(null)
   const [authEmail, setAuthEmail] = useState<string>()
   const [authDisplayName, setAuthDisplayName] = useState<string>()
   const [authProvider, setAuthProvider] = useState<string>()
   const [onboardingCompleted, setOnboardingCompleted] = useState(!isSupabaseConfigured)
-  const [journeySettings, setJourneySettings] = useState<JourneySettings>(defaultJourneySettings)
-  const [accounts, setAccounts] = useState(initialAccounts)
-  const [transactions, setTransactions] = useState(initialTransactions)
-  const [goals, setGoals] = useState<Goal[]>(initialGoals)
-  const [debts, setDebts] = useState<Debt[]>(initialDebts)
-  const [budgets, setBudgets] = useState<Budget[]>(initialBudgets)
-  const [upcomingExpenses, setUpcomingExpenses] = useState<UpcomingExpense[]>(initialUpcomingExpenses)
+  const [journeySettings, setJourneySettings] = useState<JourneySettings>(designPreview ? vaultPreview.journeySettings : defaultJourneySettings)
+  const [accounts, setAccounts] = useState(designPreview ? vaultPreview.accounts : initialAccounts)
+  const [transactions, setTransactions] = useState(designPreview ? vaultPreview.transactions : initialTransactions)
+  const [goals, setGoals] = useState<Goal[]>(designPreview ? vaultPreview.goals : initialGoals)
+  const [debts, setDebts] = useState<Debt[]>(designPreview ? vaultPreview.debts : initialDebts)
+  const [budgets, setBudgets] = useState<Budget[]>(designPreview ? vaultPreview.budgets : initialBudgets)
+  const [upcomingExpenses, setUpcomingExpenses] = useState<UpcomingExpense[]>(designPreview ? vaultPreview.upcomingExpenses : initialUpcomingExpenses)
   const [categories, setCategories] = useState<Category[]>(() => [...initialIncomeSources, ...initialExpenseCategories])
-  const [moneyQuests, setMoneyQuests] = useState<MoneyQuest[]>([])
-  const [wishlistItems, setWishlistItems] = useState<WishlistItem[]>([])
-  const [moneyWins, setMoneyWins] = useState<MoneyWin[]>([])
+  const [moneyQuests, setMoneyQuests] = useState<MoneyQuest[]>(designPreview ? vaultPreview.moneyQuests : [])
+  const [wishlistItems, setWishlistItems] = useState<WishlistItem[]>(designPreview ? vaultPreview.wishlistItems : [])
+  const [moneyWins, setMoneyWins] = useState<MoneyWin[]>(designPreview ? vaultPreview.moneyWins : [])
   const [profile, setProfileState] = useState<Profile>(getProfile)
   const expenseCategoryNames = categories.filter((category) => category.kind === 'expense').map((category) => category.name)
   const incomeCategoryNames = categories.filter((category) => category.kind === 'income').map((category) => category.name)
@@ -610,44 +614,38 @@ function App() {
   }
 
   const ledger = (
-    <AppShell activePage={activePage} setActivePage={setActivePage}>
+    <AppShell activePage={activePage} setActivePage={setActivePage} onAdd={(action) => { setExpenseDraft(undefined); setActiveModal(action) }}>
       {toast && <div aria-live="polite" className="fixed left-1/2 top-4 z-[60] -translate-x-1/2 rounded-full border border-[rgba(255, 122, 26,.28)] bg-[var(--surface-raised)] px-4 py-2 text-sm font-semibold text-[var(--accent-2)] shadow-2xl shadow-black/40" role="status">{toast}</div>}
       <Suspense fallback={<div className="card p-6 text-sm text-[var(--muted)]" role="status">Loading screen…</div>}>{(pages[activePage] ?? pages.dashboard).component}</Suspense>
       <Suspense fallback={null}>
-      {activeModal === 'income' && <AddIncomeModal
-        open={activeModal === 'income'}
+      {(activeModal === 'income' || activeModal === 'expense') && <RecordSheet
+        key={expenseDraft ? `${expenseDraft.amount}-${expenseDraft.category}` : `record-${activeModal}`}
+        open
+        initialDirection={activeModal}
         accounts={accountsWithSavings}
+        expenseCategories={expenseCategoryNames}
         incomeCategories={incomeCategoryNames}
-        onManageCategories={() => { setActiveModal(null); setActivePage('settings') }}
-        onClose={() => { setActiveModal(null); setExpenseDraft(undefined) }}
-        onSubmit={async ({ amount, source, accountId, date, notes }) => {
-          const account = accountsWithSavings.find((item) => item.id === accountId)
-          if (!account) return
-          const transactionId = makeId()
-          try {
-            await recordFinanceAction({ id: transactionId, title: source, type: 'income', amount, source, category: source, account: account.name, accountId, date, notes })
-          } catch (error) {
-            showToast(error instanceof Error ? error.message : 'Could not add income')
-            return
-          }
-          updateAccountBalance(accountId, amount)
-          addTransaction({ id: transactionId, title: source, type: 'income', amount, source, category: source, account: account.name, accountId, date, notes })
-          showToast('Income added')
-        }}
-      />}
-      {activeModal === 'expense' && <AddExpenseModal
-        key={expenseDraft ? `${expenseDraft.amount}-${expenseDraft.category}` : 'new-expense'}
-        open={activeModal === 'expense'}
-        accounts={accountsWithSavings}
-        categories={expenseCategoryNames}
+        transactions={transactions}
+        safeSpend={calculateSafeSpend({ accounts: accountsWithSavings, budgets, categories, upcomingExpenses, settings: journeySettings })}
         initialAmount={expenseDraft?.amount}
         initialCategory={expenseDraft?.category}
-        onManageCategories={() => { setActiveModal(null); setActivePage('settings') }}
         onClose={() => { setActiveModal(null); setExpenseDraft(undefined) }}
-        onSubmit={async ({ amount, category, accountId, date, notes }) => {
+        onSubmit={async ({ direction, amount, category, accountId, date, notes }) => {
           const account = accountsWithSavings.find((item) => item.id === accountId)
           if (!account) return
           const transactionId = makeId()
+          if (direction === 'income') {
+            try {
+              await recordFinanceAction({ id: transactionId, title: category, type: 'income', amount, source: category, category, account: account.name, accountId, date, notes })
+            } catch (error) {
+              showToast(error instanceof Error ? error.message : 'Could not add income')
+              return
+            }
+            updateAccountBalance(accountId, amount)
+            addTransaction({ id: transactionId, title: category, type: 'income', amount, source: category, category, account: account.name, accountId, date, notes })
+            showToast('Income added')
+            return
+          }
           try {
             await recordFinanceAction({ id: transactionId, title: category, type: 'expense', amount, category, categoryId: expenseCategoryIdFor(category), account: account.name, accountId, date, notes })
           } catch (error) {
@@ -670,9 +668,10 @@ function App() {
         }}
       />}
       {activeModal === 'simulator' && <PurchaseSimulator open safeSpend={calculateSafeSpend({ accounts, budgets, categories, upcomingExpenses, settings: journeySettings })} categories={categories} onClose={() => setActiveModal(null)} onManageCategories={() => { setActiveModal(null); setActivePage('settings'); trackEvent('category_management_opened', { surface: 'home' }) }} onRecordExpense={(draft) => { setExpenseDraft(draft); setActiveModal('expense'); trackEvent('simulator_expense_handoff', { surface: 'home' }) }} />}
-      {activeModal === 'transfer' && <TransferModal
-        open={activeModal === 'transfer'}
+      {activeModal === 'transfer' && <MoveSheet
+        open
         accounts={accountsWithSavings}
+        safeSpend={calculateSafeSpend({ accounts: accountsWithSavings, budgets, categories, upcomingExpenses, settings: journeySettings })}
         onClose={() => setActiveModal(null)}
         onSubmit={async ({ amount, fromAccountId, toAccountId, date, notes }) => {
           const from = accountsWithSavings.find((item) => item.id === fromAccountId)
@@ -689,6 +688,16 @@ function App() {
           updateAccountBalance(toAccountId, amount)
           addTransaction({ id: transactionId, title: 'Transfer', type: 'transfer', amount, category: 'Transfer', account: `${from.name} to ${to.name}`, fromAccountId, toAccountId, date, notes })
           showToast('Transfer completed')
+        }}
+      />}
+      {activeModal === 'cooloff' && <CoolOffSheet
+        open
+        categories={categories}
+        onClose={() => setActiveModal(null)}
+        onSave={(item) => {
+          void saveWishlistItem(item).catch((error) => showToast(error.message))
+          setWishlistItems((current) => [item, ...current.filter((entry) => entry.id !== item.id)])
+          showToast('Parked in Cooling off')
         }}
       />}
       {activeModal === 'goal' && <AddGoalModal
@@ -745,9 +754,9 @@ function App() {
     </AppShell>
   )
 
-  if (!authReady) return <LoadingScreen message="Connecting securely…" />
+  if (!authReady && !designPreview) return <LoadingScreen message="Connecting securely…" />
 
-  if (!financeUserId) {
+  if (!financeUserId && !designPreview) {
     return <Routes>
       <Route path="/login" element={<AuthPage mode="login" />} />
       <Route path="/signup" element={<AuthPage mode="signup" />} />
@@ -760,9 +769,9 @@ function App() {
     </Routes>
   }
 
-  if (!dataReady) return <LoadingScreen message="Loading your private ledger…" />
+  if (!dataReady && !designPreview) return <LoadingScreen message="Loading your private ledger…" />
 
-  if (!onboardingCompleted) {
+  if (!onboardingCompleted && !designPreview) {
     return <Routes>
       <Route path="/onboarding" element={<Suspense fallback={<LoadingScreen message="Preparing your journey…" />}><Onboarding email={authEmail} initialName={authDisplayName} initialSettings={journeySettings} onProgress={async (settings) => { await saveJourneySettings(settings, false); setJourneySettings(settings) }} onComplete={async (nextProfile, account, settings) => {
         if (account) await saveAccount(account, account.balance)
@@ -792,7 +801,7 @@ function App() {
 }
 
 function LoadingScreen({ message }: { message: string }) {
-  return <main className="grid min-h-screen place-items-center bg-[var(--bg-deep)] p-5"><div className="text-center"><div className="mx-auto grid h-14 w-14 place-items-center rounded-[18px] bg-[var(--accent)] font-black text-[#16130F]">PL</div><p className="mt-4 text-sm font-semibold text-[var(--muted)]" role="status">{message}</p></div></main>
+  return <main className="grid min-h-screen place-items-center bg-[var(--bg-deep)] p-5"><div className="text-center"><div className="mx-auto grid h-14 w-14 place-items-center rounded-[18px] bg-[var(--accent)] font-black text-[var(--accent-ink)]">PL</div><p className="mt-4 text-sm font-semibold text-[var(--muted)]" role="status">{message}</p></div></main>
 }
 
 export default App

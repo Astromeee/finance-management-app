@@ -6,11 +6,11 @@ export const accounts: Account[] = [
 
 export const incomeSources: Category[] = [
   ...DEFAULT_INCOME_CATEGORIES,
-].map((name, index) => ({ id: name.toLowerCase().replaceAll(' ', '-'), name, kind: 'income', color: ['#ff7a1a', '#FF6B3D', '#C9743F', '#ff7a1a'][index % 4], spendingNature: 'flexible' as const }))
+].map((name, index) => ({ id: name.toLowerCase().replaceAll(' ', '-'), name, kind: 'income', color: ['#E2703A', '#CE6231', '#9A8F7D', '#2B241D'][index % 4], spendingNature: 'flexible' as const }))
 
 export const expenseCategories: Category[] = [
   ...DEFAULT_EXPENSE_CATEGORIES,
-].map((name, index) => ({ id: name.toLowerCase().replaceAll(' ', '-'), name, kind: 'expense', color: ['#FF6B3D', '#ff7a1a', '#C9743F', '#ff7a1a', '#ff7a1a', '#E8481C'][index % 6], spendingNature: ['Food & Essentials', 'Transport', 'Education'].includes(name) ? 'essential' as const : 'flexible' as const }))
+].map((name, index) => ({ id: name.toLowerCase().replaceAll(' ', '-'), name, kind: 'expense', color: ['#2B241D', '#E2703A', '#9A8F7D', '#5C544A', '#CE6231', '#B9AE97'][index % 6], spendingNature: ['Food & Essentials', 'Transport', 'Education'].includes(name) ? 'essential' as const : 'flexible' as const }))
 
 export const transactions: Transaction[] = [
 ]

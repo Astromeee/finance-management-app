@@ -24,12 +24,12 @@ export function AddTransactionModal({ open, onClose, onSubmit }: AddTransactionM
   if (!open) return null
 
   return (
-    <div className="fixed inset-0 z-50 grid items-end bg-black/70 p-0 backdrop-blur-sm sm:items-center sm:p-6">
-      <motion.section initial={{ opacity: 0, y: 44, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }} className="mx-auto max-h-[92svh] w-full max-w-2xl overflow-y-auto rounded-t-[1.75rem] border border-white/10 bg-[var(--surface)] p-4 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-2xl sm:rounded-[2rem] sm:p-5">
+    <div className="fixed inset-0 z-50 grid items-end bg-[rgba(43,36,29,.45)] p-0 backdrop-blur-sm sm:items-center sm:p-6">
+      <motion.section initial={{ opacity: 0, y: 44, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }} className="mx-auto max-h-[92svh] w-full max-w-2xl overflow-y-auto rounded-t-[1.75rem] border border-[var(--rule)] bg-[var(--surface)] p-4 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-2xl sm:rounded-[2rem] sm:p-5">
         <div className="flex items-center justify-between">
           <div>
             <p className="text-xs text-[var(--muted)] sm:text-sm">Local mock entry</p>
-            <h2 className="text-xl font-semibold text-white sm:text-2xl">Add transaction</h2>
+            <h2 className="text-xl font-semibold text-[var(--ink)] sm:text-2xl">Add transaction</h2>
           </div>
           <button className="icon-button" onClick={onClose} aria-label="Close modal"><X size={19} /></button>
         </div>

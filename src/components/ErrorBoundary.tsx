@@ -23,7 +23,7 @@ export class ErrorBoundary extends Component<Props, State> {
       <main className="grid min-h-screen place-items-center bg-[var(--bg-deep)] p-5">
         <section className="card max-w-md p-6 text-center" role="alert">
           <p className="text-xs font-semibold uppercase tracking-[.16em] text-[var(--accent)]">Something went wrong</p>
-          <h1 className="mt-2 text-2xl font-semibold text-white">Pocket Ledger could not open this screen.</h1>
+          <h1 className="mt-2 text-2xl font-semibold text-[var(--ink)]">Pocket Ledger could not open this screen.</h1>
           <p className="mt-3 text-sm text-[var(--muted)]">Your saved data has not been changed. Reload the app to try again.</p>
           <button className="btn-primary mt-5 justify-center" onClick={() => window.location.reload()}>Reload Pocket Ledger</button>
         </section>

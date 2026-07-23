@@ -123,7 +123,7 @@ export async function ensureDefaultCategories() {
     id: `${kind}-${crypto.randomUUID()}`,
     name,
     kind,
-    color: kind === 'income' ? '#ff7a1a' : '#FF6B3D',
+    color: kind === 'income' ? '#E2703A' : '#2B241D',
     spending_nature: kind === 'expense' && ['Food & Essentials', 'Transport', 'Education'].includes(name) ? 'essential' : 'flexible',
     sort_order: index,
     archived: false,

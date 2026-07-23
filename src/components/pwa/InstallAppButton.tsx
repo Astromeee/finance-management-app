@@ -73,7 +73,7 @@ export function InstallAppButton() {
       {showIOSHint && !installPrompt && (
         <div className="home-install-hint">
           <button className="home-install-close" onClick={() => setShowIOSHint(false)} aria-label="Hide install instructions">x</button>
-          <p className="font-semibold text-white">Install Pocket Ledger</p>
+          <p className="font-semibold text-[var(--ink)]">Install Pocket Ledger</p>
           <p className="mt-1 text-xs text-[var(--muted)]">
             {isMobileSafari() ? 'Tap Share, then Add to Home Screen.' : 'Use your browser menu, then Install app.'}
           </p>

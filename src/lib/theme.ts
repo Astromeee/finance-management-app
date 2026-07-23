@@ -1,39 +1,27 @@
 /**
  * Pocket Ledger theme controller.
- * Persists 'dark' | 'light' in localStorage and sets <html data-theme="...">.
- * theme.css reacts to the attribute — no component re-renders needed.
+ * "The Vault" ships exactly one warm theme — no light/dark modes.
+ * <html data-theme="vault"> keeps old [data-theme='light'|'dark']
+ * CSS from matching, and the theme-color meta follows the bone
+ * page background.
  */
 
-export type Theme = 'dark' | 'light'
+export type Theme = 'vault'
 
-const STORAGE_KEY = 'pl-theme'
+const BONE = '#F3EEE4'
 
 export function getTheme(): Theme {
-  const stored = localStorage.getItem(STORAGE_KEY)
-  return stored === 'light' ? 'light' : 'dark'
+  return 'vault'
 }
 
-export function applyTheme(theme: Theme) {
-  document.documentElement.setAttribute('data-theme', theme)
-  document.documentElement.style.colorScheme = theme
+export function applyTheme() {
+  document.documentElement.setAttribute('data-theme', 'vault')
+  document.documentElement.style.colorScheme = 'light'
   const meta = document.querySelector('meta[name="theme-color"]')
-  if (meta) meta.setAttribute('content', theme === 'light' ? '#FFFDFB' : '#171716')
+  if (meta) meta.setAttribute('content', BONE)
 }
 
 export function initTheme(): Theme {
-  const theme = getTheme()
-  applyTheme(theme)
-  return theme
-}
-
-export function setTheme(theme: Theme) {
-  localStorage.setItem(STORAGE_KEY, theme)
-  applyTheme(theme)
-  window.dispatchEvent(new CustomEvent('pl-theme-change', { detail: theme }))
-}
-
-export function toggleTheme(): Theme {
-  const next: Theme = getTheme() === 'dark' ? 'light' : 'dark'
-  setTheme(next)
-  return next
+  applyTheme()
+  return 'vault'
 }
