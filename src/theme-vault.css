@@ -767,6 +767,11 @@ body::after,
   color: var(--ink);
   white-space: nowrap;
 }
+/* Day-by-day variant: 14 slim bars, tighter gaps */
+.vault-bars.is-daily { gap: 5px; height: 92px; margin-top: 22px; }
+.vault-bars.is-daily .vault-bar { border-radius: 6px 6px 3px 3px; }
+.vault-bar-labels.is-daily { gap: 5px; }
+.vault-bar-labels.is-daily span { font-size: 10px; }
 .vault-bar-labels { display: flex; gap: 14px; margin-top: 10px; }
 .vault-bar-labels span {
   flex: 1;

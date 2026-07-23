@@ -66,6 +66,16 @@ export function Reports({
   const weeklyAverage = weeks.length ? Math.round(weeks.reduce((sum, week) => sum + week.amount, 0) / weeks.length) : 0
   const maxWeek = Math.max(...weeks.map((week) => week.amount), 1)
 
+  const daily = useMemo(() => dailyBars(transactions), [transactions])
+  const maxDaily = Math.max(...daily.map((day) => day.amount), 1)
+  const todaySpent = daily[daily.length - 1]?.amount ?? 0
+
+  /* Donut: top five categories + everything else, colored from the
+     Vault ladder (clay leads, since the biggest slice is the story). */
+  const donutTop = spendingByCategory.slice(0, 5)
+  const donutRest = spendingByCategory.slice(5).reduce((sum, category) => sum + category.value, 0)
+  const donutData = donutRest > 0 ? [...donutTop, { name: 'Everything else', value: donutRest, percent: 0 }] : donutTop
+
   const moneyLeak = useMemo(() => detectMoneyLeak(transactions), [transactions])
   const weeklyReveal = useMemo(() => buildWeeklyReveal(transactions), [transactions])
   const cycleStory = useMemo(() => buildPreviousCycleStory(journeySettings, transactions), [journeySettings, transactions])
@@ -140,6 +150,48 @@ export function Reports({
         <div className="vault-bar-labels">
           {weeks.map((week) => <span key={week.label} className={cn(week.isNow && 'is-now')}>{week.label}</span>)}
         </div>
+      </section>
+
+      <section aria-label="Day by day spending, last 14 days" className="mt-9">
+        <div className="flex items-baseline justify-between">
+          <h2 className="vault-h2">Day by day</h2>
+          <p className="vault-h2-sub vault-digits">{todaySpent > 0 ? <>Rs {nf(todaySpent)} today</> : 'last 14 days'}</p>
+        </div>
+        <div className="vault-bars is-daily">
+          {daily.map((day) => (
+            <div
+              key={day.key}
+              className={cn('vault-bar', day.isToday && 'is-now')}
+              style={{ height: `${Math.max(5, (day.amount / maxDaily) * 100)}%` }}
+            />
+          ))}
+        </div>
+        <div className="vault-bar-labels is-daily">
+          {daily.map((day) => <span key={day.key} className={cn(day.isToday && 'is-now')}>{day.label}</span>)}
+        </div>
+      </section>
+
+      <section aria-label="Spending split by category" className="mt-9">
+        <div className="flex items-baseline justify-between">
+          <h2 className="vault-h2">The split</h2>
+          <p className="vault-h2-sub">this period, by category</p>
+        </div>
+        {totalExpenses > 0 ? (
+          <div className="mt-5 flex items-center gap-5">
+            <Donut data={donutData} total={totalExpenses} />
+            <div className="min-w-0 flex-1">
+              {donutData.map((segment, index) => (
+                <div key={segment.name} className="flex items-center gap-2.5 border-b border-[var(--rule-soft)] py-2 last:border-b-0">
+                  <span aria-hidden className="h-2 w-2 flex-none rounded-full" style={{ background: DONUT_COLORS[index % DONUT_COLORS.length] }} />
+                  <span className="min-w-0 flex-1 truncate text-[12.5px] font-semibold text-[var(--ink)]">{segment.name}</span>
+                  <span className="vault-digits flex-none text-[12.5px] font-semibold text-[var(--taupe)]">{totalExpenses > 0 ? Math.round((segment.value / totalExpenses) * 100) : 0}%</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <p className="py-6 text-sm text-[var(--taupe)]">No spending recorded in this period yet.</p>
+        )}
       </section>
 
       <section aria-label="Where it went" className="mt-9">
@@ -266,29 +318,101 @@ function groupTransactions(transactions: Transaction[], label: (transaction: Tra
     .sort((a, b) => b.value - a.value)
 }
 
-/* The one chart: the selected range split into four buckets. The bucket
-   containing today is "Now" (clay); the rest are W1–W3 (track-alt). */
+/** Local 'YYYY-MM-DD' key for a Date — all bucket math runs on keys so
+ *  timezones and midnight-vs-noon offsets can never skew a bar. */
+function keyOf(date: Date) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+}
+
+function dayOffset(fromKey: string, toKey: string) {
+  return Math.round((new Date(`${toKey}T12:00:00`).getTime() - new Date(`${fromKey}T12:00:00`).getTime()) / 86_400_000)
+}
+
+/* The one chart: weekly money-out for the selected range. Month ranges
+   use real calendar weeks of the month (days 1–7, 8–14, …); longer
+   ranges split into four equal segments. The bucket containing today
+   is "Now" (clay). */
 function weeklyBars(transactions: Transaction[], range: Range) {
   const start = range.start ?? new Date()
   const end = range.end ?? new Date()
-  const spanDays = Math.max(1, Math.round((end.getTime() - start.getTime()) / 86_400_000) + 1)
-  const bucketDays = Math.max(1, Math.ceil(spanDays / 4))
-  const buckets = [0, 0, 0, 0]
+  const startKey = keyOf(start)
+  const spanDays = Math.max(1, dayOffset(startKey, keyOf(end)) + 1)
+  const isMonth = spanDays <= 31
+  const bucketCount = isMonth ? Math.max(1, Math.ceil(spanDays / 7)) : 4
+  const bucketDays = isMonth ? 7 : Math.max(1, Math.ceil(spanDays / bucketCount))
+  const buckets = Array.from({ length: bucketCount }, () => 0)
   for (const transaction of transactions) {
-    const date = parseDate(transaction.date)
-    if (!date) continue
-    const index = Math.min(3, Math.floor(Math.round((date.getTime() - start.getTime()) / 86_400_000) / bucketDays))
-    buckets[Math.max(0, index)] += transaction.amount
+    const offset = dayOffset(startKey, transaction.date)
+    if (offset < 0 || offset >= spanDays || !Number.isFinite(offset)) continue
+    buckets[Math.min(bucketCount - 1, Math.floor(offset / bucketDays))] += transaction.amount
   }
-  const today = new Date()
-  const todayIndex = today >= start && today <= end
-    ? Math.min(3, Math.floor(Math.round((startOfDay(today).getTime() - start.getTime()) / 86_400_000) / bucketDays))
+  const todayOffset = dayOffset(startKey, keyOf(new Date()))
+  const todayIndex = todayOffset >= 0 && todayOffset < spanDays
+    ? Math.min(bucketCount - 1, Math.floor(todayOffset / bucketDays))
     : -1
   return buckets.map((amount, index) => ({
     label: index === todayIndex ? 'Now' : `W${index + 1}`,
     amount,
     isNow: index === todayIndex,
   }))
+}
+
+/* Day-by-day money out — always the last 14 days, independent of the
+   period chips, so it reads as "what did the last two weeks look like". */
+function dailyBars(transactions: Transaction[]) {
+  const now = new Date()
+  const days = Array.from({ length: 14 }, (_, index) => {
+    const date = new Date(now.getFullYear(), now.getMonth(), now.getDate() - (13 - index))
+    return { key: keyOf(date), label: String(date.getDate()), amount: 0, isToday: index === 13 }
+  })
+  const slot = new Map(days.map((day, index) => [day.key, index]))
+  for (const transaction of transactions) {
+    if (transaction.type !== 'expense') continue
+    const index = slot.get(transaction.date)
+    if (index !== undefined) days[index].amount += transaction.amount
+  }
+  return days
+}
+
+/* Donut palette — Vault tokens only: clay leads, then the warm ladder. */
+const DONUT_COLORS = ['#E2703A', '#2B241D', '#9A8F7D', '#877B67', '#B9AE97', '#DDD4C1']
+
+function Donut({ data, total }: { data: Array<{ name: string; value: number }>; total: number }) {
+  const R = 54
+  const C = 2 * Math.PI * R
+  const segments: Array<{ name: string; color: string; dash: number; offset: number }> = []
+  let start = 0
+  for (const [index, segment] of data.entries()) {
+    const fraction = total > 0 ? segment.value / total : 0
+    segments.push({
+      name: segment.name,
+      color: DONUT_COLORS[index % DONUT_COLORS.length],
+      dash: Math.max(0, fraction * C - 2.5),
+      offset: -start * C,
+    })
+    start += fraction
+  }
+  return (
+    <svg aria-hidden height={148} viewBox="0 0 148 148" width={148} className="flex-none">
+      {segments.map((segment) => (
+        <circle
+          key={segment.name}
+          cx={74}
+          cy={74}
+          fill="none"
+          r={R}
+          stroke={segment.color}
+          strokeDasharray={`${segment.dash} ${C}`}
+          strokeDashoffset={segment.offset}
+          strokeLinecap="butt"
+          strokeWidth={18}
+          transform="rotate(-90 74 74)"
+        />
+      ))}
+      <text fill="var(--ink)" fontFamily="'Space Grotesk', sans-serif" fontSize={17} fontWeight={600} textAnchor="middle" x={74} y={72}>Rs {nf(total)}</text>
+      <text fill="var(--taupe)" fontFamily="'Schibsted Grotesk', sans-serif" fontSize={10.5} letterSpacing={1.4} textAnchor="middle" x={74} y={90}>SPENT</text>
+    </svg>
+  )
 }
 
 function getRange(period: PeriodKey): Range {
@@ -328,12 +452,6 @@ function endOfMonth(date: Date) {
 function endOfDay(date: Date) {
   const value = new Date(date)
   value.setHours(23, 59, 59, 999)
-  return value
-}
-
-function startOfDay(date: Date) {
-  const value = new Date(date)
-  value.setHours(0, 0, 0, 0)
   return value
 }
 
