@@ -2,6 +2,7 @@ import { lazy, Suspense, useCallback, useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
 import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
 import { AppShell } from './components/layout/AppShell'
+import { LedgerLoader } from './components/SplashScreen'
 import { accounts as initialAccounts, budgets as initialBudgets, debts as initialDebts, expenseCategories as initialExpenseCategories, goals as initialGoals, incomeSources as initialIncomeSources, transactions as initialTransactions, upcomingExpenses as initialUpcomingExpenses } from './data/mockData'
 import * as vaultPreview from './data/vaultPreviewData'
 import { adjustAccountBalance, archiveAccount, archiveCategory, deleteBudget, deleteDebt, deleteFinanceTransaction, deleteGoal, deleteUpcomingExpense, deleteWishlistItem, loadFinanceData, markUpcomingExpensePaid, recordFinanceAction, saveAccount, saveBudget, saveCategory, saveDebt, saveGoal, saveJourneySettings, saveMoneyQuest, saveMoneyWin, saveUpcomingExpense, saveUserSettings, saveWishlistItem, updateFinanceTransaction } from './lib/financeRepository'
@@ -617,7 +618,7 @@ function App() {
   const ledger = (
     <AppShell activePage={activePage} setActivePage={setActivePage} onAdd={(action) => { setExpenseDraft(undefined); setActiveModal(action) }}>
       {toast && <div aria-live="polite" className="fixed left-1/2 top-4 z-[60] -translate-x-1/2 rounded-full border border-[rgba(255, 122, 26,.28)] bg-[var(--surface-raised)] px-4 py-2 text-sm font-semibold text-[var(--accent-2)] shadow-2xl shadow-black/40" role="status">{toast}</div>}
-      <Suspense fallback={<div className="card p-6 text-sm text-[var(--muted)]" role="status">Loading screen…</div>}>{(pages[activePage] ?? pages.dashboard).component}</Suspense>
+      <Suspense fallback={<LedgerLoader label="Loading screen" />}>{(pages[activePage] ?? pages.dashboard).component}</Suspense>
       <Suspense fallback={null}>
       {(activeModal === 'income' || activeModal === 'expense') && <RecordSheet
         key={expenseDraft ? `${expenseDraft.amount}-${expenseDraft.category}` : `record-${activeModal}`}
@@ -802,7 +803,7 @@ function App() {
 }
 
 function LoadingScreen({ message }: { message: string }) {
-  return <main className="grid min-h-screen place-items-center bg-[var(--bg-deep)] p-5"><div className="text-center"><div className="mx-auto grid h-14 w-14 place-items-center rounded-[18px] bg-[var(--accent)] font-black text-[var(--accent-ink)]">PL</div><p className="mt-4 text-sm font-semibold text-[var(--muted)]" role="status">{message}</p></div></main>
+  return <LedgerLoader label={message} />
 }
 
 export default App

@@ -1,22 +1,9 @@
 import { useEffect, useState } from 'react'
 
-/**
- * Pocket Ledger splash — "the ledger boots", Vault edition.
- * One warm theme: bone canvas, espresso tile, clay cursor.
- * Mount once near the root (see main.tsx). Self-dismisses after `duration` ms.
- * Pure overlay: no interaction with app state.
- */
-export function SplashScreen({ duration = 2000 }: { duration?: number }) {
-  const [phase, setPhase] = useState<'shown' | 'leaving' | 'gone'>('shown')
-
-  useEffect(() => {
-    const t1 = window.setTimeout(() => setPhase('leaving'), duration)
-    const t2 = window.setTimeout(() => setPhase('gone'), duration + 450)
-    return () => { window.clearTimeout(t1); window.clearTimeout(t2) }
-  }, [duration])
-
-  if (phase === 'gone') return null
-
+/* Shared animated mark — espresso tile, bone ledger bars, clay cursor,
+   wordmark, and the sweep loader. Used by both the boot splash and the
+   in-app loader so every "loading" state looks identical. */
+function LedgerMark() {
   const bar = (width: string, delay: string) => ({
     display: 'block',
     width,
@@ -28,23 +15,7 @@ export function SplashScreen({ duration = 2000 }: { duration?: number }) {
   } as const)
 
   return (
-    <div
-      aria-hidden
-      style={{
-        position: 'fixed',
-        inset: 0,
-        zIndex: 9999,
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: 26,
-        background: '#F3EEE4',
-        opacity: phase === 'leaving' ? 0 : 1,
-        transition: 'opacity 420ms ease',
-        pointerEvents: phase === 'leaving' ? 'none' : 'auto',
-      }}
-    >
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 26 }}>
       <style>{`
         @keyframes pl-bar-grow { 0%{transform:scaleX(0)} 18%{transform:scaleX(1)} 82%{transform:scaleX(1)} 94%,100%{transform:scaleX(0)} }
         @keyframes pl-cursor { 0%,100%{opacity:1} 50%{opacity:0} }
@@ -86,6 +57,68 @@ export function SplashScreen({ duration = 2000 }: { duration?: number }) {
       <div style={{ position: 'relative', width: 148, height: 4, borderRadius: 2, background: '#E6DECD' }}>
         <span style={{ position: 'absolute', top: -3, left: 0, width: 10, height: 10, borderRadius: 3, background: '#E2703A', animation: 'pl-sweep 1.6s ease-in-out infinite alternate' }} />
       </div>
+    </div>
+  )
+}
+
+/**
+ * Pocket Ledger splash — "the ledger boots", Vault edition.
+ * Mount once near the root (see main.tsx). Self-dismisses after `duration` ms.
+ * Pure overlay: no interaction with app state.
+ */
+export function SplashScreen({ duration = 2000 }: { duration?: number }) {
+  const [phase, setPhase] = useState<'shown' | 'leaving' | 'gone'>('shown')
+
+  useEffect(() => {
+    const t1 = window.setTimeout(() => setPhase('leaving'), duration)
+    const t2 = window.setTimeout(() => setPhase('gone'), duration + 450)
+    return () => { window.clearTimeout(t1); window.clearTimeout(t2) }
+  }, [duration])
+
+  if (phase === 'gone') return null
+
+  return (
+    <div
+      aria-hidden
+      style={{
+        position: 'fixed',
+        inset: 0,
+        zIndex: 9999,
+        display: 'grid',
+        placeItems: 'center',
+        background: '#F3EEE4',
+        opacity: phase === 'leaving' ? 0 : 1,
+        transition: 'opacity 420ms ease',
+        pointerEvents: phase === 'leaving' ? 'none' : 'auto',
+      }}
+    >
+      <LedgerMark />
+    </div>
+  )
+}
+
+/**
+ * Persistent loader — the same animated logo, shown while a lazy page
+ * chunk or the private ledger data is loading. No PL block, no text:
+ * just the mark, matching the boot splash exactly. `fill` sits inside a
+ * container; the default overlays the viewport (bone canvas over the app).
+ */
+export function LedgerLoader({ fill = false, label = 'Loading' }: { fill?: boolean; label?: string }) {
+  return (
+    <div
+      aria-label={label}
+      aria-busy="true"
+      role="status"
+      style={{
+        position: fill ? 'absolute' : 'fixed',
+        inset: 0,
+        zIndex: fill ? 5 : 9990,
+        display: 'grid',
+        placeItems: 'center',
+        background: '#F3EEE4',
+      }}
+    >
+      <LedgerMark />
     </div>
   )
 }

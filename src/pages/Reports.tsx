@@ -448,8 +448,10 @@ function DayChart({ days }: { days: DayBar[] }) {
    to that category and the others dim. */
 function SplitChart({ data, total }: { data: Array<{ name: string; value: number }>; total: number }) {
   const [selected, setSelected] = useState<string | null>(null)
-  const R = 62
-  const STROKE = 22
+  const SIZE = 240
+  const MID = SIZE / 2
+  const R = 84
+  const STROKE = 26
   const C = 2 * Math.PI * R
   // Changes when the period (and thus the data) changes, so the arcs
   // remount and replay their draw-in without a setState-in-effect.
@@ -483,33 +485,33 @@ function SplitChart({ data, total }: { data: Array<{ name: string; value: number
       {total > 0 ? (
         <>
           <div className="mt-6 grid place-items-center">
-            <svg height={188} role="img" viewBox="0 0 188 188" width={188} aria-label="Donut chart of spending by category">
+            <svg height={SIZE} role="img" viewBox={`0 0 ${SIZE} ${SIZE}`} width={SIZE} aria-label="Donut chart of spending by category" className="max-w-full">
               {segments.map((segment, index) => {
                 const on = !selected || segment.name === selected
                 return (
                   <motion.circle
                     key={`${drawKey}-${segment.name}`}
-                    cx={94}
-                    cy={94}
+                    cx={MID}
+                    cy={MID}
                     fill="none"
                     r={R}
                     stroke={segment.color}
                     strokeDasharray={`${segment.dash} ${C}`}
                     strokeLinecap="butt"
-                    transform="rotate(-90 94 94)"
+                    transform={`rotate(-90 ${MID} ${MID})`}
                     initial={{ strokeDashoffset: segment.offset + segment.dash }}
                     animate={{ strokeDashoffset: segment.offset }}
                     transition={{ duration: 0.7, ease: EASE, delay: index * 0.07 }}
                     style={{
-                      strokeWidth: segment.name === selected ? STROKE + 6 : STROKE,
+                      strokeWidth: segment.name === selected ? STROKE + 7 : STROKE,
                       opacity: on ? 1 : 0.25,
                       transition: 'stroke-width .2s ease, opacity .2s ease',
                     }}
                   />
                 )
               })}
-              <text fill="var(--ink)" fontFamily="'Space Grotesk', sans-serif" fontSize={24} fontWeight={600} textAnchor="middle" x={94} y={90}>Rs {nf(centerAmount)}</text>
-              <text fill="var(--taupe)" fontFamily="'Schibsted Grotesk', sans-serif" fontSize={10} letterSpacing={1.6} textAnchor="middle" x={94} y={110}>{centerLabel.length > 16 ? `${centerLabel.slice(0, 15)}…` : centerLabel}</text>
+              <text fill="var(--ink)" fontFamily="'Space Grotesk', sans-serif" fontSize={30} fontWeight={600} letterSpacing={-1} textAnchor="middle" x={MID} y={MID - 2}>Rs {nf(centerAmount)}</text>
+              <text fill="var(--taupe)" fontFamily="'Schibsted Grotesk', sans-serif" fontSize={11} letterSpacing={1.8} textAnchor="middle" x={MID} y={MID + 22}>{centerLabel.length > 18 ? `${centerLabel.slice(0, 17)}…` : centerLabel}</text>
             </svg>
           </div>
 
