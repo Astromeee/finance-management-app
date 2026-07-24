@@ -872,6 +872,40 @@ body::after,
   position: relative;
   z-index: 1;
 }
+
+/* Debt node — the clay card tucks BEHIND the badge circle (spec 15b):
+   the badge sits on the trail line, half over bone, half over the card;
+   a 4px bone ring keeps the two clay shapes visually distinct. */
+.vault-debt-node {
+  position: relative;
+  display: flex;
+  align-items: center;
+  padding: 18px 0;
+}
+.vault-debt-node .vault-debt-badge {
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 2;
+}
+.vault-debt-card {
+  flex: 1;
+  min-width: 0;
+  margin-left: 24px;            /* card left edge meets the badge centre */
+  border-radius: 22px;
+  padding: 18px 20px 18px 46px; /* left padding clears the overlapping badge */
+  background: var(--clay);
+  color: var(--espresso);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.vault-debt-card:active { transform: scale(0.995); }
+.vault-debt-card.is-paid {
+  background: var(--vault-surface);
+  border: 1px solid var(--rule);
+  opacity: .75;
+}
 .vault-goal-name {
   font-family: var(--font-display);
   font-weight: 400;

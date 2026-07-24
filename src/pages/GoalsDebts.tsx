@@ -275,30 +275,38 @@ function GoalNode({ goal, onQuickAdd, onEdit, onDelete }: { goal: Goal; onQuickA
 }
 
 function DebtNode({ debt, onPay, onEdit, onDelete }: { debt: Debt; onPay: () => void; onEdit: () => void; onDelete: () => void }) {
+  const [actionsOpen, setActionsOpen] = useState(false)
   const remaining = debtRemaining(debt)
   const paidOff = debtDisplayStatus(debt) === 'Paid'
-  const meta = [
-    debt.dueDate ? `Due ${formatDate(debt.dueDate)}` : null,
-    debt.personOrCompany ?? null,
-    debt.category && debt.category !== 'Debt' ? debt.category : null,
-  ].filter(Boolean).join(' · ')
+  // Rich meta to match the design: "Due 5 August · Rs 4,000/month · 2 payments to freedom"
+  const detail = debt.notes?.trim() || debt.personOrCompany || (debt.category && debt.category !== 'Debt' ? debt.category : '')
+  const meta = [debt.dueDate ? `Due ${formatDate(debt.dueDate)}` : null, detail || null].filter(Boolean).join(' · ')
   return (
-    <div className="vault-trail-node">
-      <span className="vault-debt-badge">{paidOff ? <Check size={18} strokeWidth={2.4} /> : <CircleAlert size={18} strokeWidth={2} />}</span>
-      <div className={cn('flex-1 rounded-[22px] p-4', paidOff ? 'vault-outline opacity-70' : 'vault-clay')}>
+    <div className="vault-debt-node">
+      <span className="vault-debt-badge">{paidOff ? <Check size={19} strokeWidth={2.4} /> : <CircleAlert size={19} strokeWidth={2} />}</span>
+      <div
+        className={cn('vault-debt-card', paidOff && 'is-paid')}
+        role="button"
+        tabIndex={0}
+        aria-expanded={actionsOpen}
+        onClick={() => setActionsOpen((open) => !open)}
+        onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); setActionsOpen((open) => !open) } }}
+      >
         <div className="flex items-baseline justify-between gap-3">
-          <h3 className={cn('min-w-0 truncate font-display text-[19px]', paidOff ? 'text-[var(--taupe-faint)]' : 'text-[var(--espresso)]')}>{debtTitle(debt)}</h3>
-          <p className={cn('vault-digits flex-none text-[14px] font-bold', paidOff ? 'text-[var(--taupe-faint)]' : 'text-[var(--espresso)]')}>
+          <h3 className={cn('min-w-0 truncate font-display text-[21px] leading-tight', paidOff ? 'text-[var(--taupe-faint)]' : 'text-[var(--espresso)]')}>{debtTitle(debt)}</h3>
+          <p className={cn('vault-digits flex-none text-[15px] font-bold', paidOff ? 'text-[var(--taupe-faint)]' : 'text-[var(--espresso)]')}>
             {paidOff ? 'Cleared' : <>{nf(remaining)} left</>}
           </p>
         </div>
-        {meta && <p className={cn('mt-1.5 text-[11.5px] font-medium', paidOff ? 'text-[var(--taupe-faint)]' : 'text-[var(--clay-ink)]')}>{meta}</p>}
-        <p className={cn('mt-2 text-[11px] font-bold', paidOff ? 'text-[var(--taupe-faint)]' : 'text-[var(--clay-ink)]')}>
-          {!paidOff && <><button className="uppercase tracking-[1.2px]" type="button" onClick={onPay}>Pay</button><span aria-hidden="true"> · </span></>}
-          <button className="uppercase tracking-[1.2px]" type="button" onClick={onEdit}>Edit</button>
-          <span aria-hidden="true"> · </span>
-          <button className="uppercase tracking-[1.2px]" type="button" onClick={onDelete}>Delete</button>
-        </p>
+        {meta && <p className={cn('mt-1.5 text-[12.5px] font-medium leading-[1.45]', paidOff ? 'text-[var(--taupe-faint)]' : 'text-[var(--clay-ink)]')}>{meta}</p>}
+        {actionsOpen && (
+          <p className={cn('mt-3 text-[11px] font-bold', paidOff ? 'text-[var(--taupe-faint)]' : 'text-[var(--clay-ink)]')}>
+            {!paidOff && <><button className="uppercase tracking-[1.2px]" type="button" onClick={(event) => { event.stopPropagation(); onPay() }}>Pay</button><span aria-hidden="true"> · </span></>}
+            <button className="uppercase tracking-[1.2px]" type="button" onClick={(event) => { event.stopPropagation(); onEdit() }}>Edit</button>
+            <span aria-hidden="true"> · </span>
+            <button className="uppercase tracking-[1.2px]" type="button" onClick={(event) => { event.stopPropagation(); onDelete() }}>Delete</button>
+          </p>
+        )}
       </div>
     </div>
   )
