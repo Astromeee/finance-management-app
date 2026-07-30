@@ -21,11 +21,33 @@ interface AppShellProps {
   onCreateAccount: DesktopExperienceProps['onCreateAccount']
   onAddFunds: DesktopExperienceProps['onAddFunds']
   onCreateBudget: DesktopExperienceProps['onCreateBudget']
+  onUpdateTransaction: DesktopExperienceProps['onUpdateTransaction']
+  onDeleteTransaction: DesktopExperienceProps['onDeleteTransaction']
+  onUpdateAccount: DesktopExperienceProps['onUpdateAccount']
+  onArchiveAccount: DesktopExperienceProps['onArchiveAccount']
+  onUpdateGoal: DesktopExperienceProps['onUpdateGoal']
+  onDeleteGoal: DesktopExperienceProps['onDeleteGoal']
+  onCreateDebt: DesktopExperienceProps['onCreateDebt']
+  onUpdateDebt: DesktopExperienceProps['onUpdateDebt']
+  onDeleteDebt: DesktopExperienceProps['onDeleteDebt']
+  onPayDebt: DesktopExperienceProps['onPayDebt']
+  onCreateUpcoming: DesktopExperienceProps['onCreateUpcoming']
+  onUpdateUpcoming: DesktopExperienceProps['onUpdateUpcoming']
+  onDeleteUpcoming: DesktopExperienceProps['onDeleteUpcoming']
+  onPayUpcoming: DesktopExperienceProps['onPayUpcoming']
+  onUpdateWishlist: DesktopExperienceProps['onUpdateWishlist']
+  onDeleteWishlist: DesktopExperienceProps['onDeleteWishlist']
+  onBuyWishlist: DesktopExperienceProps['onBuyWishlist']
+  onSaveQuest: DesktopExperienceProps['onSaveQuest']
+  onCancelQuest: DesktopExperienceProps['onCancelQuest']
+  onSaveCategory: DesktopExperienceProps['onSaveCategory']
+  onArchiveCategory: DesktopExperienceProps['onArchiveCategory']
+  onRestartJourney: DesktopExperienceProps['onRestartJourney']
   onUpdateProfile: DesktopExperienceProps['onUpdateProfile']
   onAnalyticsConsentChange: DesktopExperienceProps['onAnalyticsConsentChange']
 }
 
-export function AppShell({ activePage, children, setActivePage, onAdd, desktopData, onSignOut, onRecordEntry, onMoveMoney, onCreateGoal, onCreateWishlistItem, onCreateAccount, onAddFunds, onCreateBudget, onUpdateProfile, onAnalyticsConsentChange }: AppShellProps) {
+export function AppShell({ activePage, children, setActivePage, onAdd, desktopData, onSignOut, onRecordEntry, onMoveMoney, onCreateGoal, onCreateWishlistItem, onCreateAccount, onAddFunds, onCreateBudget, onUpdateTransaction, onDeleteTransaction, onUpdateAccount, onArchiveAccount, onUpdateGoal, onDeleteGoal, onCreateDebt, onUpdateDebt, onDeleteDebt, onPayDebt, onCreateUpcoming, onUpdateUpcoming, onDeleteUpcoming, onPayUpcoming, onUpdateWishlist, onDeleteWishlist, onBuyWishlist, onSaveQuest, onCancelQuest, onSaveCategory, onArchiveCategory, onRestartJourney, onUpdateProfile, onAnalyticsConsentChange }: AppShellProps) {
   const isVaultPage = VAULT_PAGES.has(activePage)
 
   return (
@@ -42,6 +64,28 @@ export function AppShell({ activePage, children, setActivePage, onAdd, desktopDa
         onCreateAccount={onCreateAccount}
         onAddFunds={onAddFunds}
         onCreateBudget={onCreateBudget}
+        onUpdateTransaction={onUpdateTransaction}
+        onDeleteTransaction={onDeleteTransaction}
+        onUpdateAccount={onUpdateAccount}
+        onArchiveAccount={onArchiveAccount}
+        onUpdateGoal={onUpdateGoal}
+        onDeleteGoal={onDeleteGoal}
+        onCreateDebt={onCreateDebt}
+        onUpdateDebt={onUpdateDebt}
+        onDeleteDebt={onDeleteDebt}
+        onPayDebt={onPayDebt}
+        onCreateUpcoming={onCreateUpcoming}
+        onUpdateUpcoming={onUpdateUpcoming}
+        onDeleteUpcoming={onDeleteUpcoming}
+        onPayUpcoming={onPayUpcoming}
+        onUpdateWishlist={onUpdateWishlist}
+        onDeleteWishlist={onDeleteWishlist}
+        onBuyWishlist={onBuyWishlist}
+        onSaveQuest={onSaveQuest}
+        onCancelQuest={onCancelQuest}
+        onSaveCategory={onSaveCategory}
+        onArchiveCategory={onArchiveCategory}
+        onRestartJourney={onRestartJourney}
         onUpdateProfile={onUpdateProfile}
         onAnalyticsConsentChange={onAnalyticsConsentChange}
       />

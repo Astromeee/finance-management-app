@@ -41,6 +41,9 @@ The normalized side-by-side comparison confirms the 248px fixed rail, warm paper
 5. Final browser pass confirmed live balances and transactions on Home, working Wallet navigation, editable profile controls, analytics toggle state changes, a visible Sign out action, and no application errors.
 6. Functional desktop pass replaced the remaining mobile bottom-sheet handoffs with matching 494px right slide-overs for Record, Move money, New goal, and Cool-off review. Search, notifications, account/period selectors, and ledger type chips were exercised in the browser.
 7. Insights now renders two live Recharts visualizations from the selected period: daily income/spending and spending by category. The 1440 x 900 comparison preserves the supplied two-column composition, card proportions, typography, palette, and desktop density while replacing example chart values with real ledger data.
+8. Desktop parity pass changed the initial reporting period to All time so existing records cannot disappear behind an out-of-range cycle, added an explicit all-time recovery action for empty filtered states, and verified 14 preview entries render in the Ledger.
+9. Ledger entry management, Wallet account management, per-goal payments, goal/debt management, bill payment/editing, cool-off decisions, quests, categories, notification preferences, and journey setup now use the desktop experience and right-side panels.
+10. Post-change screenshots were inspected together at 1440 x 900: `/Users/astromee/Pocket Ledger App/design-audit/desktop-parity-2026-07-31/desktop-after-contact-sheet.jpg`.
 
 **Findings**
 
@@ -58,6 +61,10 @@ The normalized side-by-side comparison confirms the 248px fixed rail, warm paper
 - Record, Move money, New goal, and Review right-panel interactions: passed.
 - Search, notifications, cycle/account selectors, and Spent/Received/Moved chips: passed.
 - Live Insights money-flow and category graphs: passed.
+- Ledger all-time fallback plus edit/delete actions: passed.
+- Goal payments and debt repayment management: passed.
+- Plan bill, cool-off, and quest actions: passed.
+- Desktop category management and notification preference: passed.
 - Production build: passed.
 
 final result: passed

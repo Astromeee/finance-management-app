@@ -704,6 +704,106 @@ function App() {
         if (!designPreview) void saveBudget(budget).catch((error) => showToast(error.message))
         showToast(`${category} limit saved`)
       }}
+      onUpdateTransaction={(transaction) => { void updateTransaction(transaction) }}
+      onDeleteTransaction={(transactionId) => { void deleteTransaction(transactionId) }}
+      onUpdateAccount={(account) => {
+        setAccounts((current) => current.map((item) => item.id === account.id ? account : item))
+        if (!designPreview) void saveAccount(account).catch((error) => showToast(error.message))
+        showToast('Account updated')
+      }}
+      onArchiveAccount={(accountId) => {
+        setAccounts((current) => current.filter((item) => item.id !== accountId))
+        if (!designPreview) void archiveAccount(accountId).catch((error) => showToast(error.message))
+        showToast('Account archived')
+      }}
+      onUpdateGoal={(goalId, payload) => {
+        const goal = goals.find((item) => item.id === goalId)
+        if (!goal) return
+        const next = { ...goal, ...payload }
+        setGoals((current) => current.map((item) => item.id === goalId ? next : item))
+        if (!designPreview) void saveGoal(next).catch((error) => showToast(error.message))
+        showToast('Goal updated')
+      }}
+      onDeleteGoal={(goalId) => {
+        setGoals((current) => current.filter((item) => item.id !== goalId))
+        if (!designPreview) void deleteGoal(goalId).catch((error) => showToast(error.message))
+        showToast('Goal deleted')
+      }}
+      onCreateDebt={(payload) => {
+        const debt = createDebt(payload)
+        setDebts((current) => [debt, ...current])
+        if (!designPreview) void saveDebt(debt).catch((error) => showToast(error.message))
+        showToast('Debt added')
+      }}
+      onUpdateDebt={(debtId, payload) => {
+        const debt = debts.find((item) => item.id === debtId)
+        if (!debt) return
+        const next = updateDebtFromPayload(debt, payload)
+        setDebts((current) => current.map((item) => item.id === debtId ? next : item))
+        if (!designPreview) void saveDebt(next).catch((error) => showToast(error.message))
+        showToast('Debt updated')
+      }}
+      onDeleteDebt={(debtId) => {
+        setDebts((current) => current.filter((item) => item.id !== debtId))
+        if (!designPreview) void deleteDebt(debtId).catch((error) => showToast(error.message))
+        showToast('Debt deleted')
+      }}
+      onPayDebt={({ debtId, amount, accountId, date, notes }) => {
+        const debt = debts.find((item) => item.id === debtId)
+        const account = accountsWithSavings.find((item) => item.id === accountId)
+        if (!debt || !account || amount <= 0 || amount > account.balance) return
+        const transaction: Transaction = { id: makeId(), title: `Payment toward ${debtTitle(debt)}`, type: 'debt_payment', amount, category: debtTitle(debt), account: account.name, accountId, debtId, date, notes }
+        updateAccountBalance(accountId, -amount)
+        setDebts((current) => current.map((item) => {
+          if (item.id !== debtId) return item
+          const totalAmount = debtTotal(item)
+          const nextPaid = Math.min(totalAmount, debtPaid(item) + amount)
+          return { ...item, paidAmount: nextPaid, paid: nextPaid, status: nextPaid >= totalAmount ? 'Paid' : item.status === 'Paid' ? 'Active' : item.status }
+        }))
+        addTransaction(transaction)
+        if (!designPreview) void recordFinanceAction(transaction).catch((error) => showToast(error.message))
+        showToast('Debt payment recorded')
+      }}
+      onCreateUpcoming={addUpcoming}
+      onUpdateUpcoming={updateUpcoming}
+      onDeleteUpcoming={removeUpcoming}
+      onPayUpcoming={(expense, payload) => { void payUpcoming(expense, payload) }}
+      onUpdateWishlist={(item) => {
+        setWishlistItems((current) => [item, ...current.filter((entry) => entry.id !== item.id)])
+        if (!designPreview) void saveWishlistItem(item).catch((error) => showToast(error.message))
+        showToast(item.status === 'skipped' ? 'Item skipped' : 'Decision updated')
+      }}
+      onDeleteWishlist={(itemId) => {
+        setWishlistItems((current) => current.filter((item) => item.id !== itemId))
+        if (!designPreview) void deleteWishlistItem(itemId).catch((error) => showToast(error.message))
+        showToast('Item removed')
+      }}
+      onBuyWishlist={(item) => {
+        setExpenseDraft({ amount: item.amount, category: categories.find((category) => category.id === item.categoryId)?.name ?? 'Miscellaneous', wishlistId: item.id })
+        setActiveModal('expense')
+      }}
+      onSaveQuest={(quest) => {
+        setMoneyQuests((current) => [quest, ...current.filter((item) => item.id !== quest.id && item.status !== 'active')])
+        if (!designPreview) void saveMoneyQuest(quest).catch((error) => showToast(error.message))
+        showToast('Quest started')
+      }}
+      onCancelQuest={(quest) => {
+        const next = { ...quest, status: 'cancelled' as const }
+        setMoneyQuests((current) => current.map((item) => item.id === quest.id ? next : item))
+        if (!designPreview) void saveMoneyQuest(next).catch((error) => showToast(error.message))
+        showToast('Quest ended')
+      }}
+      onSaveCategory={(category) => {
+        setCategories((current) => [...current.filter((item) => item.id !== category.id), category])
+        if (!designPreview) void saveCategory(category).catch((error) => showToast(error.message))
+        showToast('Category saved')
+      }}
+      onArchiveCategory={(categoryId) => {
+        setCategories((current) => current.filter((item) => item.id !== categoryId))
+        if (!designPreview) void archiveCategory(categoryId).catch((error) => showToast(error.message))
+        showToast('Category archived')
+      }}
+      onRestartJourney={() => navigate('/onboarding')}
       onUpdateProfile={(nextProfile) => {
         setProfile(nextProfile)
         setProfileState(nextProfile)
