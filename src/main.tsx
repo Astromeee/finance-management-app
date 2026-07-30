@@ -16,6 +16,7 @@ import './index.css'
 import './theme.css' // ← V4 "Ink & Ember" layer (must come after index.css)
 import './theme-v5.css' // ← V5 "Lifted Ink" patch (must come after theme.css)
 import './theme-vault.css' // ← "The Vault" layer (final authority — must come last)
+import './desktop-vault.css' // ← desktop redesign; scoped to 1280px and wider
 import App from './App.tsx'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import { OfflineBanner } from './components/OfflineBanner'
