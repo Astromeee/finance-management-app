@@ -51,6 +51,10 @@ const FAB_ACTIONS: Array<{ action: AddAction; label: string; circle: string; ico
    Goals/Plan have no permanent slot: while you're on one of them the Wallet
    slot swaps to the target icon (matching screens 15b/16a); you reach them
    from in-page links, never from the dock. The FAB opens the 19a action fan. */
+/* Pushed detail screens (reached from a link, dismissed with their own back
+   chevron) hide the dock + FAB to match the design. */
+const DOCKLESS_PAGES = new Set(['settings', 'categories', 'profile'])
+
 export function BottomNav({ activePage, setActivePage, onAdd }: { activePage: string; setActivePage: (page: string) => void; onAdd: (action: AddAction) => void }) {
   const [menuOpen, setMenuOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
@@ -94,40 +98,22 @@ export function BottomNav({ activePage, setActivePage, onAdd }: { activePage: st
     onAdd(action)
   }
 
+  if (DOCKLESS_PAGES.has(activePage)) return null
+
   return (
     <>
       <AnimatePresence>
         {menuOpen && (
-          <>
-            <motion.div
-              key="fab-scrim"
-              aria-hidden
-              className="vault-fabmenu-scrim"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.15 }}
-              onClick={() => setMenuOpen(false)}
-            />
-            <div key="fab-menu" ref={menuRef} className="vault-fabmenu" role="menu" aria-label="Add to the ledger">
-              {FAB_ACTIONS.map(({ action, label, circle, icon: Icon }, index) => (
-                <motion.button
-                  key={action}
-                  className="vault-fabmenu-item"
-                  role="menuitem"
-                  type="button"
-                  initial={{ opacity: 0, y: 18, scale: 0.9 }}
-                  animate={{ opacity: 1, y: 0, scale: 1 }}
-                  exit={{ opacity: 0, y: 12, scale: 0.9, transition: { duration: 0.12, delay: (FAB_ACTIONS.length - 1 - index) * 0.02 } }}
-                  transition={{ type: 'spring', stiffness: 480, damping: 22, delay: index * 0.03 }}
-                  onClick={() => pick(action)}
-                >
-                  <span className="vault-fabmenu-label">{label}</span>
-                  <span className={cn('vault-fabmenu-circle', circle)}><Icon size={20} strokeWidth={2} /></span>
-                </motion.button>
-              ))}
-            </div>
-          </>
+          <motion.div
+            key="fab-scrim"
+            aria-hidden
+            className="vault-fabmenu-scrim"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.15 }}
+            onClick={() => setMenuOpen(false)}
+          />
         )}
       </AnimatePresence>
       <div className={cn('vault-dock-wrap lg:hidden', menuOpen && 'is-menu-open')}>
@@ -148,17 +134,43 @@ export function BottomNav({ activePage, setActivePage, onAdd }: { activePage: st
             )
           })}
         </nav>
-        <button
-          ref={fabRef}
-          aria-expanded={menuOpen}
-          aria-haspopup="menu"
-          aria-label={menuOpen ? 'Close menu' : 'Add entry'}
-          className={cn('vault-fab', menuOpen && 'is-open')}
-          type="button"
-          onClick={() => setMenuOpen((open) => !open)}
-        >
-          <span className="vault-fab-icon"><Plus size={22} strokeWidth={2.2} /></span>
-        </button>
+        {/* The FAB and its action fan share one positioning context, so the
+            circles sit dead-centre over the + button on every screen width. */}
+        <div className="vault-fab-wrap">
+          <AnimatePresence>
+            {menuOpen && (
+              <div key="fab-menu" ref={menuRef} className="vault-fabmenu" role="menu" aria-label="Add to the ledger">
+                {FAB_ACTIONS.map(({ action, label, circle, icon: Icon }, index) => (
+                  <motion.button
+                    key={action}
+                    className="vault-fabmenu-item"
+                    role="menuitem"
+                    type="button"
+                    initial={{ opacity: 0, y: 18, scale: 0.9 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: 12, scale: 0.9, transition: { duration: 0.12, delay: (FAB_ACTIONS.length - 1 - index) * 0.02 } }}
+                    transition={{ type: 'spring', stiffness: 480, damping: 22, delay: index * 0.03 }}
+                    onClick={() => pick(action)}
+                  >
+                    <span className="vault-fabmenu-label">{label}</span>
+                    <span className={cn('vault-fabmenu-circle', circle)}><Icon size={20} strokeWidth={2} /></span>
+                  </motion.button>
+                ))}
+              </div>
+            )}
+          </AnimatePresence>
+          <button
+            ref={fabRef}
+            aria-expanded={menuOpen}
+            aria-haspopup="menu"
+            aria-label={menuOpen ? 'Close menu' : 'Add entry'}
+            className={cn('vault-fab', menuOpen && 'is-open')}
+            type="button"
+            onClick={() => setMenuOpen((open) => !open)}
+          >
+            <span className="vault-fab-icon"><Plus size={22} strokeWidth={2.2} /></span>
+          </button>
+        </div>
       </div>
     </>
   )

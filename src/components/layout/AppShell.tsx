@@ -4,7 +4,7 @@ import { BottomNav, Sidebar, type AddAction } from '../navigation/Navigation'
 /* The six Vault screens own their padding via .vault-screen (26px sides,
    118px dock clearance) — the shell stays out of their way. Legacy screens
    (settings/profile) keep the old shell padding. */
-const VAULT_PAGES = new Set(['dashboard', 'transactions', 'accounts', 'budgets', 'goals', 'reports'])
+const VAULT_PAGES = new Set(['dashboard', 'transactions', 'accounts', 'budgets', 'goals', 'reports', 'settings', 'categories'])
 
 interface AppShellProps {
   activePage: string

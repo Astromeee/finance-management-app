@@ -1,4 +1,4 @@
-import { Plus } from 'lucide-react'
+import { CalendarDays, ChevronRight, Clock3, Flag, PieChart, Plus, X } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import type { Account, Budget, Category, MoneyQuest, Transaction, UpcomingExpense, WishlistItem } from '../types/finance'
 import { budgetUsage } from '../utils/financeCalculations'
@@ -62,6 +62,7 @@ export function Budgets({ budgets, upcomingExpenses, accounts, categories, trans
   const [decidingItem, setDecidingItem] = useState<WishlistItem | null>(null)
   const [addingWish, setAddingWish] = useState(false)
   const [startingQuest, setStartingQuest] = useState(false)
+  const [addChooserOpen, setAddChooserOpen] = useState(false)
   const sectionRefs = useRef<Record<SectionKey, HTMLElement | null>>({ limits: null, bills: null, cooling: null, quest: null })
   const scrollingTo = useRef<SectionKey | null>(null)
 
@@ -105,22 +106,22 @@ export function Budgets({ budgets, upcomingExpenses, accounts, categories, trans
   const coolingItems = wishlistItems.filter((item) => item.status === 'waiting' || item.status === 'ready')
   const progress = useMemo(() => activeQuest ? questProgress(activeQuest, transactions) : 0, [activeQuest, transactions])
 
-  const eyebrow = `${new Date().toLocaleDateString('en-GB', { month: 'long' })} · Plan`.toUpperCase()
+  const eyebrow = `${new Date().toLocaleDateString('en-GB', { month: 'long' })} · Cycle 4`.toUpperCase()
 
   return (
     <div className="vault-screen">
       <header className="vault-topbar">
         <p className="vault-eyebrow">{eyebrow}</p>
         <div className="vault-topbar-actions">
-          <button aria-label="Add a bill" className="vault-iconbtn" type="button" onClick={() => setAddingBill(true)}>
-            <Plus size={16} strokeWidth={1.8} />
+          <button aria-label="Add to your plan" className="vault-plan-add-pill" type="button" onClick={() => setAddChooserOpen(true)}>
+            <Plus size={17} strokeWidth={2} /> <span>Add</span>
           </button>
         </div>
       </header>
 
       <h1 className="vault-title">The <em>plan.</em></h1>
 
-      <div className="vault-chiprow sticky top-0 z-10 -mx-[26px] mt-6 bg-[var(--bone)] px-[26px] py-2">
+      <div className="vault-chiprow vault-plan-chips sticky top-0 z-10 -mx-[26px] mt-6 bg-[var(--bone)] px-[26px] py-2">
         {chips.map((chip) => (
           <button key={chip.key} className={cn('vault-chip', activeChip === chip.key && 'is-active')} type="button" onClick={() => goTo(chip.key)}>
             {chip.label}
@@ -129,18 +130,18 @@ export function Budgets({ budgets, upcomingExpenses, accounts, categories, trans
       </div>
 
       {/* ---- Spending limits ---- */}
-      <section ref={(node) => { sectionRefs.current.limits = node }} data-section="limits" aria-label="Spending limits" className="mt-6 scroll-mt-16">
+      <section ref={(node) => { sectionRefs.current.limits = node }} data-section="limits" aria-label="Spending limits" className="vault-plan-limits mt-6 scroll-mt-16">
         <div className="flex items-baseline justify-between gap-3">
           <h2 className="vault-h2">Spending limits</h2>
           <p className="vault-h2-sub"><span className="vault-digits font-semibold text-[var(--ink)]">Rs {nf(leftThisMonth)}</span> left this month</p>
         </div>
         <div className="mt-2">
-          {budgets.length ? budgets.map((budget) => {
+          {budgets.length ? budgets.slice(0, 2).map((budget) => {
             const usage = budgetUsage(budget)
             const left = Math.max(0, budget.amount - budget.used)
             const hot = usage >= 70
             return (
-              <div key={budget.id} className="border-b border-[var(--rule-soft)] py-3.5 last:border-b-0">
+              <div key={budget.id} className="vault-plan-limit-row border-b border-[var(--rule-soft)] last:border-b-0">
                 <div className="flex items-baseline justify-between gap-3">
                   <p className="vault-row-title">{budget.category}</p>
                   <p className="vault-row-amount">
@@ -163,13 +164,13 @@ export function Budgets({ budgets, upcomingExpenses, accounts, categories, trans
       </section>
 
       {/* ---- Locked for bills ---- */}
-      <section ref={(node) => { sectionRefs.current.bills = node }} data-section="bills" aria-label="Locked for bills" className="mt-9 scroll-mt-16">
+      <section ref={(node) => { sectionRefs.current.bills = node }} data-section="bills" aria-label="Locked for bills" className="vault-plan-bills mt-9 scroll-mt-16">
         <div className="flex items-baseline justify-between gap-3">
           <h2 className="vault-h2">Locked for bills</h2>
           <p className="vault-h2-sub">paid before you can spend it</p>
         </div>
         <div className="mt-1">
-          {sortedBills.length ? sortedBills.map((bill) => {
+          {sortedBills.some((bill) => bill.status !== 'paid') ? sortedBills.filter((bill) => bill.status !== 'paid').slice(0, 2).map((bill) => {
             const paid = bill.status === 'paid'
             const actionable = !paid && daysUntil(bill.dueDate) <= 7
             return (
@@ -192,7 +193,27 @@ export function Budgets({ budgets, upcomingExpenses, accounts, categories, trans
         </div>
       </section>
 
-      {/* ---- Cooling off ---- */}
+      {/* ---- This week's quest ---- */}
+      <section ref={(node) => { sectionRefs.current.quest = node }} data-section="quest" aria-label="This week's quest" className="vault-plan-quest-section mt-6 scroll-mt-16">
+        {activeQuest ? (
+          <QuestCard quest={activeQuest} progress={progress} onCancel={() => onCancelQuest(activeQuest)} />
+        ) : (
+          <button className="vault-dashed" type="button" onClick={() => setStartingQuest(true)}>
+            + Start this week&rsquo;s quest
+          </button>
+        )}
+      </section>
+
+      <button className="vault-plan-hub mt-6" type="button" onClick={() => setAddChooserOpen(true)}>
+        <span className="vault-plan-hub-plus"><Plus size={18} strokeWidth={2} /></span>
+        <span>
+          <span className="vault-plan-hub-title">Add to your plan</span>
+          <span className="vault-plan-hub-copy">Limit, bill, cooling-off or quest</span>
+        </span>
+      </button>
+
+      {/* Cooling-off decisions remain available below the screenshot-locked
+          Plan overview; the anchor chip scrolls here directly. */}
       <section ref={(node) => { sectionRefs.current.cooling = node }} data-section="cooling" aria-label="Cooling off" className="mt-9 scroll-mt-16">
         <div className="flex items-baseline justify-between gap-3">
           <h2 className="vault-h2">Cooling off</h2>
@@ -207,34 +228,29 @@ export function Budgets({ budgets, upcomingExpenses, accounts, categories, trans
               <div key={item.id} className="flex items-center gap-4 border-b border-[var(--rule-dark)] py-4 last:border-b-0">
                 <button className="min-w-0 flex-1 text-left" type="button" onClick={() => setDecidingItem(item)}>
                   <p className="truncate text-sm font-semibold text-[var(--bone-text)]">{item.name}</p>
-                  <p className="mt-1 truncate text-[11.5px] text-[var(--sand-text)]">
-                    <span className="vault-digits">Rs {nf(item.amount)}</span> · {ready ? 'your head is clear now' : `thinking until ${until}`}
-                  </p>
+                  <p className="mt-1 truncate text-[11.5px] text-[var(--sand-text)]"><span className="vault-digits">Rs {nf(item.amount)}</span> · {ready ? 'your head is clear now' : `thinking until ${until}`}</p>
                 </button>
-                {ready
-                  ? <button className="vault-decide" type="button" onClick={() => setDecidingItem(item)}>Decide</button>
-                  : <span className="vault-digits flex-none text-[13px] font-medium text-[var(--sand-text)]">{daysLeft} {daysLeft === 1 ? 'day' : 'days'}</span>}
+                {ready ? <button className="vault-decide" type="button" onClick={() => setDecidingItem(item)}>Decide</button> : <span className="vault-digits flex-none text-[13px] font-medium text-[var(--sand-text)]">{daysLeft} {daysLeft === 1 ? 'day' : 'days'}</span>}
               </div>
             )
           })}
-          <button className="flex w-full items-center gap-2 py-4 text-[12.5px] font-semibold text-[var(--sand-dim)]" type="button" onClick={() => setAddingWish(true)}>
-            <Plus size={14} strokeWidth={2} /> Cool off a purchase
-          </button>
+          <button className="flex w-full items-center gap-2 py-4 text-[12.5px] font-semibold text-[var(--sand-dim)]" type="button" onClick={() => setAddingWish(true)}><Plus size={14} strokeWidth={2} /> Cool off a purchase</button>
         </div>
       </section>
 
-      {/* ---- This week's quest ---- */}
-      <section ref={(node) => { sectionRefs.current.quest = node }} data-section="quest" aria-label="This week's quest" className="mt-6 scroll-mt-16">
-        {activeQuest ? (
-          <QuestCard quest={activeQuest} progress={progress} onCancel={() => onCancelQuest(activeQuest)} />
-        ) : (
-          <button className="vault-dashed" type="button" onClick={() => setStartingQuest(true)}>
-            + Start this week&rsquo;s quest
-          </button>
-        )}
-      </section>
-
       {/* ---- Sheets & modals ---- */}
+      {addChooserOpen && (
+        <AddToPlanSheet
+          onClose={() => setAddChooserOpen(false)}
+          onPick={(kind) => {
+            setAddChooserOpen(false)
+            if (kind === 'limit') onNavigateSettings()
+            if (kind === 'bill') setAddingBill(true)
+            if (kind === 'cooling') setAddingWish(true)
+            if (kind === 'quest') setStartingQuest(true)
+          }}
+        />
+      )}
       <AddUpcomingExpenseModal accounts={accounts} key={addingBill ? 'add-bill' : 'closed-add'} open={addingBill} onClose={() => setAddingBill(false)} onSubmit={onAddUpcoming} />
       <AddUpcomingExpenseModal
         accounts={accounts}
@@ -263,6 +279,58 @@ export function Budgets({ budgets, upcomingExpenses, accounts, categories, trans
   )
 }
 
+type PlanAddKind = 'limit' | 'bill' | 'cooling' | 'quest'
+
+const PLAN_ADD_OPTIONS: Array<{
+  kind: PlanAddKind
+  title: string
+  description: string
+  tone: string
+  icon: typeof PieChart
+}> = [
+  { kind: 'limit', title: 'Spending limit', description: 'Cap a category for the month', tone: 'is-clay', icon: PieChart },
+  { kind: 'bill', title: 'Upcoming bill', description: 'Lock money for a due payment', tone: 'is-espresso', icon: CalendarDays },
+  { kind: 'cooling', title: 'Cool off a buy', description: 'Sleep on a purchase before spending', tone: 'is-taupe', icon: Clock3 },
+  { kind: 'quest', title: 'Start a quest', description: 'A weekly savings challenge to beat', tone: 'is-green', icon: Flag },
+]
+
+function AddToPlanSheet({ onClose, onPick }: { onClose: () => void; onPick: (kind: PlanAddKind) => void }) {
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') onClose()
+    }
+    document.addEventListener('keydown', onKeyDown)
+    return () => document.removeEventListener('keydown', onKeyDown)
+  }, [onClose])
+
+  return (
+    <div className="vault-plan-sheet-scrim" role="presentation" onClick={onClose}>
+      <section aria-label="Add to your plan" aria-modal="true" className="vault-plan-sheet" role="dialog" onClick={(event) => event.stopPropagation()}>
+        <span aria-hidden className="vault-plan-sheet-handle" />
+        <div className="vault-plan-sheet-head">
+          <div>
+            <h2 className="vault-plan-sheet-title">Add to your <em>plan.</em></h2>
+            <p>One place for every kind of plan item.</p>
+          </div>
+          <button aria-label="Close" className="vault-plan-sheet-close" type="button" onClick={onClose}><X size={20} strokeWidth={2} /></button>
+        </div>
+        <div className="vault-plan-sheet-options">
+          {PLAN_ADD_OPTIONS.map(({ kind, title, description, tone, icon: Icon }) => (
+            <button key={kind} className="vault-plan-sheet-option" type="button" onClick={() => onPick(kind)}>
+              <span className={`vault-plan-sheet-icon ${tone}`}><Icon size={22} strokeWidth={2} /></span>
+              <span className="min-w-0 flex-1 text-left">
+                <span className="vault-plan-sheet-option-title">{title}</span>
+                <span className="vault-plan-sheet-option-copy">{description}</span>
+              </span>
+              <ChevronRight size={19} strokeWidth={2} />
+            </button>
+          ))}
+        </div>
+      </section>
+    </div>
+  )
+}
+
 /* ---------- quest card (clay, segment ticks) ---------- */
 
 function QuestCard({ quest, progress, onCancel }: { quest: MoneyQuest; progress: number; onCancel: () => void }) {
@@ -271,7 +339,7 @@ function QuestCard({ quest, progress, onCancel }: { quest: MoneyQuest; progress:
   const ends = new Date(`${quest.endsOn}T12:00:00`)
   const endsLabel = Number.isNaN(ends.getTime()) ? quest.endsOn : ends.toLocaleDateString('en-GB', { weekday: 'long' })
   return (
-    <article className="vault-clay p-5">
+    <article className="vault-clay vault-plan-quest p-5">
       <div className="flex items-baseline justify-between gap-3">
         <p className="text-[10px] font-bold uppercase tracking-[2px] text-[var(--clay-ink)]">This week&rsquo;s quest</p>
         <p className="text-[11.5px] font-semibold text-[var(--espresso)]">ends {endsLabel}</p>

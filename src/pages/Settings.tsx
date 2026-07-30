@@ -1,16 +1,17 @@
-import { BookOpen, Download, ExternalLink, LogOut, PencilLine, Plus, ShieldCheck, Sun, Trash2, Wallet } from 'lucide-react'
-import { useState, type FormEvent, type ReactNode } from 'react'
-import { Link } from 'react-router-dom'
-import { exportLedgerJson, exportTransactionsCsv } from '../lib/exports'
+import { Bell, Calendar, ChevronLeft, ChevronRight, CreditCard, DollarSign, Download, HelpCircle, LayoutGrid, LogOut, Lock, Sun } from 'lucide-react'
+import { useState, type ReactNode } from 'react'
+import { exportTransactionsCsv } from '../lib/exports'
 import { supabase } from '../lib/supabase'
+import { initialsOf } from '../lib/profile'
 import type { Profile } from '../lib/profile'
-import type { Account, Budget, Category, Debt, Goal, Transaction, UpcomingExpense } from '../types/finance'
+import type { Account, Budget, Category, Debt, Goal, JourneySettings, Transaction, UpcomingExpense } from '../types/finance'
 
 type Props = {
   authEmail?: string; authProvider?: string
   accounts: Account[]; budgets: Budget[]; categories: Category[]; debts: Debt[]; goals: Goal[]
   transactions: Transaction[]; upcomingExpenses: UpcomingExpense[]
   expenseCategories: string[]; incomeCategories: string[]; profile: Profile
+  journeySettings: JourneySettings
   onNavigate: (page: string) => void
   analyticsConsent: boolean
   onAnalyticsConsentChange: (granted: boolean) => void
@@ -23,151 +24,148 @@ type Props = {
   onSignOut: () => void
 }
 
+function ordinal(day: number) {
+  const s = ['th', 'st', 'nd', 'rd']
+  const v = day % 100
+  return `${day}${s[(v - 20) % 10] ?? s[v] ?? s[0]}`
+}
+
+function incomeCycleLabel(settings: JourneySettings) {
+  const cadence = settings.incomeCadence ?? 'monthly'
+  const label = cadence.charAt(0).toUpperCase() + cadence.slice(1)
+  if (settings.nextIncomeDate) {
+    const day = new Date(`${settings.nextIncomeDate}T12:00:00`).getDate()
+    if (Number.isFinite(day)) return `${label} · ${ordinal(day)}`
+  }
+  return label
+}
+
 export function Settings(props: Props) {
-  const [categoryName, setCategoryName] = useState('')
-  const [categoryKind, setCategoryKind] = useState<Category['kind']>('expense')
-  const [categoryNature, setCategoryNature] = useState<Category['spendingNature']>('flexible')
-  const [budgetCategoryId, setBudgetCategoryId] = useState(() => props.categories.find((item) => item.kind === 'expense')?.id ?? '')
-  const [budgetAmount, setBudgetAmount] = useState('')
-  const [notice, setNotice] = useState('')
-  const [deleteText, setDeleteText] = useState('')
-  const [deletePassword, setDeletePassword] = useState('')
-  const [deleting, setDeleting] = useState(false)
-  const supportEmail = (import.meta.env.VITE_SUPPORT_EMAIL as string | undefined) ?? 'support@pocketledger.app'
+  const [notify, setNotify] = useState(() => localStorage.getItem('pl-notifications') !== 'off')
+  const [deleteOpen, setDeleteOpen] = useState(false)
 
-  const notify = (message: string) => {
-    setNotice(message)
-    window.setTimeout(() => setNotice(''), 2600)
+  const expenseCount = props.categories.filter((category) => category.kind === 'expense').length
+  const incomeCount = props.categories.filter((category) => category.kind === 'income').length
+  const email = props.authEmail ?? 'you@pocketledger.app'
+
+  const toggleNotifications = () => {
+    setNotify((current) => {
+      const next = !current
+      localStorage.setItem('pl-notifications', next ? 'on' : 'off')
+      return next
+    })
   }
 
-  const addCategory = async (event: FormEvent) => {
-    event.preventDefault()
-    const name = categoryName.trim()
-    if (!name) return
-    if (props.categories.some((item) => item.kind === categoryKind && item.name.toLowerCase() === name.toLowerCase())) return notify('That category already exists.')
-    await props.onSaveCategory({ id: crypto.randomUUID(), name, kind: categoryKind, color: categoryKind === 'income' ? '#E2703A' : '#2B241D', spendingNature: categoryKind === 'income' ? 'flexible' : categoryNature })
-    setCategoryName('')
-    notify('Category added.')
-  }
-
-  const addBudget = async (event: FormEvent) => {
-    event.preventDefault()
-    const category = props.categories.find((item) => item.id === budgetCategoryId)
-    const amount = Number(budgetAmount)
-    if (!category || !Number.isSafeInteger(amount) || amount <= 0) return notify('Enter a positive whole-PKR budget.')
-    const month = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}-01`
-    const existing = props.budgets.find((item) => item.categoryId === category.id && item.periodMonth?.startsWith(month.slice(0, 7)))
-    await props.onSaveBudget({ id: existing?.id ?? crypto.randomUUID(), category: category.name, categoryId: category.id, amount, used: existing?.used ?? 0, periodMonth: month })
-    setBudgetAmount('')
-    notify(existing ? 'Budget updated.' : 'Budget added.')
-  }
-
-  const editCategory = async (category: Category) => {
-    const name = window.prompt('Category name', category.name)?.trim()
-    if (!name || name === category.name) return
-    if (props.categories.some((item) => item.id !== category.id && item.kind === category.kind && item.name.toLowerCase() === name.toLowerCase())) return notify('That category already exists.')
-    try {
-      await props.onSaveCategory({ ...category, name })
-      notify('Category updated.')
-    } catch (error) {
-      notify(error instanceof Error ? error.message : 'Could not update category.')
-    }
-  }
-
-  const deleteAccount = async () => {
-    if (!supabase || deleteText !== 'DELETE') return
-    setDeleting(true)
-    setNotice('')
-    if (props.authProvider === 'email') {
-      if (!props.authEmail || !deletePassword) {
-        setDeleting(false)
-        return setNotice('Enter your password to confirm your identity.')
-      }
-      const { error: signInError } = await supabase.auth.signInWithPassword({ email: props.authEmail, password: deletePassword })
-      if (signInError) {
-        setDeleting(false)
-        return setNotice('Password confirmation failed.')
-      }
-    }
-    const { error } = await supabase.functions.invoke('delete-account')
-    if (error) {
-      setDeleting(false)
-      return setNotice(error.message)
-    }
-    await supabase.auth.signOut()
-    window.location.assign('/login')
-  }
-
-  // [&>*]:min-w-0 stops grid items inheriting min-width:auto, which let a wide
-  // row blow the page out horizontally on narrow screens.
   return (
-    <div className="mx-auto grid max-w-2xl gap-6 [&>*]:min-w-0">
-      {notice && <div className="rounded-2xl border border-[var(--glass-border)] bg-[var(--surface-2)] px-4 py-3 text-sm text-[var(--accent)]" role="status">{notice}</div>}
+    <div className="vault-screen">
+      <header className="vault-detail-header relative flex items-center justify-center">
+        <button aria-label="Back" className="vault-iconbtn absolute left-0" type="button" onClick={() => props.onNavigate('dashboard')}><ChevronLeft size={18} strokeWidth={2} /></button>
+        <p className="vault-eyebrow">Account</p>
+      </header>
 
-      <SettingsGroup heading="Preferences">
-        <SettingsRow detail="PKR / Rs. · Asia/Karachi" icon={Wallet} title="Currency and timezone" />
-        <SettingsRow detail="The Vault — one warm theme" icon={Sun} title="Theme" />
-        <SettingsRow detail={`${props.accounts.length} active account${props.accounts.length === 1 ? '' : 's'}`} icon={Wallet} title="Manage accounts" trailing={<button className="text-sm font-semibold text-[var(--accent)]" onClick={() => props.onNavigate('accounts')}>Open</button>} />
-        <SettingsRow detail="Replay setup and learn where key features live" icon={BookOpen} title="Help & Tour" trailing={<button className="text-sm font-semibold text-[var(--accent)]" onClick={props.onRestartTour}>Restart</button>} />
-        <SettingsRow detail="Optional anonymous interaction events; never financial values or personal content" icon={ShieldCheck} title="Private analytics" trailing={<button aria-checked={props.analyticsConsent} aria-label="Allow privacy-safe analytics" className="relative h-8 w-14 flex-none rounded-full transition-colors" onClick={() => props.onAnalyticsConsentChange(!props.analyticsConsent)} role="switch" style={{ background: props.analyticsConsent ? 'var(--positive)' : 'var(--surface-3)' }}><span className="absolute top-1 h-6 w-6 rounded-full bg-white shadow transition-all" style={{ left: props.analyticsConsent ? 'calc(100% - 1.75rem)' : '0.25rem' }} /></button>} />
-      </SettingsGroup>
+      <h1 className="vault-title">Settings</h1>
 
-      <section id="categories">
-        <p className="mb-2 px-1 text-xs font-semibold uppercase tracking-[.16em] text-[var(--muted-2)]">Categories</p>
-        <div className="card p-4">
-          <p className="mb-4 text-sm leading-6 text-[var(--muted)]">Essential categories are protected before your daily safe-to-spend amount is calculated.</p>
-          <form className="grid gap-3 sm:grid-cols-[120px_1fr_130px_auto]" onSubmit={addCategory}>
-            <select className="form-input" value={categoryKind} onChange={(event) => setCategoryKind(event.target.value as Category['kind'])}><option value="expense">Expense</option><option value="income">Income</option></select>
-            <input className="form-input" value={categoryName} onChange={(event) => setCategoryName(event.target.value)} placeholder="Category name" />
-            <select aria-label="Spending nature" className="form-input" disabled={categoryKind === 'income'} value={categoryNature} onChange={(event) => setCategoryNature(event.target.value as Category['spendingNature'])}><option value="essential">Essential</option><option value="flexible">Flexible</option></select>
-            <button className="btn-primary justify-center"><Plus size={16} /> Add</button>
-          </form>
-          <div className="mt-4 grid gap-2">
-            {props.categories.map((category) => <div className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-2xl bg-[var(--surface-2)] px-3 py-2.5" key={category.id}><span className="h-3 w-3 shrink-0 rounded-full" style={{ background: category.color }} /><span className="min-w-0 flex-1 truncate text-sm font-medium text-[var(--ink)]">{category.name}</span>{category.kind === 'expense' && <button aria-label={`Mark ${category.name} as ${category.spendingNature === 'essential' ? 'flexible' : 'essential'}`} className="rounded-full border border-[var(--border)] px-2.5 py-1 text-xs capitalize text-[var(--muted)]" onClick={() => void props.onSaveCategory({ ...category, spendingNature: category.spendingNature === 'essential' ? 'flexible' : 'essential' })}>{category.spendingNature}</button>}<span className="text-xs capitalize text-[var(--muted-2)]">{category.kind}</span><button aria-label={`Edit ${category.name}`} className="grid h-9 w-9 place-items-center text-[var(--muted)]" onClick={() => void editCategory(category)}><PencilLine size={15} /></button><button aria-label={`Archive ${category.name}`} className="grid h-9 w-9 place-items-center text-[var(--negative)]" onClick={() => void props.onArchiveCategory(category.id)}><Trash2 size={15} /></button></div>)}
-          </div>
+      {/* Profile card */}
+      <button className="vault-profile-card" type="button" onClick={() => props.onNavigate('profile')}>
+        <span className="vault-profile-mono">{props.profile.avatar ? <img alt="" src={props.profile.avatar} /> : initialsOf(props.profile.name)}</span>
+        <span className="min-w-0 flex-1">
+          <span className="vault-profile-name block truncate">{props.profile.name || 'Your name'}</span>
+          <span className="vault-profile-email block truncate">{email}</span>
+        </span>
+        <span className="vault-profile-edit">Edit</span>
+      </button>
+
+      {/* Money */}
+      <section className="mt-7">
+        <p className="vault-settings-group-label">Money</p>
+        <div className="vault-settings-group">
+          <Row icon={<DollarSign size={18} strokeWidth={1.9} />} title="Currency" value="Rs · PKR" />
+          <Row icon={<Calendar size={18} strokeWidth={1.9} />} title="Income cycle" value={incomeCycleLabel(props.journeySettings)} onPress={props.onRestartTour} />
+          <Row icon={<CreditCard size={18} strokeWidth={1.9} />} title="Accounts" value={`${props.accounts.length} linked`} onPress={() => props.onNavigate('accounts')} />
+          <Row highlight icon={<LayoutGrid size={18} strokeWidth={2} />} title="Categories" subtitle={`${expenseCount} expense · ${incomeCount} income`} onPress={() => props.onNavigate('categories')} />
         </div>
       </section>
 
-      <section>
-        <p className="mb-2 px-1 text-xs font-semibold uppercase tracking-[.16em] text-[var(--muted-2)]">Monthly budgets</p>
-        <div className="card p-4">
-          <form className="grid gap-3 sm:grid-cols-[1fr_140px_auto]" onSubmit={addBudget}>
-            <select className="form-input" value={budgetCategoryId} onChange={(event) => setBudgetCategoryId(event.target.value)}>{props.categories.filter((item) => item.kind === 'expense').map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select>
-            <input className="form-input" inputMode="numeric" min="1" step="1" type="number" value={budgetAmount} onChange={(event) => setBudgetAmount(event.target.value)} placeholder="PKR limit" />
-            <button className="btn-primary justify-center">Save</button>
-          </form>
-          <div className="mt-4 grid gap-2">{props.budgets.map((budget) => <div className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-2xl bg-[var(--surface-2)] px-3 py-2.5" key={budget.id}><span className="min-w-0 flex-1 truncate text-sm font-medium text-[var(--ink)]">{budget.category}</span><span className="text-sm text-[var(--muted)]">Rs. {budget.amount.toLocaleString('en-PK')}</span><button aria-label={`Archive ${budget.category} budget`} className="grid h-9 w-9 place-items-center text-[var(--negative)]" onClick={() => void props.onDeleteBudget(budget.id)}><Trash2 size={15} /></button></div>)}</div>
+      {/* Preferences */}
+      <section className="mt-6">
+        <p className="vault-settings-group-label">Preferences</p>
+        <div className="vault-settings-group">
+          <Row icon={<Bell size={18} strokeWidth={1.9} />} title="Notifications" trailing={<button aria-checked={notify} aria-label="Notifications" className={`vault-toggle${notify ? ' is-on' : ''}`} role="switch" type="button" onClick={toggleNotifications} />} />
+          <Row icon={<Lock size={18} strokeWidth={1.9} />} title="App lock" value="Face ID" />
+          <Row icon={<Sun size={18} strokeWidth={1.9} />} title="Appearance" value="Warm" />
         </div>
       </section>
 
-      <SettingsGroup heading="Your data">
-        <SettingsRow detail="Download transactions as a spreadsheet-friendly file" icon={Download} title="Export transactions CSV" trailing={<button className="text-sm font-semibold text-[var(--accent)]" onClick={() => exportTransactionsCsv(props.transactions)}>Export</button>} />
-        <SettingsRow detail="Complete portable copy of this ledger" icon={BookOpen} title="Export JSON backup" trailing={<button className="text-sm font-semibold text-[var(--accent)]" onClick={() => exportLedgerJson({ accounts: props.accounts, transactions: props.transactions, budgets: props.budgets, goals: props.goals, debts: props.debts, upcomingExpenses: props.upcomingExpenses, expenseCategories: props.expenseCategories, incomeCategories: props.incomeCategories })}>Export</button>} />
-        <SettingsRow detail="Connected · encrypted in transit · owner-only database policies" icon={ShieldCheck} title="Cloud sync" />
-      </SettingsGroup>
-
-      <SettingsGroup heading="About and account">
-        <SettingsRow detail="How Pocket Ledger stores and handles data" icon={ShieldCheck} title="Privacy Policy" trailing={<Link aria-label="Open Privacy Policy" className="text-[var(--accent)]" to="/privacy"><ExternalLink size={17} /></Link>} />
-        <SettingsRow detail="Public beta conditions and limitations" icon={BookOpen} title="Terms of Use" trailing={<Link aria-label="Open Terms of Use" className="text-[var(--accent)]" to="/terms"><ExternalLink size={17} /></Link>} />
-        <SettingsRow detail={supportEmail} icon={BookOpen} title="Support" trailing={<a aria-label="Email Pocket Ledger support" className="text-[var(--accent)]" href={`mailto:${supportEmail}`}><ExternalLink size={17} /></a>} />
-        <SettingsRow detail="0.1.0-beta.1 · Public Beta" icon={BookOpen} title="App version" />
-        <SettingsRow detail="End this session on this device" icon={LogOut} title="Log out" trailing={<button className="text-sm font-semibold text-[var(--accent)]" onClick={props.onSignOut}>Log out</button>} />
-      </SettingsGroup>
-
-      <section className="rounded-[24px] border border-[rgba(232,105,74,.25)] bg-[rgba(232,105,74,.06)] p-5">
-        <h2 className="text-lg font-semibold text-[var(--ink)]">Delete account</h2>
-        <p className="mt-1 text-sm leading-6 text-[var(--muted)]">This permanently removes the active ledger and sign-in account. Export a backup first. Type DELETE to continue.</p>
-        {props.authProvider === 'email' ? <input aria-label="Confirm your password" autoComplete="current-password" className="form-input mt-4" type="password" value={deletePassword} onChange={(event) => setDeletePassword(event.target.value)} placeholder="Confirm your password" /> : <p className="mt-3 text-xs leading-5 text-[var(--muted-2)]">Google accounts must have signed in within the last 10 minutes. If needed, log out and back in first.</p>}
-        <div className="mt-4 flex gap-3"><input aria-label="Type DELETE to confirm" className="form-input" value={deleteText} onChange={(event) => setDeleteText(event.target.value)} placeholder="DELETE" /><button className="rounded-2xl bg-[var(--negative)] px-4 text-sm font-semibold text-[var(--ink)] disabled:opacity-40" disabled={deleteText !== 'DELETE' || deleting || (props.authProvider === 'email' && !deletePassword)} onClick={deleteAccount}>{deleting ? 'Deleting…' : 'Delete'}</button></div>
+      {/* Data & support */}
+      <section className="mt-6">
+        <p className="vault-settings-group-label">Data &amp; support</p>
+        <div className="vault-settings-group">
+          <Row icon={<Download size={18} strokeWidth={1.9} />} title="Export data" value="CSV · PDF" onPress={() => exportTransactionsCsv(props.transactions)} />
+          <Row icon={<HelpCircle size={18} strokeWidth={1.9} />} title="Help &amp; feedback" onPress={() => props.onNavigate('profile')} />
+        </div>
       </section>
+
+      <button className="vault-signout mt-8" type="button" onClick={props.onSignOut}><LogOut size={17} strokeWidth={2} /> Sign out</button>
+      <p className="vault-version mt-4">Pocket Ledger · v0.1.0-beta.1</p>
+
+      {supabase && (
+        <div className="mt-3 text-center">
+          <button className="text-[12.5px] font-semibold text-[var(--taupe)] underline-offset-2 hover:underline" type="button" onClick={() => setDeleteOpen((open) => !open)}>Delete account</button>
+          {deleteOpen && <DeleteAccount authEmail={props.authEmail} authProvider={props.authProvider} />}
+        </div>
+      )}
     </div>
   )
 }
 
-function SettingsGroup({ heading, children }: { heading: string; children: ReactNode }) {
-  return <section><p className="mb-2 px-1 text-xs font-semibold uppercase tracking-[.16em] text-[var(--muted-2)]">{heading}</p><div className="overflow-hidden rounded-[24px] border border-[var(--glass-border)] bg-[var(--glass-bg)] backdrop-blur-xl">{children}</div></section>
+function Row({ icon, title, subtitle, value, trailing, highlight, onPress }: { icon: ReactNode; title: string; subtitle?: string; value?: string; trailing?: ReactNode; highlight?: boolean; onPress?: () => void }) {
+  const content = (
+    <>
+      <span className="vault-settings-chip">{icon}</span>
+      <span className="vault-settings-row-title">
+        {title}
+        {subtitle && <span className="sub">{subtitle}</span>}
+      </span>
+      {value && <span className={`vault-settings-value${/\d/.test(value) ? ' is-digit' : ''}`}>{value}</span>}
+      {trailing}
+      {(onPress || highlight) && <ChevronRight className="vault-settings-chev" size={18} strokeWidth={2} />}
+    </>
+  )
+  if (onPress) return <button className={`vault-settings-row${highlight ? ' is-highlight' : ''}`} type="button" onClick={onPress}>{content}</button>
+  return <div className={`vault-settings-row${highlight ? ' is-highlight' : ''}`}>{content}</div>
 }
 
-function SettingsRow({ title, detail, icon: Icon, trailing }: { title: string; detail: string; icon: typeof Sun; trailing?: ReactNode }) {
-  return <div className="flex items-center gap-4 border-b border-[var(--border)] px-4 py-3.5 last:border-b-0"><span className="grid h-10 w-10 flex-none place-items-center rounded-[14px] border border-[rgba(255, 122, 26,.22)] bg-[var(--accent-soft)] text-[var(--accent)]"><Icon size={18} /></span><div className="min-w-0 flex-1"><h3 className="text-[15px] font-semibold text-[var(--ink)]">{title}</h3><p className="mt-0.5 text-[13px] text-[var(--muted)]">{detail}</p></div>{trailing}</div>
+/* Account deletion kept behind the muted "Delete account" link. */
+function DeleteAccount({ authEmail, authProvider }: { authEmail?: string; authProvider?: string }) {
+  const [text, setText] = useState('')
+  const [password, setPassword] = useState('')
+  const [deleting, setDeleting] = useState(false)
+  const [error, setError] = useState('')
+
+  const run = async () => {
+    if (!supabase || text !== 'DELETE') return
+    setDeleting(true)
+    setError('')
+    if (authProvider === 'email') {
+      if (!authEmail || !password) { setDeleting(false); return setError('Enter your password to confirm.') }
+      const { error: signInError } = await supabase.auth.signInWithPassword({ email: authEmail, password })
+      if (signInError) { setDeleting(false); return setError('Password confirmation failed.') }
+    }
+    const { error: fnError } = await supabase.functions.invoke('delete-account')
+    if (fnError) { setDeleting(false); return setError(fnError.message) }
+    await supabase.auth.signOut()
+    window.location.assign('/login')
+  }
+
+  return (
+    <div className="vault-outline mt-3 p-4 text-left">
+      <p className="text-sm leading-6 text-[var(--ink-soft)]">This permanently removes your ledger and sign-in. Export a backup first. Type DELETE to confirm.</p>
+      {authProvider === 'email' && <input aria-label="Confirm your password" autoComplete="current-password" className="form-input mt-3" type="password" value={password} placeholder="Confirm your password" onChange={(event) => setPassword(event.target.value)} />}
+      <div className="mt-3 flex gap-2">
+        <input aria-label="Type DELETE" className="form-input" value={text} placeholder="DELETE" onChange={(event) => setText(event.target.value)} />
+        <button className="flex-none rounded-2xl bg-[var(--clay)] px-4 text-sm font-bold text-white disabled:opacity-40" disabled={text !== 'DELETE' || deleting || (authProvider === 'email' && !password)} type="button" onClick={run}>{deleting ? 'Deleting…' : 'Delete'}</button>
+      </div>
+      {error && <p className="mt-2 text-xs text-[var(--clay)]">{error}</p>}
+    </div>
+  )
 }

@@ -1,4 +1,4 @@
-import { ArrowUpRight, Bell, ClipboardList, Eye, EyeOff, Settings, Target, UserRound } from 'lucide-react'
+import { ArrowRight, ArrowUpRight, Bell, ClipboardList, Eye, EyeOff, Settings, Target, UserRound } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { firstNameOf, getProfile, initialsOf } from '../lib/profile'
 import { trackEvent } from '../lib/analytics'
@@ -200,8 +200,6 @@ export function Dashboard({
     return list.slice(0, 6)
   }, [upcomingExpenses, wishlistItems, debts, insight, leakName, safeSpend.state])
 
-  const statePill = { comfortable: null, needs_setup: null, watchful: <span className="vault-pill is-espresso mt-1.5">Watchful</span>, protect: <span className="vault-pill mt-1.5">Protect</span> }[safeSpend.state]
-
   return (
     <div className="vault-screen">
       <header className="vault-topbar">
@@ -287,19 +285,32 @@ export function Dashboard({
         )}
       </section>
 
-      <section aria-label="Your cycle" className="vault-strip mt-7">
-        <button className="vault-cell text-left" type="button" onClick={() => needsSetup ? onSetupJourney() : onNavigate('budgets')}>
-          <p className="vault-cell-label">Safe today</p>
-          <p className="vault-cell-value">{needsSetup ? '—' : showBalance ? `Rs ${nf(safeSpend.safeToSpendToday)}` : 'Rs ••'}</p>
-          {statePill}
+      <p className="vault-insight-caption mt-7">Tap a card to dig in</p>
+      <section aria-label="Your cycle" className="vault-insight-row mt-3">
+        <button className="vault-insight is-tappable" type="button" onClick={() => needsSetup ? onSetupJourney() : onNavigate('budgets')}>
+          <span className="vault-insight-label">Safe today</span>
+          <span className="vault-insight-value">
+            {needsSetup ? '—' : showBalance ? <><span className="cur">Rs</span> {nf(safeSpend.safeToSpendToday)}</> : <><span className="cur">Rs</span> ••</>}
+          </span>
+          <span className="vault-insight-foot">
+            <span className="vault-insight-link">{needsSetup ? 'Finish setup' : 'Open plan'}</span>
+            <span className="vault-insight-arrow"><ArrowRight size={13} strokeWidth={2.4} /></span>
+          </span>
         </button>
-        <div className="vault-cell">
-          <p className="vault-cell-label">Cycle</p>
-          <p className="vault-cell-value">{safeSpend.cycle ? <>Day {safeSpend.cycle.daysElapsed}<span className="vault-sub">/{safeSpend.cycle.totalDays}</span></> : '—'}</p>
+        <div className="vault-insight is-flat">
+          <span className="vault-insight-label">Cycle</span>
+          <span className="vault-insight-value">{safeSpend.cycle ? <>Day {safeSpend.cycle.daysElapsed}<span className="unit">/{safeSpend.cycle.totalDays}</span></> : '—'}</span>
+          <span className="vault-insight-foot">
+            <span className="vault-insight-flat">On track</span>
+          </span>
         </div>
-        <button className="vault-cell text-left" type="button" onClick={() => onNavigate('goals')}>
-          <p className="vault-cell-label">Next income</p>
-          <p className="vault-cell-value">{safeSpend.cycle ? <>{safeSpend.cycle.daysRemaining} <span className="vault-sub">days</span></> : '—'}</p>
+        <button className="vault-insight is-tappable" type="button" onClick={() => onNavigate('accounts')}>
+          <span className="vault-insight-label">Next income</span>
+          <span className="vault-insight-value">{safeSpend.cycle ? <>{safeSpend.cycle.daysRemaining} <span className="unit">days</span></> : '—'}</span>
+          <span className="vault-insight-foot">
+            <span className="vault-insight-link">Open wallet</span>
+            <span className="vault-insight-arrow"><ArrowRight size={13} strokeWidth={2.4} /></span>
+          </span>
         </button>
       </section>
 
