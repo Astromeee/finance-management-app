@@ -623,8 +623,53 @@ function App() {
       activePage={activePage}
       setActivePage={setActivePage}
       onAdd={(action) => { setExpenseDraft(undefined); setActiveModal(action) }}
-      onNewGoal={() => setActiveModal('goal')}
       onSignOut={() => { void supabase?.auth.signOut() }}
+      onRecordEntry={({ direction, amount, category, accountId, date, notes }) => {
+        const account = accountsWithSavings.find((item) => item.id === accountId)
+        if (!account || amount <= 0) return
+        const transaction: Transaction = {
+          id: makeId(),
+          title: category,
+          type: direction,
+          amount,
+          category,
+          categoryId: direction === 'expense' ? expenseCategoryIdFor(category) : undefined,
+          source: direction === 'income' ? category : undefined,
+          account: account.name,
+          accountId,
+          date,
+          notes,
+        }
+        updateAccountBalance(accountId, direction === 'income' ? amount : -amount)
+        if (direction === 'expense') setBudgets((current) => current.map((budget) => budget.category === category ? { ...budget, used: budget.used + amount } : budget))
+        addTransaction(transaction)
+        if (!designPreview) void recordFinanceAction(transaction).catch((error) => showToast(error.message))
+        showToast(direction === 'income' ? 'Income added' : 'Expense recorded')
+      }}
+      onMoveMoney={({ amount, fromAccountId, toAccountId, date, notes }) => {
+        const from = accountsWithSavings.find((item) => item.id === fromAccountId)
+        const to = accountsWithSavings.find((item) => item.id === toAccountId)
+        if (!from || !to || fromAccountId === toAccountId || amount <= 0 || from.balance < amount) return
+        const transaction: Transaction = { id: makeId(), title: 'Transfer', type: 'transfer', amount, category: 'Transfer', account: `${from.name} to ${to.name}`, fromAccountId, toAccountId, date, notes }
+        updateAccountBalance(fromAccountId, -amount)
+        updateAccountBalance(toAccountId, amount)
+        addTransaction(transaction)
+        if (!designPreview) void recordFinanceAction(transaction).catch((error) => showToast(error.message))
+        showToast('Transfer completed')
+      }}
+      onCreateGoal={({ name, target, dueDate, notes }) => {
+        const goal: Goal = { id: makeId(), name, target, saved: 0, dueDate, notes, status: 'Active' }
+        setGoals((current) => [goal, ...current])
+        if (!designPreview) void saveGoal(goal).catch((error) => showToast(error.message))
+        showToast('Goal created')
+      }}
+      onCreateWishlistItem={({ name, amount, categoryId }) => {
+        const createdAt = new Date().toISOString()
+        const item: WishlistItem = { id: makeId(), name, amount, categoryId, reconsiderAt: new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString(), status: 'waiting', createdAt }
+        setWishlistItems((current) => [item, ...current])
+        if (!designPreview) void saveWishlistItem(item).catch((error) => showToast(error.message))
+        showToast('Added to your 48-hour cool-off')
+      }}
       onCreateAccount={({ name, type, balance }) => {
         const account: Account = {
           id: `${name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'account'}-${Date.now().toString(36)}`,

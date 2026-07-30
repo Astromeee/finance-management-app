@@ -13,8 +13,11 @@ interface AppShellProps {
   setActivePage: (page: string) => void
   onAdd: (action: AddAction) => void
   desktopData: DesktopFinanceData
-  onNewGoal: () => void
   onSignOut: () => void
+  onRecordEntry: DesktopExperienceProps['onRecordEntry']
+  onMoveMoney: DesktopExperienceProps['onMoveMoney']
+  onCreateGoal: DesktopExperienceProps['onCreateGoal']
+  onCreateWishlistItem: DesktopExperienceProps['onCreateWishlistItem']
   onCreateAccount: DesktopExperienceProps['onCreateAccount']
   onAddFunds: DesktopExperienceProps['onAddFunds']
   onCreateBudget: DesktopExperienceProps['onCreateBudget']
@@ -22,7 +25,7 @@ interface AppShellProps {
   onAnalyticsConsentChange: DesktopExperienceProps['onAnalyticsConsentChange']
 }
 
-export function AppShell({ activePage, children, setActivePage, onAdd, desktopData, onNewGoal, onSignOut, onCreateAccount, onAddFunds, onCreateBudget, onUpdateProfile, onAnalyticsConsentChange }: AppShellProps) {
+export function AppShell({ activePage, children, setActivePage, onAdd, desktopData, onSignOut, onRecordEntry, onMoveMoney, onCreateGoal, onCreateWishlistItem, onCreateAccount, onAddFunds, onCreateBudget, onUpdateProfile, onAnalyticsConsentChange }: AppShellProps) {
   const isVaultPage = VAULT_PAGES.has(activePage)
 
   return (
@@ -31,11 +34,11 @@ export function AppShell({ activePage, children, setActivePage, onAdd, desktopDa
         activePage={activePage}
         setActivePage={setActivePage}
         data={desktopData}
-        onRecord={() => onAdd('expense')}
-        onMove={() => onAdd('transfer')}
-        onCoolOff={() => onAdd('cooloff')}
-        onNewGoal={onNewGoal}
         onSignOut={onSignOut}
+        onRecordEntry={onRecordEntry}
+        onMoveMoney={onMoveMoney}
+        onCreateGoal={onCreateGoal}
+        onCreateWishlistItem={onCreateWishlistItem}
         onCreateAccount={onCreateAccount}
         onAddFunds={onAddFunds}
         onCreateBudget={onCreateBudget}

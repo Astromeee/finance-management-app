@@ -6,6 +6,8 @@
 - Combined comparison: `/Users/astromee/Pocket Ledger App/design-qa-desktop-home-comparison.png`
 - Live-data implementation screenshot: `/Users/astromee/Pocket Ledger App/design-qa-desktop-live-data.png`
 - Live-data combined comparison: `/Users/astromee/Pocket Ledger App/design-qa-desktop-live-data-comparison.png`
+- Functional Insights screenshot: `/Users/astromee/Pocket Ledger App/design-qa-desktop-functional-insights.png`
+- Functional Insights comparison: `/Users/astromee/Pocket Ledger App/design-qa-desktop-functional-insights-comparison.png`
 - Viewport / CSS size: 1440 x 900
 - Source pixels: 2880 x 1800 at 2x, normalized to 1440 x 900
 - Implementation pixels: 1440 x 900 at 1x
@@ -37,6 +39,8 @@ The normalized side-by-side comparison confirms the 248px fixed rail, warm paper
 3. Post-fix render confirmed the package's top rhythm, 1440 x 900 fit, Record panel interaction, Wallet navigation, and zero application console errors. The only browser warning came from Cloudflare Turnstile on the earlier login screen and is unrelated to the app preview.
 4. Live-data correction removed the static desktop dataset, restored the real Pocket Ledger logo, connected the existing Record/Move/Cool-off/Goal flows, and made account, budget, goal-funding, profile, analytics, export, and sign-out actions functional.
 5. Final browser pass confirmed live balances and transactions on Home, working Wallet navigation, editable profile controls, analytics toggle state changes, a visible Sign out action, and no application errors.
+6. Functional desktop pass replaced the remaining mobile bottom-sheet handoffs with matching 494px right slide-overs for Record, Move money, New goal, and Cool-off review. Search, notifications, account/period selectors, and ledger type chips were exercised in the browser.
+7. Insights now renders two live Recharts visualizations from the selected period: daily income/spending and spending by category. The 1440 x 900 comparison preserves the supplied two-column composition, card proportions, typography, palette, and desktop density while replacing example chart values with real ledger data.
 
 **Findings**
 
@@ -51,6 +55,9 @@ The normalized side-by-side comparison confirms the 248px fixed rail, warm paper
 - Home and Record visual comparison: passed, including a second comparison with live data.
 - Wallet navigation and viewport overflow check: passed.
 - Settings, profile, analytics, export, and sign-out wiring: passed.
+- Record, Move money, New goal, and Review right-panel interactions: passed.
+- Search, notifications, cycle/account selectors, and Spent/Received/Moved chips: passed.
+- Live Insights money-flow and category graphs: passed.
 - Production build: passed.
 
 final result: passed

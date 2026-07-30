@@ -23,24 +23,27 @@ import {
   WalletCards,
   X,
 } from 'lucide-react'
-import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
+import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
+import { Area, AreaChart, Bar, BarChart, CartesianGrid, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import type { Account, AccountType, Budget, Category, Debt, Goal, JourneySettings, MoneyQuest, Transaction, UpcomingExpense, WishlistItem } from '../../types/finance'
 import type { Profile } from '../../lib/profile'
 import { exportTransactionsCsv } from '../../lib/exports'
 import { calculateSafeSpend, detectMoneyLeak } from '../../utils/journeyCalculations'
 
 type DesktopPage = 'dashboard' | 'transactions' | 'accounts' | 'reports' | 'goals' | 'budgets' | 'settings'
-type ModalKind = 'record' | 'move' | 'account' | 'cooloff' | 'funds' | 'goal' | 'plan' | 'profile'
+type ModalKind = 'record' | 'move' | 'account' | 'cooloff' | 'funds' | 'goal' | 'plan' | 'profile' | 'search' | 'notifications'
+type PeriodKey = 'cycle' | '30d' | 'all'
+type LedgerFilter = 'all' | 'spent' | 'received' | 'moved'
 
 export interface DesktopExperienceProps {
   activePage: string
   setActivePage: (page: string) => void
   data: DesktopFinanceData
-  onRecord: () => void
-  onMove: () => void
-  onCoolOff: () => void
-  onNewGoal: () => void
   onSignOut: () => void
+  onRecordEntry: (payload: { direction: 'expense' | 'income'; amount: number; category: string; accountId: string; date: string; notes?: string }) => void
+  onMoveMoney: (payload: { amount: number; fromAccountId: string; toAccountId: string; date: string; notes?: string }) => void
+  onCreateGoal: (payload: { name: string; target: number; dueDate?: string; notes?: string }) => void
+  onCreateWishlistItem: (payload: { name: string; amount: number; categoryId?: string }) => void
   onCreateAccount: (payload: { name: string; type: AccountType; balance: number }) => void
   onAddFunds: (payload: { goalId: string; accountId: string; amount: number }) => void
   onCreateBudget: (payload: { category: string; amount: number }) => void
@@ -90,6 +93,37 @@ function sortedTransactions(transactions: Transaction[]) {
   return [...transactions].sort((a, b) => b.date.localeCompare(a.date) || (b.createdAt ?? '').localeCompare(a.createdAt ?? ''))
 }
 
+function localDateKey(date = new Date()) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+}
+
+function periodTransactions(data: DesktopFinanceData, period: PeriodKey) {
+  if (period === 'all') return data.transactions
+  const today = new Date()
+  const start = new Date(today)
+  start.setDate(start.getDate() - 29)
+  if (period === 'cycle') {
+    const safe = calculateSafeSpend({ accounts: data.accounts, budgets: data.budgets, categories: data.categories, upcomingExpenses: data.upcomingExpenses, settings: data.journeySettings })
+    if (safe.cycle) return data.transactions.filter((item) => item.date >= safe.cycle!.startDate && item.date <= safe.cycle!.endDate)
+  }
+  return data.transactions.filter((item) => item.date >= localDateKey(start) && item.date <= localDateKey(today))
+}
+
+function dailyChartData(transactions: Transaction[]) {
+  const totals = new Map<string, { spending: number; income: number }>()
+  for (const transaction of transactions) {
+    if (transaction.type !== 'expense' && transaction.type !== 'income') continue
+    const day = totals.get(transaction.date) ?? { spending: 0, income: 0 }
+    if (transaction.type === 'expense') day.spending += transaction.amount
+    else day.income += transaction.amount
+    totals.set(transaction.date, day)
+  }
+  return [...totals.entries()].sort(([a], [b]) => a.localeCompare(b)).slice(-14).map(([date, values]) => ({
+    date: new Date(`${date}T12:00:00`).toLocaleDateString('en-PK', { day: 'numeric', month: 'short' }),
+    ...values,
+  }))
+}
+
 const nav = [
   { id: 'dashboard', label: 'Home', icon: House },
   { id: 'transactions', label: 'Ledger', icon: List },
@@ -103,7 +137,7 @@ const titles: Record<DesktopPage, { eyebrow: string; first: string; accent: stri
   dashboard: { eyebrow: 'Wed · 23 July', first: 'Good evening,', accent: 'Moeed.' },
   transactions: { eyebrow: 'July · Cycle 4', first: 'The', accent: 'ledger.' },
   accounts: { eyebrow: 'July · Cycle 4', first: 'The', accent: 'wallet.' },
-  reports: { eyebrow: 'July · Cycle 4', first: 'Your money,', accent: 'decoded.' },
+  reports: { eyebrow: 'July · Cycle 4', first: 'The', accent: 'insights.' },
   goals: { eyebrow: 'July · Cycle 4', first: 'The', accent: 'paths.' },
   budgets: { eyebrow: 'July · Cycle 4', first: 'The', accent: 'plan.' },
   settings: { eyebrow: 'Account', first: 'Your', accent: 'settings.' },
@@ -170,22 +204,25 @@ function Rail({ activePage, setActivePage }: Pick<DesktopExperienceProps, 'activ
   </aside>
 }
 
-function Topbar({ page, openModal, setActivePage, onRecord, onNewGoal }: { page: DesktopPage; openModal: (kind: ModalKind) => void; setActivePage: (page: string) => void; onRecord: () => void; onNewGoal: () => void }) {
-  const { profile } = useDesktopData()
+const periodLabels: Record<PeriodKey, string> = { cycle: 'This cycle', '30d': 'Last 30 days', all: 'All time' }
+
+function Topbar({ page, openModal, setActivePage, period, setPeriod, accountFilter, setAccountFilter }: { page: DesktopPage; openModal: (kind: ModalKind) => void; setActivePage: (page: string) => void; period: PeriodKey; setPeriod: (period: PeriodKey) => void; accountFilter: string; setAccountFilter: (accountId: string) => void }) {
+  const { accounts, profile } = useDesktopData()
+  const [periodOpen, setPeriodOpen] = useState(false)
   const heading = titles[page]
   const isSettings = page === 'settings'
+  const hasPeriod = page === 'transactions' || page === 'reports'
   const firstName = profile.name.trim().split(/\s+/)[0] || 'there'
   return <header className="d-topbar">
     <div><Label>{heading.eyebrow}</Label><h1>{heading.first}{page === 'dashboard' && <br />} <em>{page === 'dashboard' ? `${firstName}.` : heading.accent}</em></h1></div>
     <div className="d-top-actions">
-      {!isSettings && <button type="button" className="d-search"><Search size={16} /><span>{page === 'dashboard' ? 'Search transactions' : 'Search entries'}</span></button>}
-      {page === 'dashboard' && <button type="button" className="d-icon-button" aria-label="Notifications"><Bell size={17} /></button>}
-      {page === 'transactions' && <button type="button" className="d-filter"><CalendarDays size={16} />This cycle<ChevronDown size={14} /></button>}
-      {page === 'accounts' && <button type="button" className="d-filter"><SlidersHorizontal size={16} />All accounts<ChevronDown size={14} /></button>}
-      {page === 'reports' && <button type="button" className="d-filter">This cycle<ChevronDown size={14} /></button>}
-      {page === 'goals' && <Button onClick={onNewGoal}><Plus size={17} />New goal</Button>}
+      {!isSettings && <button type="button" className="d-search" onClick={() => openModal('search')}><Search size={16} /><span>{page === 'dashboard' ? 'Search transactions' : 'Search entries'}</span></button>}
+      {page === 'dashboard' && <button type="button" className="d-icon-button" aria-label="Notifications" onClick={() => openModal('notifications')}><Bell size={17} /></button>}
+      {hasPeriod && <div className="d-filter-wrap"><button type="button" className="d-filter" aria-expanded={periodOpen} aria-haspopup="menu" onClick={() => setPeriodOpen((value) => !value)}>{page === 'transactions' && <CalendarDays size={16} />}{periodLabels[period]}<ChevronDown size={14} /></button>{periodOpen && <div className="d-filter-menu" role="menu">{(Object.keys(periodLabels) as PeriodKey[]).map((key) => <button type="button" role="menuitemradio" aria-checked={period === key} className={period === key ? 'is-active' : ''} key={key} onClick={() => { setPeriod(key); setPeriodOpen(false) }}>{periodLabels[key]}{period === key && <Check size={14}/>}</button>)}</div>}</div>}
+      {page === 'accounts' && <div className="d-filter-wrap"><button type="button" className="d-filter" aria-expanded={periodOpen} aria-haspopup="menu" onClick={() => setPeriodOpen((value) => !value)}><SlidersHorizontal size={16}/>{accountFilter === 'all' ? 'All accounts' : accounts.find((account) => account.id === accountFilter)?.name ?? 'All accounts'}<ChevronDown size={14}/></button>{periodOpen && <div className="d-filter-menu" role="menu"><button type="button" role="menuitemradio" aria-checked={accountFilter === 'all'} className={accountFilter === 'all' ? 'is-active' : ''} onClick={() => { setAccountFilter('all'); setPeriodOpen(false) }}>All accounts{accountFilter === 'all' && <Check size={14}/>}</button>{accounts.map((account) => <button type="button" role="menuitemradio" aria-checked={accountFilter === account.id} className={accountFilter === account.id ? 'is-active' : ''} key={account.id} onClick={() => { setAccountFilter(account.id); setPeriodOpen(false) }}>{account.name}{accountFilter === account.id && <Check size={14}/>}</button>)}</div>}</div>}
+      {page === 'goals' && <Button onClick={() => openModal('goal')}><Plus size={17} />New goal</Button>}
       {page === 'budgets' && <Button onClick={() => openModal('plan')}><Plus size={17} />Add to plan</Button>}
-      {(page === 'dashboard' || page === 'transactions') && <Button onClick={onRecord}><Plus size={17} />Record</Button>}
+      {(page === 'dashboard' || page === 'transactions' || page === 'reports') && <Button onClick={() => openModal('record')}><Plus size={17} />Record</Button>}
       {isSettings && <Button kind="secondary" onClick={() => setActivePage('dashboard')}><X size={16} />Close</Button>}
     </div>
   </header>
@@ -227,9 +264,9 @@ function HomePage({ setActivePage }: { setActivePage: (page: string) => void }) 
   </div>
 }
 
-function TransactionRows({ compact = false }: { compact?: boolean }) {
+function TransactionRows({ compact = false, transactions: suppliedTransactions }: { compact?: boolean; transactions?: Transaction[] }) {
   const { transactions } = useDesktopData()
-  const rows = sortedTransactions(transactions).slice(0, compact ? 3 : 8)
+  const rows = sortedTransactions(suppliedTransactions ?? transactions).slice(0, compact ? 3 : 8)
   return <div className={`d-transactions ${compact ? 'is-compact' : ''}`}>{rows.map((row) => <div className="d-transaction" key={row.id}>
     <i className={`is-${transactionTone(row)}`} /><div className="d-entry"><strong>{row.title}</strong><small>{new Date(`${row.date}T12:00:00`).toLocaleDateString('en-PK', { day: 'numeric', month: 'short' })}</small></div>
     {!compact && <><span className="d-category">■ &nbsp; {transactionCategory(row)}</span><span>{row.account}</span></>}
@@ -237,17 +274,25 @@ function TransactionRows({ compact = false }: { compact?: boolean }) {
   </div>)}{rows.length === 0 && <p className="d-empty">No ledger entries yet.</p>}</div>
 }
 
-function LedgerPage() {
-  const { transactions } = useDesktopData()
+function LedgerPage({ period }: { period: PeriodKey }) {
+  const data = useDesktopData()
+  const [filter, setFilter] = useState<LedgerFilter>('all')
+  const transactions = useMemo(() => periodTransactions(data, period), [data, period])
+  const filtered = useMemo(() => transactions.filter((item) => {
+    if (filter === 'all') return true
+    if (filter === 'received') return item.type === 'income'
+    if (filter === 'moved') return item.type === 'transfer'
+    return item.type === 'expense' || item.type === 'debt_payment' || item.type === 'goal_saving'
+  }), [filter, transactions])
   const income = transactions.filter((item) => item.type === 'income').reduce((sum, item) => sum + item.amount, 0)
-  const out = transactions.filter((item) => item.type === 'expense').reduce((sum, item) => sum + item.amount, 0)
+  const out = transactions.filter((item) => item.type === 'expense' || item.type === 'debt_payment').reduce((sum, item) => sum + item.amount, 0)
   const net = income - out
   return <div className="d-columns">
     <Card className="d-work d-table-card">
-      <div className="d-tabs"><button className="is-active">All</button><button>Spent</button><button>Received</button><button>Moved</button></div>
+      <div className="d-tabs" aria-label="Ledger entry type">{(['all', 'spent', 'received', 'moved'] as LedgerFilter[]).map((key) => <button type="button" aria-pressed={filter === key} className={filter === key ? 'is-active' : ''} key={key} onClick={() => setFilter(key)}>{key.charAt(0).toUpperCase() + key.slice(1)}</button>)}</div>
       <div className="d-table-head"><span>Entry</span><span>Category</span><span>Account</span><span>Amount</span></div>
-      <div className="d-date-row"><h2>Your entries <small>· {transactions.length} total</small></h2><Money>{net >= 0 ? '+' : '−'}{nf(Math.abs(net))}</Money></div>
-      <TransactionRows />
+      <div className="d-date-row"><h2>Your entries <small>· {filtered.length} shown</small></h2><Money>{net >= 0 ? '+' : '−'}{nf(Math.abs(net))}</Money></div>
+      <TransactionRows transactions={filtered} />
     </Card>
     <aside className="d-attention">
       <Card className="d-flow"><Label>Ledger flow</Label><p><span>● &nbsp; In</span><Money>{nf(income)}</Money></p><p><span>● &nbsp; Out</span><Money>{nf(out)}</Money></p><hr /><p><strong>Net</strong><Money accent={net >= 0}>{net >= 0 ? '+' : '−'}{nf(Math.abs(net))}</Money></p><div><i style={{ width: `${income + out > 0 ? (income / (income + out)) * 100 : 50}%` }} /><i /></div></Card>
@@ -256,39 +301,49 @@ function LedgerPage() {
   </div>
 }
 
-function WalletPage({ openModal, onMove }: { openModal: (kind: ModalKind) => void; onMove: () => void }) {
+function WalletPage({ openModal, accountFilter }: { openModal: (kind: ModalKind) => void; accountFilter: string }) {
   const { accounts, transactions, upcomingExpenses } = useDesktopData()
-  const total = totalOf(accounts)
-  const income = transactions.filter((item) => item.type === 'income').reduce((sum, item) => sum + item.amount, 0)
-  const spent = transactions.filter((item) => item.type === 'expense').reduce((sum, item) => sum + item.amount, 0)
+  const visibleAccounts = accountFilter === 'all' ? accounts : accounts.filter((account) => account.id === accountFilter)
+  const visibleIds = new Set(visibleAccounts.map((account) => account.id))
+  const visibleTransactions = accountFilter === 'all' ? transactions : transactions.filter((item) => visibleIds.has(item.accountId ?? '') || visibleIds.has(item.fromAccountId ?? '') || visibleIds.has(item.toAccountId ?? ''))
+  const total = totalOf(visibleAccounts)
+  const income = visibleTransactions.filter((item) => item.type === 'income').reduce((sum, item) => sum + item.amount, 0)
+  const spent = visibleTransactions.filter((item) => item.type === 'expense').reduce((sum, item) => sum + item.amount, 0)
   const tones = ['clay', 'blue', 'sage', 'sand'] as const
   const icons = { bank: Landmark, wallet: WalletCards, cash: CircleDollarSign } as const
   return <div className="d-columns">
     <div className="d-work">
-      <section className="d-hero d-wallet-hero"><div><Label>On hand · all accounts</Label><p className="d-hero-number">Rs {nf(total)}</p><span><b>{income - spent >= 0 ? '+' : '−'}{nf(Math.abs(income - spent))}</b> net · after Rs {nf(spent)} spent</span></div><div><Button onClick={onMove}><ArrowRight size={17} />Move money</Button><Button kind="quiet" onClick={() => openModal('account')}><Plus size={17} />Add account</Button></div></section>
-      <Card className="d-accounts d-fill"><div className="d-card-heading"><h2>Accounts</h2><Label>{accounts.length} linked</Label></div>{accounts.map((account, index) => { const Icon = icons[account.type]; const amount = total > 0 ? Math.round((account.balance / total) * 100) : 0; const tone = tones[index % tones.length]; return <button type="button" key={account.id}>
+      <section className="d-hero d-wallet-hero"><div><Label>On hand · {accountFilter === 'all' ? 'all accounts' : visibleAccounts[0]?.name ?? 'account'}</Label><p className="d-hero-number">Rs {nf(total)}</p><span><b>{income - spent >= 0 ? '+' : '−'}{nf(Math.abs(income - spent))}</b> net · after Rs {nf(spent)} spent</span></div><div><Button onClick={() => openModal('move')}><ArrowRight size={17} />Move money</Button><Button kind="quiet" onClick={() => openModal('account')}><Plus size={17} />Add account</Button></div></section>
+      <Card className="d-accounts d-fill"><div className="d-card-heading"><h2>Accounts</h2><Label>{visibleAccounts.length} shown</Label></div>{visibleAccounts.map((account, index) => { const Icon = icons[account.type]; const amount = total > 0 ? Math.round((account.balance / total) * 100) : 0; const tone = tones[index % tones.length]; return <button type="button" key={account.id}>
         <span className={`d-account-icon is-${tone}`}><Icon size={19} /></span><span><strong>{account.name}</strong><small>{account.type === 'wallet' ? 'Mobile wallet' : account.type === 'bank' ? 'Bank account' : 'Cash on hand'}</small></span><span className="d-account-share"><i><b className={`is-${tone}`} style={{ width: `${Math.max(0, amount)}%` }} /></i><small>{amount}% of on hand</small></span><Money>{nf(account.balance)}</Money><ChevronRight size={16} />
       </button>})}</Card>
     </div>
     <aside className="d-attention">
       <Card className="d-chart-card"><div><Label>Balance · this cycle</Label><b>{income - spent >= 0 ? '+' : '−'}{nf(Math.abs(income - spent))}</b></div><svg viewBox="0 0 400 120" role="img" aria-label="Account balance trend"><defs><linearGradient id="balanceFill" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#E2703A" stopOpacity=".24"/><stop offset="1" stopColor="#E2703A" stopOpacity="0"/></linearGradient></defs><path d="M0 88 L52 78 L104 84 L156 58 L208 68 L260 42 L312 50 L356 24 L400 18 L400 120 L0 120Z" fill="url(#balanceFill)"/><path d="M0 88 L52 78 L104 84 L156 58 L208 68 L260 42 L312 50 L356 24 L400 18" fill="none" stroke="#E2703A" strokeWidth="3"/></svg><footer><span>Start</span><span>Rs {nf(total)}</span><span>today</span></footer></Card>
-      <Card className="d-quick"><Label>Quick move</Label><div><span><small>From</small><strong>{accounts[0]?.name ?? 'Add account'}</strong></span><b>→</b><span><small>To</small><strong>{accounts[1]?.name ?? 'Add account'}</strong></span></div><footer><Money><small>Rs</small> —</Money><Button onClick={onMove}>Move</Button></footer></Card>
+      <Card className="d-quick"><Label>Quick move</Label><div><span><small>From</small><strong>{accounts[0]?.name ?? 'Add account'}</strong></span><b>→</b><span><small>To</small><strong>{accounts[1]?.name ?? 'Add account'}</strong></span></div><footer><Money><small>Rs</small> —</Money><Button onClick={() => openModal('move')}>Move</Button></footer></Card>
       <Card className="d-fill d-scheduled"><Label>Scheduled next</Label>{upcomingExpenses.filter((item) => item.status !== 'paid').slice(0, 3).map((item) => <p key={item.id}><span>↓</span><strong>{item.title}<small>{item.dueDate} · {item.category}</small></strong><Money>−{nf(item.amount)}</Money></p>)}{upcomingExpenses.filter((item) => item.status !== 'paid').length === 0 && <p className="d-empty">Nothing scheduled.</p>}<footer>Current balance <Money>Rs {nf(total)}</Money></footer></Card>
     </aside>
   </div>
 }
 
-function InsightsPage({ openModal }: { openModal: (kind: ModalKind) => void }) {
-  const { budgets, categories: financeCategories, journeySettings, transactions, upcomingExpenses, accounts } = useDesktopData()
+const chartTooltipStyle = { background: '#2B241D', border: '0', borderRadius: 14, color: '#F3EEE4', fontSize: 12, boxShadow: '0 16px 40px rgba(43,36,29,.22)' }
+
+function InsightsPage({ openModal, period }: { openModal: (kind: ModalKind) => void; period: PeriodKey }) {
+  const data = useDesktopData()
+  const { budgets, categories: financeCategories, journeySettings, upcomingExpenses, accounts } = data
+  const transactions = useMemo(() => periodTransactions(data, period), [data, period])
   const expenses = transactions.filter((item) => item.type === 'expense')
   const totalExpenses = expenses.reduce((sum, item) => sum + item.amount, 0)
+  const totalIncome = transactions.filter((item) => item.type === 'income').reduce((sum, item) => sum + item.amount, 0)
   const totals = categoryTotals(transactions)
   const top = totals[0]
+  const trend = dailyChartData(transactions)
+  const categoryData = totals.slice(0, 6).map(([name, value], index) => ({ name, value, fill: ['#E2703A', '#7C8A6B', '#6B7A85', '#C79A3E', '#B9906B', '#9A8F7D'][index] }))
   const safe = calculateSafeSpend({ accounts, budgets, categories: financeCategories, upcomingExpenses, settings: journeySettings })
   return <div className="d-columns">
     <div className="d-work">
-      <Card className="d-spend-chart"><div className="d-card-heading"><div><Label>Spending recorded</Label><h2>Rs {nf(totalExpenses)}</h2></div><span>{expenses.length} entries</span></div><svg viewBox="0 0 760 240" role="img" aria-label="Daily spending chart"><path d="M0 210 H760 M0 150 H760 M0 90 H760 M0 30 H760" stroke="#EDE5D5"/><path d="M0 188 C65 174 80 192 145 152 S235 174 300 116 S390 140 455 82 S545 105 610 58 S700 72 760 30" fill="none" stroke="#E2703A" strokeWidth="5"/><path d="M0 188 C65 174 80 192 145 152 S235 174 300 116 S390 140 455 82 S545 105 610 58 S700 72 760 30 L760 240 L0 240Z" fill="#E2703A" opacity=".09"/></svg></Card>
-      <Card className="d-fill"><div className="d-card-heading"><h2>Category story</h2><Label>Live ledger</Label></div><CategoryBars includeBills /><div className="d-insight-note"><Utensils size={19}/><p><strong>{top ? `${top[0]} is your largest recorded category.` : 'No category pattern yet.'}</strong><br/>{top ? `Rs ${nf(top[1])} across your ledger.` : 'Record spending to build your story.'}</p><Button kind="secondary">Set a limit</Button></div></Card>
+      <Card className="d-spend-chart"><div className="d-card-heading"><div><Label>Money flow · {periodLabels[period]}</Label><h2>Rs {nf(totalExpenses)} spent</h2></div><span><b>Rs {nf(totalIncome)}</b> received · {transactions.length} entries</span></div>{trend.length ? <div className="d-chart-visual" role="img" aria-label="Daily income and spending chart"><ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={1}><AreaChart data={trend} margin={{ top: 12, right: 8, left: -14, bottom: 0 }}><defs><linearGradient id="desktopSpendFill" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#E2703A" stopOpacity=".28"/><stop offset="100%" stopColor="#E2703A" stopOpacity="0"/></linearGradient><linearGradient id="desktopIncomeFill" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#7C8A6B" stopOpacity=".22"/><stop offset="100%" stopColor="#7C8A6B" stopOpacity="0"/></linearGradient></defs><CartesianGrid stroke="#EDE5D5" vertical={false}/><XAxis dataKey="date" tickLine={false} axisLine={false} tick={{ fill: '#9A8F7D', fontSize: 10 }}/><YAxis tickLine={false} axisLine={false} tickFormatter={(value) => `${Math.round(Number(value) / 1000)}k`} tick={{ fill: '#9A8F7D', fontSize: 10 }}/><Tooltip contentStyle={chartTooltipStyle} formatter={(value, name) => [`Rs ${nf(Number(value))}`, name === 'income' ? 'Received' : 'Spent']}/><Area type="monotone" dataKey="income" stroke="#7C8A6B" strokeWidth={2.5} fill="url(#desktopIncomeFill)" dot={false}/><Area type="monotone" dataKey="spending" stroke="#E2703A" strokeWidth={3} fill="url(#desktopSpendFill)" dot={false}/></AreaChart></ResponsiveContainer></div> : <p className="d-empty">Record some income or spending to see your money flow.</p>}</Card>
+      <Card className="d-fill d-category-chart-card"><div className="d-card-heading"><h2>Category story</h2><Label>Live ledger</Label></div>{categoryData.length ? <div className="d-category-chart" role="img" aria-label="Spending by category chart"><ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={1}><BarChart data={categoryData} layout="vertical" margin={{ top: 8, right: 28, left: 12, bottom: 0 }}><CartesianGrid stroke="#EDE5D5" horizontal={false}/><XAxis type="number" hide/><YAxis type="category" dataKey="name" width={105} tickLine={false} axisLine={false} tick={{ fill: '#5C544A', fontSize: 11, fontWeight: 600 }}/><Tooltip contentStyle={chartTooltipStyle} formatter={(value) => [`Rs ${nf(Number(value))}`, 'Spent']}/><Bar dataKey="value" radius={[0, 8, 8, 0]}>{categoryData.map((item) => <Cell key={item.name} fill={item.fill}/>)}</Bar></BarChart></ResponsiveContainer></div> : <p className="d-empty">No category data in this period.</p>}<div className="d-insight-note"><Utensils size={19}/><p><strong>{top ? `${top[0]} is your largest recorded category.` : 'No category pattern yet.'}</strong><br/>{top ? `Rs ${nf(top[1])} in ${periodLabels[period].toLowerCase()}.` : 'Record spending to build your story.'}</p><Button kind="secondary" onClick={() => openModal('plan')}>Set a limit</Button></div></Card>
     </div>
     <aside className="d-attention">
       <section className="d-hero d-pace"><Label>Safe today</Label><Money>Rs {nf(safe.safeToSpendToday)}</Money><p>{safe.explanation}</p><div><span style={{ width: `${Math.min(100, Math.max(8, safe.safeToSpendToday > 0 ? 62 : 8))}%` }} /></div><small>Flexible money remaining <b>Rs {nf(safe.flexibleMoneyRemaining)}</b>.</small></section>
@@ -370,20 +425,40 @@ const modalCopy: Record<ModalKind, { badge: string; title: string; subtitle: str
   goal: { badge: 'New path', title: 'Create a goal', subtitle: 'Name what you are moving toward.', save: 'Create goal' },
   plan: { badge: 'New limit', title: 'Add to your plan', subtitle: 'Give this category a comfortable edge.', save: 'Add to plan' },
   profile: { badge: 'Your profile', title: 'Edit profile', subtitle: 'Use the name shown across Pocket Ledger.', save: 'Save profile' },
+  search: { badge: 'Find entries', title: 'Search your ledger', subtitle: 'Search by title, category, account, or note.', save: 'Done' },
+  notifications: { badge: 'Activity', title: 'Notifications', subtitle: 'Upcoming payments and money signals.', save: 'Done' },
 }
 
 function Field({ label, children }: { label: string; children: ReactNode }) { return <label className="d-field"><span>{label}</span><div>{children}</div></label> }
 
-function SlideOver({ kind, close, onCreateAccount, onAddFunds, onCreateBudget, onUpdateProfile }: { kind: ModalKind; close: () => void; onCreateAccount: DesktopExperienceProps['onCreateAccount']; onAddFunds: DesktopExperienceProps['onAddFunds']; onCreateBudget: DesktopExperienceProps['onCreateBudget']; onUpdateProfile: DesktopExperienceProps['onUpdateProfile'] }) {
+function SlideOver({ kind, close, onRecordEntry, onMoveMoney, onCreateGoal, onCreateWishlistItem, onCreateAccount, onAddFunds, onCreateBudget, onUpdateProfile }: { kind: ModalKind; close: () => void; onRecordEntry: DesktopExperienceProps['onRecordEntry']; onMoveMoney: DesktopExperienceProps['onMoveMoney']; onCreateGoal: DesktopExperienceProps['onCreateGoal']; onCreateWishlistItem: DesktopExperienceProps['onCreateWishlistItem']; onCreateAccount: DesktopExperienceProps['onCreateAccount']; onAddFunds: DesktopExperienceProps['onAddFunds']; onCreateBudget: DesktopExperienceProps['onCreateBudget']; onUpdateProfile: DesktopExperienceProps['onUpdateProfile'] }) {
   const copy = modalCopy[kind]
-  const { accounts, categories, goals, profile } = useDesktopData()
+  const { accounts, budgets, categories, goals, profile, transactions, upcomingExpenses, wishlistItems } = useDesktopData()
   const [amount, setAmount] = useState(kind === 'funds' ? 2000 : kind === 'plan' ? 10000 : 0)
+  const [direction, setDirection] = useState<'expense' | 'income'>('expense')
+  const [entryCategory, setEntryCategory] = useState(categories.find((item) => item.kind === 'expense')?.name ?? '')
   const [accountName, setAccountName] = useState('')
   const [accountType, setAccountType] = useState<AccountType>('bank')
   const [accountId, setAccountId] = useState(accounts[0]?.id ?? '')
+  const [toAccountId, setToAccountId] = useState(accounts[1]?.id ?? '')
   const [goalId, setGoalId] = useState(goals[0]?.id ?? '')
+  const [goalName, setGoalName] = useState('')
+  const [itemName, setItemName] = useState('')
+  const [date, setDate] = useState(localDateKey())
+  const [dueDate, setDueDate] = useState('')
+  const [notes, setNotes] = useState('')
   const [budgetCategory, setBudgetCategory] = useState(categories.find((item) => item.kind === 'expense')?.name ?? '')
   const [profileName, setProfileName] = useState(profile.name)
+  const [searchQuery, setSearchQuery] = useState('')
+  const entryCategories = categories.filter((item) => item.kind === direction)
+  const fromAccount = accounts.find((item) => item.id === accountId)
+  const toAccount = accounts.find((item) => item.id === toAccountId)
+  const searchResults = searchQuery.trim() ? sortedTransactions(transactions).filter((transaction) => [transaction.title, transactionCategory(transaction), transaction.account, transaction.notes].some((value) => value?.toLowerCase().includes(searchQuery.trim().toLowerCase()))).slice(0, 12) : sortedTransactions(transactions).slice(0, 6)
+  const notifications = [
+    ...upcomingExpenses.filter((item) => item.status !== 'paid').map((item) => ({ id: `upcoming-${item.id}`, title: item.title, detail: `${item.status === 'overdue' ? 'Overdue' : 'Due'} ${item.dueDate} · Rs ${nf(item.amount)}`, tone: item.status === 'overdue' ? 'clay' : 'sage' })),
+    ...budgets.filter((budget) => budget.used >= budget.amount).map((budget) => ({ id: `budget-${budget.id}`, title: `${budget.category} limit reached`, detail: `Rs ${nf(budget.used)} of Rs ${nf(budget.amount)} used`, tone: 'clay' })),
+    ...wishlistItems.filter((item) => item.status === 'ready').map((item) => ({ id: `wishlist-${item.id}`, title: `${item.name} is ready to review`, detail: `Your 48-hour pause has finished · Rs ${nf(item.amount)}`, tone: 'blue' })),
+  ].slice(0, 10)
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => { if (event.key === 'Escape') close() }
     document.addEventListener('keydown', onKey)
@@ -391,44 +466,52 @@ function SlideOver({ kind, close, onCreateAccount, onAddFunds, onCreateBudget, o
   }, [close])
   return <div className="d-modal-layer" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) close() }}>
     <aside className="d-slide-over" role="dialog" aria-modal="true" aria-labelledby="desktop-modal-title">
-      <header><div><span><Plus size={14}/></span>{copy.badge}</div><button type="button" onClick={close} aria-label="Close"><X size={17}/></button><h2 id="desktop-modal-title">{copy.title}</h2><p>{copy.subtitle}</p></header>
+      <header><div><span>{kind === 'search' ? <Search size={14}/> : kind === 'notifications' ? <Bell size={14}/> : <Plus size={14}/>}</span>{copy.badge}</div><button type="button" onClick={close} aria-label="Close"><X size={17}/></button><h2 id="desktop-modal-title">{copy.title}</h2><p>{copy.subtitle}</p></header>
       <div className="d-modal-body">
-        {kind === 'record' && <><div className="d-tabs d-modal-tabs"><button className="is-active">Spent</button><button>Received</button></div><Field label="Amount"><Money><small>Rs</small> 850</Money></Field><div className="d-chips"><button>200</button><button>500</button><button>1,000</button><button>2,000</button></div><Field label="Category"><div className="d-chips"><button className="is-active">Dining Out</button><button>Groceries</button><button>Transport</button><button>Bills</button></div></Field><div className="d-field-row"><Field label="Account">JazzCash ••42 <ChevronDown size={14}/></Field><Field label="When">Today <ChevronDown size={14}/></Field></div><Field label="Note"><span className="d-placeholder">Lunch with the team</span></Field></>}
-        {kind === 'move' && <><div className="d-transfer-choice"><Field label="From">HBL Bank <ChevronDown size={14}/></Field><ArrowRight/><Field label="To">JazzCash <ChevronDown size={14}/></Field></div><Field label="Amount"><Money><small>Rs</small> 2,000</Money></Field><Card className="d-modal-summary"><Label>After this move</Label><p>HBL Bank <Money>Rs 32,120</Money></p><p>JazzCash <Money>Rs 31,800</Money></p></Card><Field label="Note"><span className="d-placeholder">Optional</span></Field></>}
+        {kind === 'record' && <><div className="d-tabs d-modal-tabs"><button type="button" className={direction === 'expense' ? 'is-active' : ''} onClick={() => { setDirection('expense'); setEntryCategory(categories.find((item) => item.kind === 'expense')?.name ?? '') }}>Spent</button><button type="button" className={direction === 'income' ? 'is-active' : ''} onClick={() => { setDirection('income'); setEntryCategory(categories.find((item) => item.kind === 'income')?.name ?? '') }}>Received</button></div><Field label="Amount"><span>Rs</span><input inputMode="decimal" value={amount || ''} onChange={(event) => setAmount(Number(event.target.value.replace(/[^0-9.]/g, '')) || 0)} autoFocus placeholder="0"/></Field><div className="d-chips">{[200, 500, 1000, 2000].map((value) => <button type="button" className={amount === value ? 'is-active' : ''} key={value} onClick={() => setAmount(value)}>{nf(value)}</button>)}</div><Field label="Category"><select value={entryCategory} onChange={(event) => setEntryCategory(event.target.value)}>{entryCategories.map((category) => <option key={category.id} value={category.name}>{category.name}</option>)}</select></Field><div className="d-field-row"><Field label="Account"><select value={accountId} onChange={(event) => setAccountId(event.target.value)}>{accounts.map((account) => <option key={account.id} value={account.id}>{account.name} · Rs {nf(account.balance)}</option>)}</select></Field><Field label="When"><input type="date" value={date} onChange={(event) => setDate(event.target.value)}/></Field></div><Field label="Note"><input value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="Optional note"/></Field></>}
+        {kind === 'move' && <><div className="d-transfer-choice"><Field label="From"><select value={accountId} onChange={(event) => setAccountId(event.target.value)}>{accounts.map((account) => <option key={account.id} value={account.id}>{account.name}</option>)}</select></Field><ArrowRight/><Field label="To"><select value={toAccountId} onChange={(event) => setToAccountId(event.target.value)}>{accounts.map((account) => <option key={account.id} value={account.id}>{account.name}</option>)}</select></Field></div><Field label="Amount"><span>Rs</span><input inputMode="decimal" value={amount || ''} onChange={(event) => setAmount(Number(event.target.value.replace(/[^0-9.]/g, '')) || 0)} autoFocus placeholder="0"/></Field><Card className="d-modal-summary"><Label>After this move</Label><p>{fromAccount?.name ?? 'From'} <Money>Rs {nf((fromAccount?.balance ?? 0) - amount)}</Money></p><p>{toAccount?.name ?? 'To'} <Money>Rs {nf((toAccount?.balance ?? 0) + amount)}</Money></p></Card><Field label="When"><input type="date" value={date} onChange={(event) => setDate(event.target.value)}/></Field><Field label="Note"><input value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="Optional"/></Field></>}
         {kind === 'account' && <><Field label="Account name"><input value={accountName} onChange={(event) => setAccountName(event.target.value)} placeholder="e.g. Meezan Savings" /></Field><Field label="Opening balance"><span>Rs</span><input inputMode="decimal" value={amount || ''} onChange={(event) => setAmount(Number(event.target.value.replace(/[^0-9.]/g, '')) || 0)} placeholder="0" /></Field><div className="d-account-types"><button type="button" className={accountType === 'bank' ? 'is-active' : ''} onClick={() => setAccountType('bank')}><Landmark/>Bank</button><button type="button" className={accountType === 'wallet' ? 'is-active' : ''} onClick={() => setAccountType('wallet')}><WalletCards/>Wallet</button><button type="button" className={accountType === 'cash' ? 'is-active' : ''} onClick={() => setAccountType('cash')}><CircleDollarSign/>Cash</button></div></>}
-        {kind === 'cooloff' && <><Field label="What are you considering?"><span>New headphones</span></Field><Field label="Expected price"><Money><small>Rs</small> 18,500</Money></Field><div className="d-pause-card"><Sparkles/><h3>A little space, not a “no”.</h3><p>We’ll bring this back in 48 hours so you can decide with a clear head.</p></div></>}
+        {kind === 'cooloff' && <><Field label="What are you considering?"><input value={itemName} onChange={(event) => setItemName(event.target.value)} autoFocus placeholder="e.g. New headphones"/></Field><Field label="Expected price"><span>Rs</span><input inputMode="decimal" value={amount || ''} onChange={(event) => setAmount(Number(event.target.value.replace(/[^0-9.]/g, '')) || 0)} placeholder="0"/></Field><Field label="Category"><select value={budgetCategory} onChange={(event) => setBudgetCategory(event.target.value)}>{categories.filter((item) => item.kind === 'expense').map((category) => <option key={category.id} value={category.name}>{category.name}</option>)}</select></Field><div className="d-pause-card"><Sparkles/><h3>A little space, not a “no”.</h3><p>We’ll bring this back in 48 hours so you can decide with a clear head.</p></div></>}
         {kind === 'funds' && <><Field label="Goal"><select value={goalId} onChange={(event) => setGoalId(event.target.value)}>{goals.map((goal) => <option key={goal.id} value={goal.id}>{goal.name}</option>)}</select></Field><Field label="Amount"><span>Rs</span><input inputMode="decimal" value={amount || ''} onChange={(event) => setAmount(Number(event.target.value.replace(/[^0-9.]/g, '')) || 0)} /></Field><div className="d-chips"><button type="button" onClick={() => setAmount(1000)}>1,000</button><button type="button" className={amount === 2000 ? 'is-active' : ''} onClick={() => setAmount(2000)}>2,000</button><button type="button" onClick={() => setAmount(5000)}>5,000</button></div><Field label="From"><select value={accountId} onChange={(event) => setAccountId(event.target.value)}>{accounts.map((account) => <option key={account.id} value={account.id}>{account.name} · Rs {nf(account.balance)}</option>)}</select></Field></>}
-        {kind === 'goal' && <><Field label="Goal name"><span className="d-placeholder">e.g. Rainy day fund</span></Field><Field label="Target amount"><Money><small>Rs</small> 100,000</Money></Field><Field label="Target date">December 2026 <CalendarDays size={15}/></Field><div className="d-account-types"><button className="is-active"><Target/>Safety</button><button><Sparkles/>Dream</button><button><Landmark/>Milestone</button></div></>}
+        {kind === 'goal' && <><Field label="Goal name"><input value={goalName} onChange={(event) => setGoalName(event.target.value)} autoFocus placeholder="e.g. Rainy day fund"/></Field><Field label="Target amount"><span>Rs</span><input inputMode="decimal" value={amount || ''} onChange={(event) => setAmount(Number(event.target.value.replace(/[^0-9.]/g, '')) || 0)} placeholder="0"/></Field><Field label="Target date"><input type="date" value={dueDate} onChange={(event) => setDueDate(event.target.value)}/></Field><Field label="Note"><input value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="Optional"/></Field></>}
         {kind === 'plan' && <><Field label="Category"><select value={budgetCategory} onChange={(event) => setBudgetCategory(event.target.value)}>{categories.filter((item) => item.kind === 'expense').map((category) => <option key={category.id} value={category.name}>{category.name}</option>)}</select></Field><Field label="Monthly limit"><span>Rs</span><input inputMode="decimal" value={amount || ''} onChange={(event) => setAmount(Number(event.target.value.replace(/[^0-9.]/g, '')) || 0)} /></Field><Card className="d-modal-summary"><Label>Live plan</Label><p>This limit will be added to your current budget.</p></Card></>}
         {kind === 'profile' && <><Field label="Display name"><input value={profileName} onChange={(event) => setProfileName(event.target.value)} autoFocus /></Field><Card className="d-modal-summary"><Label>Profile photo</Label><p>Your current photo is preserved. You can change it from the full mobile profile editor.</p></Card></>}
+        {kind === 'search' && <><div className="d-search-input"><Search size={17}/><input value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} autoFocus placeholder="Search entries"/></div><div className="d-search-results"><Label>{searchQuery.trim() ? `${searchResults.length} matches` : 'Recent entries'}</Label>{searchResults.map((transaction) => <div key={transaction.id}><i className={`is-${transactionTone(transaction)}`}/><p><strong>{transaction.title}</strong><small>{transactionCategory(transaction)} · {transaction.account}</small></p><Money accent={transaction.type === 'income'}>{transactionSign(transaction)}{nf(transaction.amount)}</Money></div>)}{searchResults.length === 0 && <p className="d-empty">No entries match “{searchQuery}”.</p>}</div></>}
+        {kind === 'notifications' && <div className="d-notification-list">{notifications.map((notification) => <div key={notification.id}><span className={`d-account-icon is-${notification.tone}`}><Bell size={17}/></span><p><strong>{notification.title}</strong><small>{notification.detail}</small></p></div>)}{notifications.length === 0 && <div className="d-empty-state"><Check size={20}/><h3>You’re all caught up.</h3><p>No upcoming alerts or plan limits need your attention.</p></div>}</div>}
       </div>
-      <footer><Button disabled={(kind === 'account' && !accountName.trim()) || (kind === 'funds' && (!goalId || !accountId || amount <= 0)) || (kind === 'plan' && (!budgetCategory || amount <= 0)) || (kind === 'profile' && !profileName.trim())} onClick={() => { if (kind === 'account') onCreateAccount({ name: accountName.trim(), type: accountType, balance: amount }); else if (kind === 'funds') onAddFunds({ goalId, accountId, amount }); else if (kind === 'plan') onCreateBudget({ category: budgetCategory, amount }); else if (kind === 'profile') onUpdateProfile({ ...profile, name: profileName.trim() }); close() }}><Check size={18}/>{copy.save}</Button></footer>
+      {kind !== 'search' && kind !== 'notifications' && <footer><Button disabled={(kind === 'record' && (!amount || !entryCategory || !accountId || !date)) || (kind === 'move' && (!amount || !accountId || !toAccountId || accountId === toAccountId || amount > (fromAccount?.balance ?? 0))) || (kind === 'cooloff' && (!itemName.trim() || amount <= 0)) || (kind === 'goal' && (!goalName.trim() || amount <= 0)) || (kind === 'account' && !accountName.trim()) || (kind === 'funds' && (!goalId || !accountId || amount <= 0)) || (kind === 'plan' && (!budgetCategory || amount <= 0)) || (kind === 'profile' && !profileName.trim())} onClick={() => {
+        if (kind === 'record') onRecordEntry({ direction, amount, category: entryCategory, accountId, date, notes: notes.trim() || undefined })
+        else if (kind === 'move') onMoveMoney({ amount, fromAccountId: accountId, toAccountId, date, notes: notes.trim() || undefined })
+        else if (kind === 'cooloff') onCreateWishlistItem({ name: itemName.trim(), amount, categoryId: categories.find((item) => item.name === budgetCategory)?.id })
+        else if (kind === 'goal') onCreateGoal({ name: goalName.trim(), target: amount, dueDate: dueDate || undefined, notes: notes.trim() || undefined })
+        else if (kind === 'account') onCreateAccount({ name: accountName.trim(), type: accountType, balance: amount })
+        else if (kind === 'funds') onAddFunds({ goalId, accountId, amount })
+        else if (kind === 'plan') onCreateBudget({ category: budgetCategory, amount })
+        else if (kind === 'profile') onUpdateProfile({ ...profile, name: profileName.trim() })
+        close()
+      }}><Check size={18}/>{copy.save}</Button></footer>}
     </aside>
   </div>
 }
 
-export function DesktopExperience({ activePage, setActivePage, data, onRecord, onMove, onCoolOff, onNewGoal, onSignOut, onCreateAccount, onAddFunds, onCreateBudget, onUpdateProfile, onAnalyticsConsentChange }: DesktopExperienceProps) {
+export function DesktopExperience({ activePage, setActivePage, data, onSignOut, onRecordEntry, onMoveMoney, onCreateGoal, onCreateWishlistItem, onCreateAccount, onAddFunds, onCreateBudget, onUpdateProfile, onAnalyticsConsentChange }: DesktopExperienceProps) {
   const [modal, setModal] = useState<ModalKind | null>(null)
+  const [period, setPeriod] = useState<PeriodKey>('cycle')
+  const [accountFilter, setAccountFilter] = useState('all')
   const page = (Object.hasOwn(titles, activePage) ? activePage : 'dashboard') as DesktopPage
-  const openModal = (kind: ModalKind) => {
-    if (kind === 'record') return onRecord()
-    if (kind === 'move') return onMove()
-    if (kind === 'cooloff') return onCoolOff()
-    if (kind === 'goal') return onNewGoal()
-    setModal(kind)
-  }
+  const openModal = (kind: ModalKind) => setModal(kind)
   return <DesktopDataContext.Provider value={data}><div className="desktop-experience">
       <Rail activePage={page} setActivePage={setActivePage} />
       <main className="d-main">
-        <Topbar page={page} openModal={openModal} setActivePage={setActivePage} onRecord={onRecord} onNewGoal={onNewGoal}/>
+        <Topbar page={page} openModal={openModal} setActivePage={setActivePage} period={period} setPeriod={setPeriod} accountFilter={accountFilter} setAccountFilter={setAccountFilter}/>
         {page === 'dashboard' && <HomePage setActivePage={setActivePage}/>}
-        {page === 'transactions' && <LedgerPage/>}
-        {page === 'accounts' && <WalletPage openModal={openModal} onMove={onMove}/>}
-        {page === 'reports' && <InsightsPage openModal={openModal}/>}
+        {page === 'transactions' && <LedgerPage period={period}/>}
+        {page === 'accounts' && <WalletPage openModal={openModal} accountFilter={accountFilter}/>}
+        {page === 'reports' && <InsightsPage openModal={openModal} period={period}/>}
         {page === 'goals' && <GoalsPage openModal={openModal}/>}
         {page === 'budgets' && <PlanPage openModal={openModal}/>}
         {page === 'settings' && <SettingsPage setActivePage={setActivePage} onSignOut={onSignOut} openModal={openModal} onAnalyticsConsentChange={onAnalyticsConsentChange}/>}
       </main>
-      {modal && <SlideOver kind={modal} close={() => setModal(null)} onCreateAccount={onCreateAccount} onAddFunds={onAddFunds} onCreateBudget={onCreateBudget} onUpdateProfile={onUpdateProfile}/>}
+      {modal && <SlideOver kind={modal} close={() => setModal(null)} onRecordEntry={onRecordEntry} onMoveMoney={onMoveMoney} onCreateGoal={onCreateGoal} onCreateWishlistItem={onCreateWishlistItem} onCreateAccount={onCreateAccount} onAddFunds={onAddFunds} onCreateBudget={onCreateBudget} onUpdateProfile={onUpdateProfile}/>}
     </div></DesktopDataContext.Provider>
 }
