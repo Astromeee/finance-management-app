@@ -13,7 +13,7 @@ import { getProfile, onProfileChange, setProfile, type Profile } from './lib/pro
 import { isSupabaseConfigured, supabase } from './lib/supabase'
 import { AuthCallback, AuthPage } from './pages/Auth'
 import { LegalPage } from './pages/Legal'
-import type { Budget, Category, Debt, DebtCategory, DebtStatus, Goal, JourneySettings, MoneyQuest, MoneyWin, RecurringFrequency, Transaction, UpcomingExpense, WishlistItem } from './types/finance'
+import type { Account, Budget, Category, Debt, DebtCategory, DebtStatus, Goal, JourneySettings, MoneyQuest, MoneyWin, RecurringFrequency, Transaction, UpcomingExpense, WishlistItem } from './types/finance'
 import { calculateSafeSpend } from './utils/journeyCalculations'
 import { resolveQuestStatus } from './utils/retention'
 
@@ -174,8 +174,9 @@ function App() {
   useEffect(() => { trackEvent('page_view', { surface: analyticsSurfaceFor(activePage) }) }, [activePage])
 
   const setActivePage = useCallback((page: string) => {
-    navigate(page === 'dashboard' ? '/app' : `/app/${page}`)
-  }, [navigate])
+    const previewQuery = designPreview ? '?vault-preview' : ''
+    navigate(`${page === 'dashboard' ? '/app' : `/app/${page}`}${previewQuery}`)
+  }, [designPreview, navigate])
 
   useEffect(() => onProfileChange(setProfileState), [])
 
@@ -618,9 +619,74 @@ function App() {
   }
 
   const ledger = (
-    <AppShell activePage={activePage} setActivePage={setActivePage} onAdd={(action) => { setExpenseDraft(undefined); setActiveModal(action) }}>
+    <AppShell
+      activePage={activePage}
+      setActivePage={setActivePage}
+      onAdd={(action) => { setExpenseDraft(undefined); setActiveModal(action) }}
+      onNewGoal={() => setActiveModal('goal')}
+      onSignOut={() => { void supabase?.auth.signOut() }}
+      onCreateAccount={({ name, type, balance }) => {
+        const account: Account = {
+          id: `${name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'account'}-${Date.now().toString(36)}`,
+          name,
+          type,
+          balance,
+          color: type === 'wallet' ? '#E2703A' : type === 'cash' ? '#7C8A6B' : '#2B241D',
+          activity: '',
+          cardLabel: name.slice(0, 5).toUpperCase(),
+          includeInSafeSpend: true,
+        }
+        setAccounts((current) => [account, ...current])
+        if (!designPreview) void saveAccount(account, balance).catch((error) => showToast(error.message))
+        showToast(`${name} added`)
+      }}
+      onAddFunds={({ goalId, accountId, amount }) => {
+        const goal = goals.find((item) => item.id === goalId)
+        const account = accountsWithSavings.find((item) => item.id === accountId)
+        if (!goal || !account || amount <= 0) return
+        if (account.balance < amount) { showToast(`${account.name} does not have enough money`); return }
+        const transaction: Transaction = { id: makeId(), title: 'Goal Saving', type: 'goal_saving', amount, category: goal.name, account: account.name, accountId, goalId, date: localDateKey() }
+        setAccounts((current) => current.map((item) => item.id === accountId ? { ...item, balance: item.balance - amount } : item))
+        setGoals((current) => current.map((item) => item.id === goalId ? { ...item, saved: Math.min(item.target, item.saved + amount), status: item.saved + amount >= item.target ? 'Completed' : item.status } : item))
+        setTransactions((current) => [transaction, ...current])
+        if (!designPreview) void recordFinanceAction(transaction).catch((error) => showToast(error.message))
+        showToast(`Rs ${amount.toLocaleString('en-PK')} added to ${goal.name}`)
+      }}
+      onCreateBudget={({ category, amount }) => {
+        const existing = budgets.find((budget) => budget.category === category)
+        const budget: Budget = existing ? { ...existing, amount } : { id: makeId(), category, amount, used: 0, categoryId: categories.find((item) => item.kind === 'expense' && item.name === category)?.id }
+        setBudgets((current) => [budget, ...current.filter((item) => item.id !== budget.id)])
+        if (!designPreview) void saveBudget(budget).catch((error) => showToast(error.message))
+        showToast(`${category} limit saved`)
+      }}
+      onUpdateProfile={(nextProfile) => {
+        setProfile(nextProfile)
+        setProfileState(nextProfile)
+        if (!designPreview) void saveUserSettings(nextProfile, true).catch((error) => showToast(error.message))
+        showToast('Profile updated')
+      }}
+      onAnalyticsConsentChange={(analyticsConsent) => {
+        const nextSettings = { ...journeySettings, analyticsConsent }
+        setJourneySettings(nextSettings)
+        if (!designPreview) void saveJourneySettings(nextSettings, true).catch((error) => showToast(error.message))
+      }}
+      desktopData={{
+        accounts: accountsWithSavings,
+        budgets,
+        categories,
+        debts,
+        goals,
+        journeySettings,
+        moneyQuest: moneyQuests.find((item) => item.status === 'active'),
+        profile,
+        authEmail,
+        transactions,
+        upcomingExpenses,
+        wishlistItems,
+      }}
+    >
       {toast && <div aria-live="polite" className="fixed left-1/2 top-4 z-[60] -translate-x-1/2 rounded-full border border-[rgba(255, 122, 26,.28)] bg-[var(--surface-raised)] px-4 py-2 text-sm font-semibold text-[var(--accent-2)] shadow-2xl shadow-black/40" role="status">{toast}</div>}
-      <Suspense fallback={<LedgerLoader label="Loading screen" />}>{(pages[activePage] ?? pages.dashboard).component}</Suspense>
+      <div className="mobile-page-content"><Suspense fallback={<LedgerLoader label="Loading screen" />}>{(pages[activePage] ?? pages.dashboard).component}</Suspense></div>
       <Suspense fallback={null}>
       {(activeModal === 'income' || activeModal === 'expense') && <RecordSheet
         key={expenseDraft ? `${expenseDraft.amount}-${expenseDraft.category}` : `record-${activeModal}`}

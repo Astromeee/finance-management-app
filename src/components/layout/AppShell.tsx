@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 import { BottomNav, Sidebar, type AddAction } from '../navigation/Navigation'
-import { DesktopExperience } from '../desktop/DesktopExperience'
+import { DesktopExperience, type DesktopExperienceProps, type DesktopFinanceData } from '../desktop/DesktopExperience'
 
 /* The six Vault screens own their padding via .vault-screen (26px sides,
    118px dock clearance) — the shell stays out of their way. Legacy screens
@@ -12,14 +12,36 @@ interface AppShellProps {
   children: ReactNode
   setActivePage: (page: string) => void
   onAdd: (action: AddAction) => void
+  desktopData: DesktopFinanceData
+  onNewGoal: () => void
+  onSignOut: () => void
+  onCreateAccount: DesktopExperienceProps['onCreateAccount']
+  onAddFunds: DesktopExperienceProps['onAddFunds']
+  onCreateBudget: DesktopExperienceProps['onCreateBudget']
+  onUpdateProfile: DesktopExperienceProps['onUpdateProfile']
+  onAnalyticsConsentChange: DesktopExperienceProps['onAnalyticsConsentChange']
 }
 
-export function AppShell({ activePage, children, setActivePage, onAdd }: AppShellProps) {
+export function AppShell({ activePage, children, setActivePage, onAdd, desktopData, onNewGoal, onSignOut, onCreateAccount, onAddFunds, onCreateBudget, onUpdateProfile, onAnalyticsConsentChange }: AppShellProps) {
   const isVaultPage = VAULT_PAGES.has(activePage)
 
   return (
     <div className="min-h-screen bg-[var(--bg)] text-[var(--text)]">
-      <DesktopExperience activePage={activePage} setActivePage={setActivePage} />
+      <DesktopExperience
+        activePage={activePage}
+        setActivePage={setActivePage}
+        data={desktopData}
+        onRecord={() => onAdd('expense')}
+        onMove={() => onAdd('transfer')}
+        onCoolOff={() => onAdd('cooloff')}
+        onNewGoal={onNewGoal}
+        onSignOut={onSignOut}
+        onCreateAccount={onCreateAccount}
+        onAddFunds={onAddFunds}
+        onCreateBudget={onCreateBudget}
+        onUpdateProfile={onUpdateProfile}
+        onAnalyticsConsentChange={onAnalyticsConsentChange}
+      />
       <div className="mobile-app-experience">
         <div className="relative flex min-h-screen">
           <Sidebar activePage={activePage} setActivePage={setActivePage} />
