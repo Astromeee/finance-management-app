@@ -5,6 +5,7 @@ import { trackEvent } from '../lib/analytics'
 import type { Account, Budget, Category, Debt, Goal, JourneySettings, Transaction, UpcomingExpense, WishlistItem } from '../types/finance'
 import { calculateSafeSpend, detectMoneyLeak } from '../utils/journeyCalculations'
 import { cn } from '../utils/ui'
+import { buildAttentionItems } from '../utils/attention'
 
 type DashboardAction = 'income' | 'expense' | 'transfer' | 'goal' | 'debt' | null
 
@@ -45,27 +46,12 @@ function greetingWord() {
   return 'Good evening,'
 }
 
-/** Signed days until a date key: negative = overdue. */
-function daysUntil(date: string) {
-  const now = new Date()
-  const then = new Date(`${date}T12:00:00`)
-  if (Number.isNaN(then.getTime())) return Number.POSITIVE_INFINITY
-  return Math.round((new Date(then.getFullYear(), then.getMonth(), then.getDate()).getTime() - new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime()) / 86_400_000)
-}
-
-function dueLabel(days: number) {
-  if (days < 0) return `${Math.abs(days)} ${Math.abs(days) === 1 ? 'day' : 'days'} overdue`
-  if (days === 0) return 'due today'
-  if (days === 1) return 'due tomorrow'
-  return `due in ${days} days`
-}
-
 type Notice = { id: string; dot: 'out' | 'in' | 'move'; title: string; meta: string; page: string }
 
 export function Dashboard({
   accounts,
   transactions,
-  debts,
+  goals,
   budgets,
   upcomingExpenses,
   categories,
@@ -134,71 +120,17 @@ export function Dashboard({
   /* Leak headline: "Dining Out — Rs 40,139 in 30 days" */
   const leakName = insight ? insight.title.replace(/ is quietly adding up$/, '') : null
 
-  /* Notification menu — real heads-ups from the ledger, most urgent first:
-     overdue/soon bills, cooling-off items ready to decide, debt payments
-     coming up, the money leak, and Protect mode. */
+  /* One ranked inbox shared with desktop. Each item explains the issue and
+     routes to the page where the user can resolve it. */
   const notices = useMemo(() => {
-    const list: Notice[] = []
-    for (const bill of upcomingExpenses) {
-      if (bill.status === 'paid') continue
-      const days = daysUntil(bill.dueDate)
-      if (days <= 7) {
-        list.push({
-          id: `bill-${bill.id}`,
-          dot: 'out',
-          title: `${bill.title} ${dueLabel(days)}`,
-          meta: `Rs ${nf(bill.amount)} · locked for bills`,
-          page: 'budgets',
-        })
-      }
-    }
-    for (const item of wishlistItems) {
-      const ready = item.status === 'ready' || (item.status === 'waiting' && new Date(item.reconsiderAt) <= new Date())
-      if (ready) {
-        list.push({
-          id: `wish-${item.id}`,
-          dot: 'in',
-          title: `${item.name} — your head is clear now`,
-          meta: `Rs ${nf(item.amount)} · decide in Cooling off`,
-          page: 'budgets',
-        })
-      }
-    }
-    for (const debt of debts) {
-      const total = debt.totalAmount ?? debt.total ?? 0
-      const paid = debt.paidAmount ?? debt.paid ?? 0
-      if (paid >= total || !debt.dueDate) continue
-      const days = daysUntil(debt.dueDate)
-      if (days <= 7) {
-        list.push({
-          id: `debt-${debt.id}`,
-          dot: 'move',
-          title: `${debt.title ?? debt.name ?? 'Debt'} payment ${dueLabel(days)}`,
-          meta: `Rs ${nf(total - paid)} left`,
-          page: 'goals',
-        })
-      }
-    }
-    if (insight && leakName) {
-      list.push({
-        id: `leak-${insight.id}`,
-        dot: 'out',
-        title: 'Money leak found',
-        meta: `${leakName} — Rs ${nf(insight.amount)} in 30 days`,
-        page: 'reports',
-      })
-    }
-    if (safeSpend.state === 'protect') {
-      list.push({
-        id: 'protect',
-        dot: 'out',
-        title: 'Protect mode is on',
-        meta: 'Pause flexible spending so bills stay covered',
-        page: 'budgets',
-      })
-    }
-    return list.slice(0, 6)
-  }, [upcomingExpenses, wishlistItems, debts, insight, leakName, safeSpend.state])
+    return buildAttentionItems({ accounts, budgets, goals, transactions, upcomingExpenses, wishlistItems }).slice(0, 6).map<Notice>((item) => ({
+      id: item.id,
+      dot: item.priority === 'urgent' ? 'out' : item.priority === 'important' ? 'move' : 'in',
+      title: item.title,
+      meta: `${item.detail} ${item.action}`,
+      page: item.page,
+    }))
+  }, [accounts, budgets, goals, transactions, upcomingExpenses, wishlistItems])
 
   return (
     <div className="vault-screen">
@@ -213,7 +145,7 @@ export function Dashboard({
             {noticesOpen && <>
               <button aria-label="Close notifications" className="fixed inset-0 z-40" onClick={() => setNoticesOpen(false)} />
               <div className="vault-outline absolute right-[-48px] top-12 z-50 w-[20rem] max-w-[calc(100vw-40px)] px-4 py-3 shadow-xl" role="menu" aria-label="Notifications">
-                <p className="vault-eyebrow">Heads-up</p>
+                <p className="vault-eyebrow">Needs attention</p>
                 {notices.length ? (
                   <div className="mt-1">
                     {notices.map((notice) => (
@@ -227,7 +159,7 @@ export function Dashboard({
                     ))}
                   </div>
                 ) : (
-                  <p className="py-5 text-center text-sm text-[var(--taupe)]">You&rsquo;re all caught up — nothing needs you right now.</p>
+                  <p className="py-5 text-center text-sm text-[var(--taupe)]">You&rsquo;re all caught up. Nothing needs you right now.</p>
                 )}
               </div>
             </>}

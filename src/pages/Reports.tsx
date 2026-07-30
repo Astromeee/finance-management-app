@@ -67,6 +67,12 @@ export function Reports({
   const totalExpenses = expenseTransactions.reduce((sum, transaction) => sum + transaction.amount, 0)
   const netSaved = totalIncome - totalExpenses
   const savingsRate = totalIncome > 0 ? Math.round((netSaved / totalIncome) * 100) : 0
+  const previousRange = useMemo(() => rangeBefore(range), [range])
+  const previousExpenses = useMemo(
+    () => transactions.filter((transaction) => transaction.type === 'expense' && inRange(transaction.date, previousRange)).reduce((sum, transaction) => sum + transaction.amount, 0),
+    [previousRange, transactions],
+  )
+  const expenseChange = previousExpenses > 0 ? Math.round(((totalExpenses - previousExpenses) / previousExpenses) * 100) : null
 
   const spendingByCategory = groupTransactions(expenseTransactions, (transaction) => transaction.category ?? transaction.title, totalExpenses)
   const incomeBySource = groupTransactions(incomeTransactions, (transaction) => transaction.source ?? transaction.category ?? transaction.title, totalIncome)
@@ -130,6 +136,16 @@ export function Reports({
       <WeekChart weeks={weeks} average={weeklyAverage} />
 
       <DayChart days={daily} />
+
+      <section aria-label="Spending comparison" className="vault-outline mt-5 flex items-start gap-4 p-4">
+        <span className={cn('vault-comparison-value', expenseChange !== null && expenseChange <= 0 && 'is-positive')}>
+          {expenseChange === null ? 'New' : `${Math.abs(expenseChange)}%`}
+        </span>
+        <div className="min-w-0">
+          <h2 className="vault-row-title">{expenseChange === null ? 'Your comparison is still forming' : `${expenseChange <= 0 ? 'Less' : 'More'} spent than the previous period`}</h2>
+          <p className="vault-row-meta mt-1">{expenseChange === null ? 'Keep recording and Pocket Ledger will explain the change after another comparable period.' : `Rs ${nf(totalExpenses)} now, compared with Rs ${nf(previousExpenses)} before.`}</p>
+        </div>
+      </section>
 
       <SplitChart data={donutData} total={totalExpenses} />
 
@@ -560,6 +576,19 @@ function getRange(period: PeriodKey): Range {
   }
   const start = new Date(today.getFullYear(), today.getMonth(), 1)
   return { label: monthLabel(start), start, end: endOfMonth(start) }
+}
+
+function rangeBefore(range: Range): Range {
+  const start = range.start ?? new Date()
+  const end = range.end ?? start
+  const span = Math.max(1, Math.round((end.getTime() - start.getTime()) / 86_400_000) + 1)
+  const previousEnd = new Date(start)
+  previousEnd.setDate(previousEnd.getDate() - 1)
+  previousEnd.setHours(23, 59, 59, 999)
+  const previousStart = new Date(previousEnd)
+  previousStart.setDate(previousStart.getDate() - span + 1)
+  previousStart.setHours(0, 0, 0, 0)
+  return { label: 'Previous period', start: previousStart, end: previousEnd }
 }
 
 function inRange(dateString: string, range: Range) {

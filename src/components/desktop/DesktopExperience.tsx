@@ -6,6 +6,7 @@ import {
   ChevronDown,
   ChevronRight,
   CircleDollarSign,
+  Command,
   Clock3,
   CreditCard,
   Download,
@@ -25,12 +26,13 @@ import {
   WalletCards,
   X,
 } from 'lucide-react'
-import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
-import { Area, AreaChart, Bar, BarChart, CartesianGrid, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
+import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { Area, AreaChart, Bar, BarChart, CartesianGrid, Cell, ComposedChart, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import type { Account, AccountType, Budget, Category, Debt, Goal, JourneySettings, MoneyQuest, Transaction, UpcomingExpense, WishlistItem } from '../../types/finance'
 import type { Profile } from '../../lib/profile'
 import { exportTransactionsCsv } from '../../lib/exports'
 import { calculateSafeSpend, detectMoneyLeak } from '../../utils/journeyCalculations'
+import { buildAttentionItems } from '../../utils/attention'
 
 type DesktopPage = 'dashboard' | 'transactions' | 'accounts' | 'reports' | 'goals' | 'budgets' | 'settings' | 'categories'
 type ModalKind = 'record' | 'entry' | 'move' | 'account' | 'accountManage' | 'category' | 'cooloff' | 'wishlist' | 'funds' | 'goal' | 'goalManage' | 'debt' | 'debtManage' | 'debtPayment' | 'plan' | 'billManage' | 'billPayment' | 'quest' | 'profile' | 'search' | 'notifications'
@@ -160,21 +162,35 @@ function monthlySpendingChartData(transactions: Transaction[]) {
   const monthKey = latestExpense?.date.slice(0, 7) ?? localDateKey().slice(0, 7)
   const [year, month] = monthKey.split('-').map(Number)
   const daysInMonth = new Date(year, month, 0).getDate()
+  const previousDate = new Date(year, month - 2, 1)
+  const previousMonthKey = `${previousDate.getFullYear()}-${String(previousDate.getMonth() + 1).padStart(2, '0')}`
   const totals = new Map<number, number>()
+  const previousTotals = new Map<number, number>()
 
   for (const transaction of transactions) {
-    if (transaction.type !== 'expense' || !transaction.date.startsWith(monthKey)) continue
+    if (transaction.type !== 'expense') continue
     const day = Number(transaction.date.slice(8, 10))
-    totals.set(day, (totals.get(day) ?? 0) + transaction.amount)
+    if (transaction.date.startsWith(monthKey)) totals.set(day, (totals.get(day) ?? 0) + transaction.amount)
+    if (transaction.date.startsWith(previousMonthKey)) previousTotals.set(day, (previousTotals.get(day) ?? 0) + transaction.amount)
   }
 
+  const total = [...totals.values()].reduce((sum, amount) => sum + amount, 0)
+  const previousTotal = [...previousTotals.values()].reduce((sum, amount) => sum + amount, 0)
+  const changePercent = previousTotal > 0 ? Math.round(((total - previousTotal) / previousTotal) * 100) : null
+  const days = Array.from({ length: daysInMonth }, (_, index) => ({
+    day: index + 1,
+    spending: totals.get(index + 1) ?? 0,
+    previousSpending: previousTotals.get(index + 1) ?? 0,
+  }))
+  const lowerDays = days.filter((day) => day.spending < day.previousSpending).length
   return {
     label: new Date(year, month - 1, 1).toLocaleDateString('en-PK', { month: 'long', year: 'numeric' }),
-    total: [...totals.values()].reduce((sum, amount) => sum + amount, 0),
-    days: Array.from({ length: daysInMonth }, (_, index) => ({
-      day: index + 1,
-      spending: totals.get(index + 1) ?? 0,
-    })),
+    previousLabel: previousDate.toLocaleDateString('en-PK', { month: 'long' }),
+    total,
+    previousTotal,
+    changePercent,
+    lowerDays,
+    days,
   }
 }
 
@@ -200,6 +216,14 @@ const titles: Record<DesktopPage, { eyebrow: string; first: string; accent: stri
 
 function Money({ children, accent = false }: { children: ReactNode; accent?: boolean }) {
   return <span className={accent ? 'd-money d-accent' : 'd-money'}>{children}</span>
+}
+
+function DesktopEmptyState({ icon: Icon, title, detail, action, onAction }: { icon: typeof Target; title: string; detail: string; action?: string; onAction?: () => void }) {
+  return <div className="d-helpful-empty">
+    <span><Icon size={21}/></span>
+    <div><h3>{title}</h3><p>{detail}</p></div>
+    {action && onAction && <Button kind="secondary" onClick={onAction}>{action}<ArrowRight size={14}/></Button>}
+  </div>
 }
 
 function Button({ children, kind = 'primary', onClick, disabled = false }: { children: ReactNode; kind?: 'primary' | 'secondary' | 'quiet'; onClick?: () => void; disabled?: boolean }) {
@@ -261,7 +285,78 @@ function Rail({ activePage, setActivePage }: Pick<DesktopExperienceProps, 'activ
 
 const periodLabels: Record<PeriodKey, string> = { cycle: 'This cycle', '30d': 'Last 30 days', all: 'All time' }
 
-function Topbar({ page, openModal, setActivePage, period, setPeriod, accountFilter, setAccountFilter }: { page: DesktopPage; openModal: OpenModal; setActivePage: (page: string) => void; period: PeriodKey; setPeriod: (period: PeriodKey) => void; accountFilter: string; setAccountFilter: (accountId: string) => void }) {
+type PaletteResult = {
+  id: string
+  group: 'Quick actions' | 'Pages' | 'Ledger'
+  title: string
+  detail: string
+  run: () => void
+}
+
+function CommandPalette({ close, setActivePage, openModal }: { close: () => void; setActivePage: (page: string) => void; openModal: OpenModal }) {
+  const { transactions } = useDesktopData()
+  const [query, setQuery] = useState('')
+  const [selected, setSelected] = useState(0)
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  const results = useMemo(() => {
+    const go = (page: string) => { close(); setActivePage(page) }
+    const act = (kind: ModalKind) => { close(); openModal(kind) }
+    const items: PaletteResult[] = [
+      { id: 'record', group: 'Quick actions', title: 'Record a transaction', detail: 'Add money spent or received', run: () => act('record') },
+      { id: 'move', group: 'Quick actions', title: 'Move money', detail: 'Transfer between your accounts', run: () => act('move') },
+      { id: 'goal', group: 'Quick actions', title: 'Create a new goal', detail: 'Start a savings path', run: () => act('goal') },
+      { id: 'attention', group: 'Quick actions', title: 'Open Needs attention', detail: 'Review bills, limits, goals, and ledger issues', run: () => act('notifications') },
+      ...nav.map(({ id, label }) => ({ id: `page-${id}`, group: 'Pages' as const, title: label, detail: `Open ${label.toLowerCase()}`, run: () => go(id) })),
+      ...sortedTransactions(transactions).slice(0, 20).map((transaction) => ({
+        id: `transaction-${transaction.id}`,
+        group: 'Ledger' as const,
+        title: transaction.title,
+        detail: `${transactionCategory(transaction)} · ${transaction.account} · Rs ${nf(transaction.amount)}`,
+        run: () => { close(); openModal('entry', transaction.id) },
+      })),
+    ]
+    const needle = query.trim().toLowerCase()
+    return (needle ? items.filter((item) => `${item.title} ${item.detail} ${item.group}`.toLowerCase().includes(needle)) : items).slice(0, 12)
+  }, [close, openModal, query, setActivePage, transactions])
+
+  useEffect(() => {
+    window.setTimeout(() => inputRef.current?.focus(), 0)
+  }, [])
+
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') { event.preventDefault(); close() }
+      if (event.key === 'ArrowDown') { event.preventDefault(); setSelected((value) => results.length ? (value + 1) % results.length : 0) }
+      if (event.key === 'ArrowUp') { event.preventDefault(); setSelected((value) => results.length ? (value - 1 + results.length) % results.length : 0) }
+      if (event.key === 'Enter' && results[selected]) { event.preventDefault(); results[selected].run() }
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [close, results, selected])
+
+  let previousGroup: PaletteResult['group'] | undefined
+  return <div className="d-command-layer" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) close() }}>
+    <section className="d-command-palette" role="dialog" aria-modal="true" aria-label="Search and commands">
+      <div className="d-command-input"><Search size={19}/><input ref={inputRef} value={query} onChange={(event) => { setQuery(event.target.value); setSelected(0) }} placeholder="Search actions, pages, or ledger entries"/><kbd>Esc</kbd></div>
+      <div className="d-command-results">
+        {results.map((result, index) => {
+          const showGroup = result.group !== previousGroup
+          previousGroup = result.group
+          return <div key={result.id}>{showGroup && <Label>{result.group}</Label>}<button type="button" className={selected === index ? 'is-selected' : ''} onMouseEnter={() => setSelected(index)} onClick={result.run}>
+            <span className="d-command-mark">{result.group === 'Ledger' ? <List size={16}/> : result.group === 'Pages' ? <ArrowRight size={16}/> : <Command size={16}/>}</span>
+            <span><strong>{result.title}</strong><small>{result.detail}</small></span>
+            {selected === index && <kbd>↵</kbd>}
+          </button></div>
+        })}
+        {results.length === 0 && <DesktopEmptyState icon={Search} title="Nothing matches that search" detail="Try a page name, action, account, category, or transaction title."/>}
+      </div>
+      <footer><span>↑↓ move</span><span>Enter select</span><span>Esc close</span></footer>
+    </section>
+  </div>
+}
+
+function Topbar({ page, openModal, openPalette, attentionCount, setActivePage, period, setPeriod, accountFilter, setAccountFilter }: { page: DesktopPage; openModal: OpenModal; openPalette: () => void; attentionCount: number; setActivePage: (page: string) => void; period: PeriodKey; setPeriod: (period: PeriodKey) => void; accountFilter: string; setAccountFilter: (accountId: string) => void }) {
   const { accounts, profile } = useDesktopData()
   const [periodOpen, setPeriodOpen] = useState(false)
   const heading = titles[page]
@@ -271,8 +366,8 @@ function Topbar({ page, openModal, setActivePage, period, setPeriod, accountFilt
   return <header className="d-topbar">
     <div><Label>{heading.eyebrow}</Label><h1>{heading.first}{page === 'dashboard' && <br />} <em>{page === 'dashboard' ? `${firstName}.` : heading.accent}</em></h1></div>
     <div className="d-top-actions">
-      {!isSettings && <button type="button" className="d-search" onClick={() => openModal('search')}><Search size={16} /><span>{page === 'dashboard' ? 'Search transactions' : 'Search entries'}</span></button>}
-      {page === 'dashboard' && <button type="button" className="d-icon-button" aria-label="Notifications" onClick={() => openModal('notifications')}><Bell size={17} /></button>}
+      {!isSettings && <button type="button" className="d-search" onClick={openPalette}><Search size={16} /><span>Search or jump</span><kbd>⌘ K</kbd></button>}
+      {!isSettings && <button type="button" className="d-icon-button d-attention-button" aria-label={attentionCount ? `${attentionCount} items need attention` : 'Needs attention'} onClick={() => openModal('notifications')}><Bell size={17} />{attentionCount > 0 && <span>{attentionCount}</span>}</button>}
       {hasPeriod && <div className="d-filter-wrap"><button type="button" className="d-filter" aria-expanded={periodOpen} aria-haspopup="menu" onClick={() => setPeriodOpen((value) => !value)}>{page === 'transactions' && <CalendarDays size={16} />}{periodLabels[period]}<ChevronDown size={14} /></button>{periodOpen && <div className="d-filter-menu" role="menu">{(Object.keys(periodLabels) as PeriodKey[]).map((key) => <button type="button" role="menuitemradio" aria-checked={period === key} className={period === key ? 'is-active' : ''} key={key} onClick={() => { setPeriod(key); setPeriodOpen(false) }}>{periodLabels[key]}{period === key && <Check size={14}/>}</button>)}</div>}</div>}
       {page === 'accounts' && <div className="d-filter-wrap"><button type="button" className="d-filter" aria-expanded={periodOpen} aria-haspopup="menu" onClick={() => setPeriodOpen((value) => !value)}><SlidersHorizontal size={16}/>{accountFilter === 'all' ? 'All accounts' : accounts.find((account) => account.id === accountFilter)?.name ?? 'All accounts'}<ChevronDown size={14}/></button>{periodOpen && <div className="d-filter-menu" role="menu"><button type="button" role="menuitemradio" aria-checked={accountFilter === 'all'} className={accountFilter === 'all' ? 'is-active' : ''} onClick={() => { setAccountFilter('all'); setPeriodOpen(false) }}>All accounts{accountFilter === 'all' && <Check size={14}/>}</button>{accounts.map((account) => <button type="button" role="menuitemradio" aria-checked={accountFilter === account.id} className={accountFilter === account.id ? 'is-active' : ''} key={account.id} onClick={() => { setAccountFilter(account.id); setPeriodOpen(false) }}>{account.name}{accountFilter === account.id && <Check size={14}/>}</button>)}</div>}</div>}
       {page === 'goals' && <Button onClick={() => openModal('goal')}><Plus size={17} />New goal</Button>}
@@ -283,8 +378,8 @@ function Topbar({ page, openModal, setActivePage, period, setPeriod, accountFilt
   </header>
 }
 
-function HomePage({ setActivePage }: { setActivePage: (page: string) => void }) {
-  const { accounts, budgets, categories: financeCategories, journeySettings, moneyQuest, transactions, upcomingExpenses } = useDesktopData()
+function HomePage({ setActivePage, openModal }: { setActivePage: (page: string) => void; openModal: OpenModal }) {
+  const { accounts, budgets, categories: financeCategories, goals, journeySettings, moneyQuest, transactions, upcomingExpenses, wishlistItems } = useDesktopData()
   const balance = totalOf(accounts)
   const safe = calculateSafeSpend({ accounts, budgets, categories: financeCategories, upcomingExpenses, settings: journeySettings })
   const accountTotal = Math.max(1, accounts.reduce((sum, account) => sum + Math.max(0, account.balance), 0))
@@ -292,6 +387,7 @@ function HomePage({ setActivePage }: { setActivePage: (page: string) => void }) 
   const accountTones = ['clay', 'gold', 'sage']
   const questTarget = moneyQuest?.targetCount ?? 3
   const questTitle = moneyQuest?.title ?? 'No active quest'
+  const attentionItems = buildAttentionItems({ accounts, budgets, goals, transactions, upcomingExpenses, wishlistItems })
   return <div className="d-columns">
     <div className="d-work d-home-work">
       <section className="d-hero d-balance-hero">
@@ -308,10 +404,11 @@ function HomePage({ setActivePage }: { setActivePage: (page: string) => void }) 
       </div>
       <Card className="d-ledger-card d-fill">
         <div className="d-card-heading"><h2>Today</h2><button type="button" onClick={() => setActivePage('transactions')}>Full ledger <ArrowRight size={13} /></button></div>
-        <TransactionRows compact />
+        {transactions.length ? <TransactionRows compact /> : <DesktopEmptyState icon={List} title="Your ledger is ready" detail="Record your first entry to begin building balances, patterns, and Insights." action="Record an entry" onAction={() => openModal('record')}/>}
       </Card>
     </div>
     <aside className="d-attention">
+      <Card className="d-needs-summary"><div className="d-card-heading"><div><Label>Needs attention</Label><h2>{attentionItems.length ? `${attentionItems.length} ${attentionItems.length === 1 ? 'item' : 'items'} waiting` : 'You are all caught up'}</h2></div><button type="button" onClick={() => openModal('notifications')}>Review <ArrowRight size={13}/></button></div>{attentionItems.slice(0, 2).map((item) => <button type="button" key={item.id} onClick={() => { setActivePage(item.page) }}><span className={`is-${item.priority}`}>{item.priority}</span><p><strong>{item.title}</strong><small>{item.detail}</small></p></button>)}{attentionItems.length === 0 && <p className="d-muted">No bills, limits, goals, or ledger items need a decision.</p>}</Card>
       <section className="d-leak"><div><Label>{leak ? 'Money leak found' : 'Spending signal'}</Label><span>↗</span></div><h2>{leak?.title ?? 'Nothing unusual yet'}</h2><Money>{leak ? `Rs ${nf(leak.amount)}` : 'All clear'}</Money><p>{leak ? `${leak.transactionCount} purchases in 30 days — set a limit?` : 'Keep recording and your patterns will appear here.'}</p></section>
       <Card className="d-quest"><div><Label>This week's quest</Label><small>{moneyQuest?.status ?? 'not started'}</small></div><h2>{questTitle}</h2><div className="d-segments">{Array.from({ length: Math.min(3, questTarget) }, (_, index) => <i key={index} />)}</div><p><strong>{moneyQuest ? 'In progress' : 'Choose a quest'}</strong> — small steps count.</p></Card>
       <Card className="d-fill"><Label>Top categories · July</Label><CategoryBars /></Card>
@@ -327,7 +424,7 @@ function TransactionRows({ compact = false, transactions: suppliedTransactions, 
     {!compact && <><span className="d-category">■ &nbsp; {transactionCategory(row)}</span><span>{row.account}</span></>}
     <Money accent={row.type === 'income'}>{transactionSign(row)}{nf(row.amount)}</Money>
     {!compact && openModal && <button type="button" className="d-row-action" aria-label={`Manage ${row.title}`} onClick={() => openModal('entry', row.id)}><ChevronRight size={15}/></button>}
-  </div>)}{rows.length === 0 && <p className="d-empty">No ledger entries yet.</p>}</div>
+  </div>)}</div>
 }
 
 function LedgerPage({ period, setPeriod, openModal }: { period: PeriodKey; setPeriod: (period: PeriodKey) => void; openModal: OpenModal }) {
@@ -348,8 +445,7 @@ function LedgerPage({ period, setPeriod, openModal }: { period: PeriodKey; setPe
       <div className="d-tabs" aria-label="Ledger entry type">{(['all', 'spent', 'received', 'moved'] as LedgerFilter[]).map((key) => <button type="button" aria-pressed={filter === key} className={filter === key ? 'is-active' : ''} key={key} onClick={() => setFilter(key)}>{key.charAt(0).toUpperCase() + key.slice(1)}</button>)}</div>
       <div className="d-table-head"><span>Entry</span><span>Category</span><span>Account</span><span>Amount</span></div>
       <div className="d-date-row"><h2>Your entries <small>· {filtered.length} shown</small></h2><Money>{net >= 0 ? '+' : '−'}{nf(Math.abs(net))}</Money></div>
-      <TransactionRows transactions={filtered} openModal={openModal} />
-      {filtered.length === 0 && data.transactions.length > 0 && period !== 'all' && <div className="d-inline-empty"><p>Your ledger has entries, but none match this period.</p><Button kind="secondary" onClick={() => setPeriod('all')}>Show all entries</Button></div>}
+      {filtered.length ? <TransactionRows transactions={filtered} openModal={openModal} /> : <DesktopEmptyState icon={List} title={data.transactions.length ? 'No entries match these filters' : 'Start your ledger'} detail={data.transactions.length ? 'Choose another entry type or period to see more activity.' : 'Record money spent, received, or moved to build your financial history.'} action={data.transactions.length ? 'Show all entries' : 'Record an entry'} onAction={() => data.transactions.length ? setPeriod('all') : openModal('record')}/>}
     </Card>
     <aside className="d-attention">
       <Card className="d-flow"><Label>Ledger flow</Label><p><span>● &nbsp; In</span><Money>{nf(income)}</Money></p><p><span>● &nbsp; Out</span><Money>{nf(out)}</Money></p><hr /><p><strong>Net</strong><Money accent={net >= 0}>{net >= 0 ? '+' : '−'}{nf(Math.abs(net))}</Money></p><div><i style={{ width: `${income + out > 0 ? (income / (income + out)) * 100 : 50}%` }} /><i /></div></Card>
@@ -358,7 +454,7 @@ function LedgerPage({ period, setPeriod, openModal }: { period: PeriodKey; setPe
   </div>
 }
 
-function WalletPage({ openModal, accountFilter }: { openModal: OpenModal; accountFilter: string }) {
+function WalletPage({ openModal, accountFilter, setAccountFilter }: { openModal: OpenModal; accountFilter: string; setAccountFilter: (accountId: string) => void }) {
   const { accounts, transactions, upcomingExpenses } = useDesktopData()
   const visibleAccounts = accountFilter === 'all' ? accounts : accounts.filter((account) => account.id === accountFilter)
   const visibleIds = new Set(visibleAccounts.map((account) => account.id))
@@ -373,7 +469,7 @@ function WalletPage({ openModal, accountFilter }: { openModal: OpenModal; accoun
       <section className="d-hero d-wallet-hero"><div><Label>On hand · {accountFilter === 'all' ? 'all accounts' : visibleAccounts[0]?.name ?? 'account'}</Label><p className="d-hero-number">Rs {nf(total)}</p><span><b>{income - spent >= 0 ? '+' : '−'}{nf(Math.abs(income - spent))}</b> net · after Rs {nf(spent)} spent</span></div><div><Button onClick={() => openModal('move')}><ArrowRight size={17} />Move money</Button><Button kind="quiet" onClick={() => openModal('account')}><Plus size={17} />Add account</Button></div></section>
       <Card className="d-accounts d-fill"><div className="d-card-heading"><h2>Accounts</h2><Label>{visibleAccounts.length} shown</Label></div>{visibleAccounts.map((account, index) => { const Icon = icons[account.type]; const amount = total > 0 ? Math.round((account.balance / total) * 100) : 0; const tone = tones[index % tones.length]; return <button type="button" key={account.id} onClick={() => openModal('accountManage', account.id)}>
         <span className={`d-account-icon is-${tone}`}><Icon size={19} /></span><span><strong>{account.name}</strong><small>{account.type === 'wallet' ? 'Mobile wallet' : account.type === 'bank' ? 'Bank account' : 'Cash on hand'}</small></span><span className="d-account-share"><i><b className={`is-${tone}`} style={{ width: `${Math.max(0, amount)}%` }} /></i><small>{amount}% of on hand</small></span><Money>{nf(account.balance)}</Money><ChevronRight size={16} />
-      </button>})}</Card>
+      </button>})}{visibleAccounts.length === 0 && <DesktopEmptyState icon={WalletCards} title={accounts.length ? 'No account matches this filter' : 'Add the money you manage'} detail={accounts.length ? 'Choose All accounts to return to your complete wallet.' : 'Create a cash, bank, or mobile wallet account to start tracking balances.'} action={accounts.length ? 'Show all accounts' : 'Add an account'} onAction={() => accounts.length ? setAccountFilter('all') : openModal('account')}/>}</Card>
     </div>
     <aside className="d-attention">
       <Card className="d-chart-card"><div><Label>Balance · this cycle</Label><b>{income - spent >= 0 ? '+' : '−'}{nf(Math.abs(income - spent))}</b></div><svg viewBox="0 0 400 120" role="img" aria-label="Account balance trend"><defs><linearGradient id="balanceFill" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#E2703A" stopOpacity=".24"/><stop offset="1" stopColor="#E2703A" stopOpacity="0"/></linearGradient></defs><path d="M0 88 L52 78 L104 84 L156 58 L208 68 L260 42 L312 50 L356 24 L400 18 L400 120 L0 120Z" fill="url(#balanceFill)"/><path d="M0 88 L52 78 L104 84 L156 58 L208 68 L260 42 L312 50 L356 24 L400 18" fill="none" stroke="#E2703A" strokeWidth="3"/></svg><footer><span>Start</span><span>Rs {nf(total)}</span><span>today</span></footer></Card>
@@ -401,7 +497,7 @@ function InsightsPage({ openModal, period, setPeriod }: { openModal: OpenModal; 
   return <div className="d-columns">
     <div className="d-work">
       <Card className="d-spend-chart"><div className="d-card-heading"><div><Label>Money flow · {periodLabels[period]}</Label><h2>Rs {nf(totalExpenses)} spent</h2></div><span><b>Rs {nf(totalIncome)}</b> received · {transactions.length} entries</span></div>{trend.length ? <div className="d-chart-visual" role="img" aria-label="Daily income and spending chart"><ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={1}><AreaChart data={trend} margin={{ top: 12, right: 8, left: -14, bottom: 0 }}><defs><linearGradient id="desktopSpendFill" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#E2703A" stopOpacity=".28"/><stop offset="100%" stopColor="#E2703A" stopOpacity="0"/></linearGradient><linearGradient id="desktopIncomeFill" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#7C8A6B" stopOpacity=".22"/><stop offset="100%" stopColor="#7C8A6B" stopOpacity="0"/></linearGradient></defs><CartesianGrid stroke="#EDE5D5" vertical={false}/><XAxis dataKey="date" tickLine={false} axisLine={false} tick={{ fill: '#9A8F7D', fontSize: 10 }}/><YAxis tickLine={false} axisLine={false} tickFormatter={(value) => `${Math.round(Number(value) / 1000)}k`} tick={{ fill: '#9A8F7D', fontSize: 10 }}/><Tooltip contentStyle={chartTooltipStyle} formatter={(value, name) => [`Rs ${nf(Number(value))}`, name === 'income' ? 'Received' : 'Spent']}/><Area type="monotone" dataKey="income" stroke="#7C8A6B" strokeWidth={2.5} fill="url(#desktopIncomeFill)" dot={false}/><Area type="monotone" dataKey="spending" stroke="#E2703A" strokeWidth={3} fill="url(#desktopSpendFill)" dot={false}/></AreaChart></ResponsiveContainer></div> : <div className="d-inline-empty"><p>{data.transactions.length ? `No entries match ${periodLabels[period].toLowerCase()}.` : 'Record income or spending to see your money flow.'}</p>{data.transactions.length > 0 && period !== 'all' && <Button kind="secondary" onClick={() => setPeriod('all')}>Show all-time graphs</Button>}</div>}</Card>
-      <Card className="d-monthly-spending-card"><div className="d-card-heading"><div><Label>Every day · {monthlySpending.label}</Label><h2>Daily spending</h2></div><span><b>Rs {nf(monthlySpending.total)}</b> this month</span></div><div className="d-monthly-spending-chart" role="img" aria-label={`Spending for each day of ${monthlySpending.label}`}><ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={1}><BarChart data={monthlySpending.days} margin={{ top: 12, right: 8, left: -14, bottom: 0 }}><CartesianGrid stroke="#EDE5D5" vertical={false}/><XAxis dataKey="day" ticks={[1, 5, 10, 15, 20, 25, monthlySpending.days.length]} tickLine={false} axisLine={false} tick={{ fill: '#9A8F7D', fontSize: 10 }}/><YAxis tickLine={false} axisLine={false} tickFormatter={(value) => `${Math.round(Number(value) / 1000)}k`} tick={{ fill: '#9A8F7D', fontSize: 10 }}/><Tooltip contentStyle={chartTooltipStyle} labelFormatter={(day) => `${monthlySpending.label} ${day}`} formatter={(value) => [`Rs ${nf(Number(value))}`, 'Spent']}/><Bar dataKey="spending" fill="#E2703A" radius={[5, 5, 0, 0]} maxBarSize={16}/></BarChart></ResponsiveContainer></div></Card>
+      <Card className="d-monthly-spending-card"><div className="d-card-heading"><div><Label>Every day · {monthlySpending.label}</Label><h2>Daily spending</h2></div><span><b>Rs {nf(monthlySpending.total)}</b> this month</span></div><div className="d-monthly-spending-chart" role="img" aria-label={`Spending for each day of ${monthlySpending.label}`}><ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={1}><ComposedChart data={monthlySpending.days} margin={{ top: 12, right: 8, left: -14, bottom: 0 }}><CartesianGrid stroke="#EDE5D5" vertical={false}/><XAxis dataKey="day" ticks={[1, 5, 10, 15, 20, 25, monthlySpending.days.length]} tickLine={false} axisLine={false} tick={{ fill: '#9A8F7D', fontSize: 10 }}/><YAxis tickLine={false} axisLine={false} tickFormatter={(value) => `${Math.round(Number(value) / 1000)}k`} tick={{ fill: '#9A8F7D', fontSize: 10 }}/><Tooltip contentStyle={chartTooltipStyle} labelFormatter={(day) => `${monthlySpending.label} ${day}`} formatter={(value, name) => [`Rs ${nf(Number(value))}`, name === 'previousSpending' ? monthlySpending.previousLabel : monthlySpending.label]}/><Bar dataKey="spending" fill="#E2703A" radius={[5, 5, 0, 0]} maxBarSize={16}/><Line type="monotone" dataKey="previousSpending" stroke="#9A8F7D" strokeWidth={2} strokeDasharray="5 5" dot={false}/></ComposedChart></ResponsiveContainer></div><div className="d-chart-explanation"><span className={monthlySpending.changePercent !== null && monthlySpending.changePercent <= 0 ? 'is-positive' : ''}>{monthlySpending.changePercent === null ? 'Your comparison will appear after another month of spending.' : `${Math.abs(monthlySpending.changePercent)}% ${monthlySpending.changePercent <= 0 ? 'less' : 'more'} than ${monthlySpending.previousLabel}.`}</span>{monthlySpending.previousTotal > 0 && <p>{monthlySpending.lowerDays} days were lower than the same day in {monthlySpending.previousLabel}.</p>}</div></Card>
       <Card className="d-fill d-category-chart-card"><div className="d-card-heading"><h2>Category story</h2><Label>Live ledger</Label></div>{categoryData.length ? <div className="d-category-chart" role="img" aria-label="Spending by category chart"><ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={1}><BarChart data={categoryData} layout="vertical" margin={{ top: 8, right: 28, left: 12, bottom: 0 }}><CartesianGrid stroke="#EDE5D5" horizontal={false}/><XAxis type="number" hide/><YAxis type="category" dataKey="name" width={105} tickLine={false} axisLine={false} tick={{ fill: '#5C544A', fontSize: 11, fontWeight: 600 }}/><Tooltip contentStyle={chartTooltipStyle} formatter={(value) => [`Rs ${nf(Number(value))}`, 'Spent']}/><Bar dataKey="value" radius={[0, 8, 8, 0]}>{categoryData.map((item) => <Cell key={item.name} fill={item.fill}/>)}</Bar></BarChart></ResponsiveContainer></div> : <p className="d-empty">No category data in this period.</p>}<div className="d-insight-note"><Utensils size={19}/><p><strong>{top ? `${top[0]} is your largest recorded category.` : 'No category pattern yet.'}</strong><br/>{top ? `Rs ${nf(top[1])} in ${periodLabels[period].toLowerCase()}.` : 'Record spending to build your story.'}</p><Button kind="secondary" onClick={() => openModal('plan')}>Set a limit</Button></div></Card>
     </div>
     <aside className="d-attention">
@@ -423,7 +519,7 @@ function GoalsPage({ openModal }: { openModal: OpenModal }) {
   return <div className="d-columns">
     <div className="d-work">
       <section className="d-hero d-goal-hero"><div><Label>Closest path</Label><h2>{featured?.name ?? 'Create your first goal'}</h2><p><Money>Rs {nf(featured?.saved ?? 0)}</Money> of Rs {nf(featured?.target ?? 0)}</p><div><span style={{ width: `${featuredProgress}%` }}/></div><small>Rs {nf(Math.max(0, (featured?.target ?? 0) - (featured?.saved ?? 0)))} to go</small></div><div className="d-goal-ring" style={{ background: `conic-gradient(#E2703A ${featuredProgress}%,#4A4035 0)` }}><span>{featuredProgress}<small>%</small></span></div></section>
-      <div className="d-goal-grid">{goals.slice(0, 3).map((goal, index) => { const progress = Math.round((goal.saved / Math.max(1, goal.target)) * 100); const tone = tones[index % tones.length]; return <Card key={goal.id}><span className={`d-account-icon is-${tone}`}><Target size={18}/></span><h2>{goal.name}</h2><p><Money>Rs {nf(goal.saved)}</Money><small>of Rs {nf(goal.target)}</small></p><div><span className={`is-${tone}`} style={{ width: `${progress}%` }}/></div><footer><button type="button" onClick={() => openModal('funds', goal.id)}>Add payment</button><button type="button" onClick={() => openModal('goalManage', goal.id)}>Manage</button></footer></Card>})}{goals.length === 0 && <Card><h2>No goals yet</h2><p className="d-muted">Create a path to start saving.</p></Card>}</div>
+      <div className="d-goal-grid">{goals.slice(0, 3).map((goal, index) => { const progress = Math.round((goal.saved / Math.max(1, goal.target)) * 100); const tone = tones[index % tones.length]; return <Card key={goal.id}><span className={`d-account-icon is-${tone}`}><Target size={18}/></span><h2>{goal.name}</h2><p><Money>Rs {nf(goal.saved)}</Money><small>of Rs {nf(goal.target)}</small></p><div><span className={`is-${tone}`} style={{ width: `${progress}%` }}/></div><footer><button type="button" onClick={() => openModal('funds', goal.id)}>Add payment</button><button type="button" onClick={() => openModal('goalManage', goal.id)}>Manage</button></footer></Card>})}{goals.length === 0 && <Card className="d-goal-empty"><DesktopEmptyState icon={Target} title="Start with one goal that matters" detail="Set a target and Pocket Ledger will show your progress and accept payments from any account." action="Create your first goal" onAction={() => openModal('goal')}/></Card>}</div>
       <Card className="d-fill d-contribution"><div><Label>Across your goals</Label><h2>You have saved <Money accent>Rs {nf(totalSaved)}</Money> toward your future.</h2></div><Button onClick={() => openModal('funds')} disabled={!featured}><Plus size={16}/>Add funds</Button></Card>
       <Card className="d-path-list"><div className="d-card-heading"><h2>Debts & repayments</h2><Button kind="secondary" onClick={() => openModal('debt')}><Plus size={15}/>Add debt</Button></div>{debts.map((debt) => { const total = debtTotal(debt); const paid = debtPaid(debt); const remaining = Math.max(0, total - paid); return <div className="d-path-row" key={debt.id}><span className="d-account-icon is-sand"><CircleDollarSign size={18}/></span><p><strong>{debtTitle(debt)}</strong><small>{debt.personOrCompany || debt.category} · Rs {nf(remaining)} remaining</small></p><Money>Rs {nf(paid)} / {nf(total)}</Money><Button kind="secondary" onClick={() => openModal('debtPayment', debt.id)} disabled={remaining <= 0}>Pay</Button><button type="button" className="d-row-action" aria-label={`Manage ${debtTitle(debt)}`} onClick={() => openModal('debtManage', debt.id)}><ChevronRight size={15}/></button></div>})}{debts.length === 0 && <p className="d-empty">No debts recorded. Add one to track repayments alongside your goals.</p>}</Card>
     </div>
@@ -447,10 +543,10 @@ function PlanPage({ openModal }: { openModal: OpenModal }) {
   return <div className="d-columns">
     <div className="d-work">
       <section className="d-hero d-plan-hero"><div><Label>Current plan</Label><p className="d-hero-number"><small>Rs</small> {nf(left)} <small>left</small></p><span>of Rs {nf(totalBudget)} · <b>{100 - remaining}% used</b></span></div><div className="d-plan-ring" style={{ background: `conic-gradient(#E2703A ${remaining}%,#4A4035 0)` }}><span>{remaining}<small>%</small><em>remaining</em></span></div></section>
-      <Card className="d-fill d-limits"><div className="d-card-heading"><h2>Spending limits</h2><Label>{budgets.length} active</Label></div>{budgets.slice(0, 5).map((budget, index) => { const progress = budget.amount > 0 ? Math.min(100, Math.round((budget.used / budget.amount) * 100)) : 0; const tone = tones[index % tones.length]; return <div key={budget.id}><span className={`d-account-icon is-${tone}`}>●</span><strong>{budget.category}</strong><span className="d-limit-bar"><i><b className={`is-${tone}`} style={{width:`${progress}%`}}/></i><small>{progress}% used</small></span><Money>{nf(budget.used)}<small> / {nf(budget.amount)}</small></Money><ChevronRight size={15}/></div>})}{budgets.length === 0 && <p className="d-empty">No spending limits yet.</p>}</Card>
+      <Card className="d-fill d-limits"><div className="d-card-heading"><h2>Spending limits</h2><Label>{budgets.length} active</Label></div>{budgets.slice(0, 5).map((budget, index) => { const progress = budget.amount > 0 ? Math.min(100, Math.round((budget.used / budget.amount) * 100)) : 0; const tone = tones[index % tones.length]; return <div key={budget.id}><span className={`d-account-icon is-${tone}`}>●</span><strong>{budget.category}</strong><span className="d-limit-bar"><i><b className={`is-${tone}`} style={{width:`${progress}%`}}/></i><small>{progress}% used</small></span><Money>{nf(budget.used)}<small> / {nf(budget.amount)}</small></Money><ChevronRight size={15}/></div>})}{budgets.length === 0 && <DesktopEmptyState icon={PieChart} title="Plan the categories that need guardrails" detail="Add only the limits that help you make a better spending decision." action="Create a limit" onAction={() => openModal('plan')}/>}</Card>
     </div>
     <aside className="d-attention">
-      <Card className="d-scheduled d-plan-actions"><div className="d-card-heading"><Label>Scheduled bills</Label><button type="button" onClick={() => openModal('billManage')}>Add bill <Plus size={13}/></button></div>{upcomingExpenses.filter((item) => item.status !== 'paid').slice(0, 3).map((item) => <div className="d-plan-action-row" key={item.id}><span>↑</span><p><strong>{item.title}</strong><small>{item.dueDate} · Rs {nf(item.amount)}</small></p><button type="button" onClick={() => openModal('billPayment', item.id)}>Pay</button><button type="button" aria-label={`Manage ${item.title}`} onClick={() => openModal('billManage', item.id)}><ChevronRight size={15}/></button></div>)}{upcomingExpenses.filter((item) => item.status !== 'paid').length === 0 && <p className="d-empty">Nothing scheduled.</p>}</Card>
+      <Card className="d-scheduled d-plan-actions"><div className="d-card-heading"><Label>Scheduled bills</Label><button type="button" onClick={() => openModal('billManage')}>Add bill <Plus size={13}/></button></div>{upcomingExpenses.filter((item) => item.status !== 'paid').slice(0, 3).map((item) => <div className="d-plan-action-row" key={item.id}><span>↑</span><p><strong>{item.title}</strong><small>{item.dueDate} · Rs {nf(item.amount)}</small></p><button type="button" onClick={() => openModal('billPayment', item.id)}>Pay</button><button type="button" aria-label={`Manage ${item.title}`} onClick={() => openModal('billManage', item.id)}><ChevronRight size={15}/></button></div>)}{upcomingExpenses.filter((item) => item.status !== 'paid').length === 0 && <DesktopEmptyState icon={CalendarDays} title="No bills are scheduled" detail="Add rent, subscriptions, or recurring payments so they are protected in your plan." action="Add a bill" onAction={() => openModal('billManage')}/>}</Card>
       <section className="d-leak d-nudge"><Label>Cool-off list</Label><h2>{activeWishlist.length} {activeWishlist.length === 1 ? 'decision is' : 'decisions are'} waiting</h2><p>{activeWishlist[0]?.name ?? 'Nothing waiting right now'}</p><Button kind="secondary" onClick={() => openModal(activeWishlist.length ? 'wishlist' : 'cooloff')}>{activeWishlist.length ? 'Review decisions' : 'Add an item'} <ArrowRight size={15}/></Button></section>
       <Card className="d-quest"><div><Label>This week's quest</Label><small>{moneyQuest?.status ?? 'not started'}</small></div><h2>{moneyQuest?.title ?? 'Choose a small money quest'}</h2><div className="d-segments"><i/><i/><i/></div><p><strong>{moneyQuest ? 'In progress' : 'Ready when you are'}</strong></p><Button kind="secondary" onClick={() => openModal('quest', moneyQuest?.id)}>{moneyQuest ? 'Manage quest' : 'Start quest'}</Button></Card>
       <Card className="d-fill d-plan-note"><Label>Plan balance</Label><h2>You have <Money accent>Rs {nf(left)}</Money> left across your limits.</h2><p>Based on your current budgets.</p></Card>
@@ -508,15 +604,16 @@ const modalCopy: Record<ModalKind, { badge: string; title: string; subtitle: str
   quest: { badge: 'Weekly quest', title: 'Manage quest', subtitle: 'Choose a small, useful money challenge.', save: 'Start quest' },
   profile: { badge: 'Your profile', title: 'Edit profile', subtitle: 'Use the name shown across Pocket Ledger.', save: 'Save profile' },
   search: { badge: 'Find entries', title: 'Search your ledger', subtitle: 'Search by title, category, account, or note.', save: 'Done' },
-  notifications: { badge: 'Activity', title: 'Notifications', subtitle: 'Upcoming payments and money signals.', save: 'Done' },
+  notifications: { badge: 'Money inbox', title: 'Needs attention', subtitle: 'Review the items that need a decision, ordered by urgency.', save: 'Done' },
 }
 
 function Field({ label, children }: { label: string; children: ReactNode }) { return <label className="d-field"><span>{label}</span><div>{children}</div></label> }
 
-function SlideOver({ kind, targetId, close, onRecordEntry, onMoveMoney, onCreateGoal, onCreateWishlistItem, onCreateAccount, onAddFunds, onCreateBudget, onUpdateTransaction, onDeleteTransaction, onUpdateAccount, onArchiveAccount, onUpdateGoal, onDeleteGoal, onCreateDebt, onUpdateDebt, onDeleteDebt, onPayDebt, onCreateUpcoming, onUpdateUpcoming, onDeleteUpcoming, onPayUpcoming, onUpdateWishlist, onDeleteWishlist, onBuyWishlist, onSaveQuest, onCancelQuest, onSaveCategory, onUpdateProfile }: {
+function SlideOver({ kind, targetId, close, setActivePage, onRecordEntry, onMoveMoney, onCreateGoal, onCreateWishlistItem, onCreateAccount, onAddFunds, onCreateBudget, onUpdateTransaction, onDeleteTransaction, onUpdateAccount, onArchiveAccount, onUpdateGoal, onDeleteGoal, onCreateDebt, onUpdateDebt, onDeleteDebt, onPayDebt, onCreateUpcoming, onUpdateUpcoming, onDeleteUpcoming, onPayUpcoming, onUpdateWishlist, onDeleteWishlist, onBuyWishlist, onSaveQuest, onCancelQuest, onSaveCategory, onUpdateProfile }: {
   kind: ModalKind
   targetId?: string
   close: () => void
+  setActivePage: (page: string) => void
   onRecordEntry: DesktopExperienceProps['onRecordEntry']
   onMoveMoney: DesktopExperienceProps['onMoveMoney']
   onCreateGoal: DesktopExperienceProps['onCreateGoal']
@@ -588,11 +685,7 @@ function SlideOver({ kind, targetId, close, onRecordEntry, onMoveMoney, onCreate
   const fromAccount = accounts.find((item) => item.id === accountId)
   const toAccount = accounts.find((item) => item.id === toAccountId)
   const searchResults = searchQuery.trim() ? sortedTransactions(transactions).filter((transaction) => [transaction.title, transactionCategory(transaction), transaction.account, transaction.notes].some((value) => value?.toLowerCase().includes(searchQuery.trim().toLowerCase()))).slice(0, 12) : sortedTransactions(transactions).slice(0, 6)
-  const notifications = [
-    ...upcomingExpenses.filter((item) => item.status !== 'paid').map((item) => ({ id: `upcoming-${item.id}`, title: item.title, detail: `${item.status === 'overdue' ? 'Overdue' : 'Due'} ${item.dueDate} · Rs ${nf(item.amount)}`, tone: item.status === 'overdue' ? 'clay' : 'sage' })),
-    ...budgets.filter((budget) => budget.used >= budget.amount).map((budget) => ({ id: `budget-${budget.id}`, title: `${budget.category} limit reached`, detail: `Rs ${nf(budget.used)} of Rs ${nf(budget.amount)} used`, tone: 'clay' })),
-    ...wishlistItems.filter((item) => item.status === 'ready').map((item) => ({ id: `wishlist-${item.id}`, title: `${item.name} is ready to review`, detail: `Your 48-hour pause has finished · Rs ${nf(item.amount)}`, tone: 'blue' })),
-  ].slice(0, 10)
+  const notifications = buildAttentionItems({ accounts, budgets, goals, transactions, upcomingExpenses, wishlistItems })
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => { if (event.key === 'Escape') close() }
     document.addEventListener('keydown', onKey)
@@ -621,7 +714,7 @@ function SlideOver({ kind, targetId, close, onRecordEntry, onMoveMoney, onCreate
         {kind === 'quest' && <>{moneyQuest && <Card className="d-modal-summary"><Label>Active quest</Label><p>{moneyQuest.title}<strong>{moneyQuest.status}</strong></p></Card>}<Field label="Quest type"><select value={questType} onChange={(event) => setQuestType(event.target.value as MoneyQuest['type'])}><option value="no_spend_days">No-spend days</option><option value="category_limit">Stay under a category limit</option><option value="tracking_days">Track every day</option></select></Field>{questType === 'category_limit' && <Field label="Category"><select value={budgetCategory} onChange={(event) => setBudgetCategory(event.target.value)}>{categories.filter((item) => item.kind === 'expense').map((category) => <option key={category.id}>{category.name}</option>)}</select></Field>}<Field label={questType === 'category_limit' ? 'Maximum spend' : 'Target days'}>{questType === 'category_limit' && <span>Rs</span>}<input inputMode="numeric" value={amount || ''} onChange={(event) => setAmount(Number(event.target.value.replace(/[^0-9]/g, '')) || 0)} placeholder="3"/></Field>{moneyQuest && <button type="button" className="d-destructive" onClick={() => { onCancelQuest(moneyQuest); close() }}><X size={16}/>End current quest</button>}</>}
         {kind === 'profile' && <><Field label="Display name"><input value={profileName} onChange={(event) => setProfileName(event.target.value)} autoFocus /></Field><Card className="d-modal-summary"><Label>Profile photo</Label><p>Your current photo is preserved. You can change it from the full mobile profile editor.</p></Card></>}
         {kind === 'search' && <><div className="d-search-input"><Search size={17}/><input value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} autoFocus placeholder="Search entries"/></div><div className="d-search-results"><Label>{searchQuery.trim() ? `${searchResults.length} matches` : 'Recent entries'}</Label>{searchResults.map((transaction) => <div key={transaction.id}><i className={`is-${transactionTone(transaction)}`}/><p><strong>{transaction.title}</strong><small>{transactionCategory(transaction)} · {transaction.account}</small></p><Money accent={transaction.type === 'income'}>{transactionSign(transaction)}{nf(transaction.amount)}</Money></div>)}{searchResults.length === 0 && <p className="d-empty">No entries match “{searchQuery}”.</p>}</div></>}
-        {kind === 'notifications' && <div className="d-notification-list">{notifications.map((notification) => <div key={notification.id}><span className={`d-account-icon is-${notification.tone}`}><Bell size={17}/></span><p><strong>{notification.title}</strong><small>{notification.detail}</small></p></div>)}{notifications.length === 0 && <div className="d-empty-state"><Check size={20}/><h3>You’re all caught up.</h3><p>No upcoming alerts or plan limits need your attention.</p></div>}</div>}
+        {kind === 'notifications' && <div className="d-notification-list">{notifications.map((notification) => <button type="button" key={notification.id} onClick={() => { close(); setActivePage(notification.page) }}><span className={`d-attention-priority is-${notification.priority}`}>{notification.priority}</span><p><strong>{notification.title}</strong><small>{notification.detail}</small></p><span className="d-notification-action">{notification.action}<ChevronRight size={14}/></span></button>)}{notifications.length === 0 && <div className="d-empty-state"><Check size={20}/><h3>You’re all caught up.</h3><p>No bills, limits, goals, accounts, or ledger entries need a decision.</p></div>}</div>}
       </div>
       {kind !== 'search' && kind !== 'notifications' && kind !== 'wishlist' && !(kind === 'plan' && planMode === 'choose') && <footer><Button disabled={(kind === 'record' && (!amount || !entryCategory || !accountId || !date)) || (kind === 'entry' && (!selectedTransaction || !entryTitle.trim() || amount <= 0 || !date)) || (kind === 'move' && (!amount || !accountId || !toAccountId || accountId === toAccountId || amount > (fromAccount?.balance ?? 0))) || (kind === 'cooloff' && (!itemName.trim() || amount <= 0)) || (kind === 'goal' && (!goalName.trim() || amount <= 0)) || (kind === 'goalManage' && (!selectedGoal || !goalName.trim() || amount <= 0)) || ((kind === 'debt' || kind === 'debtManage') && (!debtName.trim() || amount <= 0)) || (kind === 'debtPayment' && (!selectedDebt || !accountId || amount <= 0 || amount > Math.max(0, debtTotal(selectedDebt) - debtPaid(selectedDebt)) || amount > (fromAccount?.balance ?? 0))) || (kind === 'account' && !accountName.trim()) || (kind === 'accountManage' && (!selectedAccount || !accountName.trim())) || (kind === 'category' && !categoryName.trim()) || (kind === 'funds' && (!goalId || !accountId || amount <= 0)) || (kind === 'plan' && planMode === 'limit' && (!budgetCategory || amount <= 0)) || (kind === 'plan' && planMode === 'bill' && (!billTitle.trim() || !budgetCategory || !dueDate || amount <= 0)) || (kind === 'plan' && planMode === 'cooloff' && (!itemName.trim() || amount <= 0)) || (kind === 'plan' && planMode === 'quest' && amount <= 0) || (kind === 'billManage' && (!billTitle.trim() || !budgetCategory || !dueDate || amount <= 0)) || (kind === 'billPayment' && (!selectedBill || !accountId || !date || (fromAccount?.balance ?? 0) < (selectedBill?.amount ?? 0))) || (kind === 'quest' && amount <= 0) || (kind === 'profile' && !profileName.trim())} onClick={() => {
         if (kind === 'record') onRecordEntry({ direction, amount, category: entryCategory, accountId, date, notes: notes.trim() || undefined })
@@ -672,24 +765,37 @@ function SlideOver({ kind, targetId, close, onRecordEntry, onMoveMoney, onCreate
 export function DesktopExperience({ activePage, setActivePage, data, onSignOut, onRecordEntry, onMoveMoney, onCreateGoal, onCreateWishlistItem, onCreateAccount, onAddFunds, onCreateBudget, onUpdateTransaction, onDeleteTransaction, onUpdateAccount, onArchiveAccount, onUpdateGoal, onDeleteGoal, onCreateDebt, onUpdateDebt, onDeleteDebt, onPayDebt, onCreateUpcoming, onUpdateUpcoming, onDeleteUpcoming, onPayUpcoming, onUpdateWishlist, onDeleteWishlist, onBuyWishlist, onSaveQuest, onCancelQuest, onSaveCategory, onArchiveCategory, onRestartJourney, onUpdateProfile, onAnalyticsConsentChange }: DesktopExperienceProps) {
   const [modal, setModal] = useState<ModalKind | null>(null)
   const [modalTargetId, setModalTargetId] = useState<string>()
+  const [paletteOpen, setPaletteOpen] = useState(false)
   const [period, setPeriod] = useState<PeriodKey>('all')
   const [accountFilter, setAccountFilter] = useState('all')
   const page = (Object.hasOwn(titles, activePage) ? activePage : 'dashboard') as DesktopPage
   const openModal: OpenModal = (kind, targetId) => { setModalTargetId(targetId); setModal(kind) }
   const closeModal = () => { setModal(null); setModalTargetId(undefined) }
+  const attentionItems = useMemo(() => buildAttentionItems(data), [data])
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
+        event.preventDefault()
+        setPaletteOpen(true)
+      }
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [])
   return <DesktopDataContext.Provider value={data}><div className="desktop-experience">
       <Rail activePage={page} setActivePage={setActivePage} />
       <main className="d-main">
-        <Topbar page={page} openModal={openModal} setActivePage={setActivePage} period={period} setPeriod={setPeriod} accountFilter={accountFilter} setAccountFilter={setAccountFilter}/>
-        {page === 'dashboard' && <HomePage setActivePage={setActivePage}/>}
+        <Topbar page={page} openModal={openModal} openPalette={() => setPaletteOpen(true)} attentionCount={attentionItems.length} setActivePage={setActivePage} period={period} setPeriod={setPeriod} accountFilter={accountFilter} setAccountFilter={setAccountFilter}/>
+        {page === 'dashboard' && <HomePage setActivePage={setActivePage} openModal={openModal}/>}
         {page === 'transactions' && <LedgerPage period={period} setPeriod={setPeriod} openModal={openModal}/>}
-        {page === 'accounts' && <WalletPage openModal={openModal} accountFilter={accountFilter}/>}
+        {page === 'accounts' && <WalletPage openModal={openModal} accountFilter={accountFilter} setAccountFilter={setAccountFilter}/>}
         {page === 'reports' && <InsightsPage openModal={openModal} period={period} setPeriod={setPeriod}/>}
         {page === 'goals' && <GoalsPage openModal={openModal}/>}
         {page === 'budgets' && <PlanPage openModal={openModal}/>}
         {page === 'settings' && <SettingsPage setActivePage={setActivePage} onSignOut={onSignOut} openModal={openModal} onAnalyticsConsentChange={onAnalyticsConsentChange} onRestartJourney={onRestartJourney}/>}
         {page === 'categories' && <CategoriesPage openModal={openModal} onArchiveCategory={onArchiveCategory}/>}
       </main>
-      {modal && <SlideOver kind={modal} targetId={modalTargetId} close={closeModal} onRecordEntry={onRecordEntry} onMoveMoney={onMoveMoney} onCreateGoal={onCreateGoal} onCreateWishlistItem={onCreateWishlistItem} onCreateAccount={onCreateAccount} onAddFunds={onAddFunds} onCreateBudget={onCreateBudget} onUpdateTransaction={onUpdateTransaction} onDeleteTransaction={onDeleteTransaction} onUpdateAccount={onUpdateAccount} onArchiveAccount={onArchiveAccount} onUpdateGoal={onUpdateGoal} onDeleteGoal={onDeleteGoal} onCreateDebt={onCreateDebt} onUpdateDebt={onUpdateDebt} onDeleteDebt={onDeleteDebt} onPayDebt={onPayDebt} onCreateUpcoming={onCreateUpcoming} onUpdateUpcoming={onUpdateUpcoming} onDeleteUpcoming={onDeleteUpcoming} onPayUpcoming={onPayUpcoming} onUpdateWishlist={onUpdateWishlist} onDeleteWishlist={onDeleteWishlist} onBuyWishlist={onBuyWishlist} onSaveQuest={onSaveQuest} onCancelQuest={onCancelQuest} onSaveCategory={onSaveCategory} onUpdateProfile={onUpdateProfile}/>}
+      {paletteOpen && <CommandPalette close={() => setPaletteOpen(false)} setActivePage={setActivePage} openModal={openModal}/>}
+      {modal && <SlideOver kind={modal} targetId={modalTargetId} close={closeModal} setActivePage={setActivePage} onRecordEntry={onRecordEntry} onMoveMoney={onMoveMoney} onCreateGoal={onCreateGoal} onCreateWishlistItem={onCreateWishlistItem} onCreateAccount={onCreateAccount} onAddFunds={onAddFunds} onCreateBudget={onCreateBudget} onUpdateTransaction={onUpdateTransaction} onDeleteTransaction={onDeleteTransaction} onUpdateAccount={onUpdateAccount} onArchiveAccount={onArchiveAccount} onUpdateGoal={onUpdateGoal} onDeleteGoal={onDeleteGoal} onCreateDebt={onCreateDebt} onUpdateDebt={onUpdateDebt} onDeleteDebt={onDeleteDebt} onPayDebt={onPayDebt} onCreateUpcoming={onCreateUpcoming} onUpdateUpcoming={onUpdateUpcoming} onDeleteUpcoming={onDeleteUpcoming} onPayUpcoming={onPayUpcoming} onUpdateWishlist={onUpdateWishlist} onDeleteWishlist={onDeleteWishlist} onBuyWishlist={onBuyWishlist} onSaveQuest={onSaveQuest} onCancelQuest={onCancelQuest} onSaveCategory={onSaveCategory} onUpdateProfile={onUpdateProfile}/>}
     </div></DesktopDataContext.Provider>
 }

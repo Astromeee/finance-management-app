@@ -73,7 +73,6 @@ export function Transactions({
   onDeleteTransaction: (transactionId: string) => void
 }) {
   const [editing, setEditing] = useState<Transaction | null>(null)
-  const [deleting, setDeleting] = useState<Transaction | null>(null)
   const [viewing, setViewing] = useState<Transaction | null>(null)
   const [searchOpen, setSearchOpen] = useState(false)
   const [filtersOpen, setFiltersOpen] = useState(false)
@@ -238,7 +237,10 @@ export function Transactions({
         transaction={viewing}
         onClose={() => setViewing(null)}
         onEdit={() => { setEditing(viewing); setViewing(null) }}
-        onDelete={() => { setDeleting(viewing); setViewing(null) }}
+        onDelete={() => {
+          if (viewing) onDeleteTransaction(viewing.id)
+          setViewing(null)
+        }}
       />
       <EditTransactionModal
         key={editing?.id ?? 'edit-transaction-closed'}
@@ -250,14 +252,6 @@ export function Transactions({
         onSave={(transaction) => {
           onUpdateTransaction(transaction)
           setEditing(null)
-        }}
-      />
-      <ConfirmTransactionDelete
-        transaction={deleting}
-        onClose={() => setDeleting(null)}
-        onConfirm={() => {
-          if (deleting) onDeleteTransaction(deleting.id)
-          setDeleting(null)
         }}
       />
     </div>
@@ -400,29 +394,6 @@ function EditTransactionModal({ transaction, accounts, expenseCategories, income
           {fromAccountId === toAccountId && isTransfer && <p className="text-sm text-[var(--clay)]">From and To account cannot be the same.</p>}
           <button className="btn-primary justify-center disabled:opacity-60" disabled={invalid}>Save entry</button>
         </form>
-      </motion.section>
-    </div>
-  )
-}
-
-function ConfirmTransactionDelete({ transaction, onClose, onConfirm }: { transaction: Transaction | null; onClose: () => void; onConfirm: () => void }) {
-  if (!transaction) return null
-
-  return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-[rgba(43,36,29,.45)] p-5" onMouseDown={onClose}>
-      <motion.section initial={{ opacity: 0, y: 14, scale: 0.96 }} animate={{ opacity: 1, y: 0, scale: 1 }} className="vault-outline w-full max-w-sm p-5 shadow-xl" onMouseDown={(event) => event.stopPropagation()}>
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <p className="vault-eyebrow">Delete entry</p>
-            <h2 className="vault-h2 mt-1">Delete {transaction.title}?</h2>
-          </div>
-          <button className="vault-iconbtn" onClick={onClose} aria-label="Close delete confirmation"><X size={15} strokeWidth={1.8} /></button>
-        </div>
-        <p className="mt-3 text-sm text-[var(--ink-soft)]">This will reverse its account, budget, goal, or debt effects.</p>
-        <div className="mt-5 grid grid-cols-2 gap-3">
-          <button className="vault-chip is-active justify-center" onClick={onClose}>Keep it</button>
-          <button className="vault-chip justify-center text-[var(--clay)]" onClick={onConfirm}>Delete</button>
-        </div>
       </motion.section>
     </div>
   )

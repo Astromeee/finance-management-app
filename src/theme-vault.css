@@ -1915,3 +1915,31 @@ article.rounded-2xl {
 /* Old dock classes die with the old dock; keep them inert if any
    stale CSS still matches. */
 .dock-v3, .dock-v3-more { display: none !important; }
+.vault-comparison-value {
+  display: grid;
+  min-width: 58px;
+  height: 42px;
+  place-items: center;
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--clay) 16%, transparent);
+  color: var(--clay);
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.vault-comparison-value.is-positive {
+  background: color-mix(in srgb, #7c8a6b 18%, transparent);
+  color: #657355;
+}
+
+@media (max-width: 639px) {
+  .pl-action-toast {
+    top: auto;
+    bottom: calc(7.25rem + env(safe-area-inset-bottom));
+    width: calc(100% - 2rem);
+    max-width: 26rem;
+    justify-content: space-between;
+    border-radius: 18px;
+  }
+}

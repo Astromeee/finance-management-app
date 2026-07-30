@@ -1,4 +1,4 @@
-import { ArrowRight, Check, CircleAlert, Plus, X } from 'lucide-react'
+import { ArrowRight, Check, CircleAlert, Plus, Target, X } from 'lucide-react'
 import { useState } from 'react'
 import type { ReactNode } from 'react'
 import { BottomSheet as Sheet } from '../components/BottomSheet'
@@ -138,6 +138,17 @@ export function GoalsDebts({
               onDelete={() => setDeleteTarget({ kind: 'debt', id: debt.id, title: debtTitle(debt) })}
             />
           ))}
+        </section>
+      )}
+
+      {goals.length === 0 && debts.length === 0 && (
+        <section className="vault-outline mt-6 flex items-start gap-4 p-5" aria-label="No goals or debts yet">
+          <span className="grid h-12 w-12 flex-none place-items-center rounded-2xl bg-[color-mix(in_srgb,var(--clay)_16%,transparent)] text-[var(--clay)]"><Target size={20} /></span>
+          <div className="min-w-0 flex-1">
+            <h2 className="vault-h2 text-[20px]">Start with one path that matters</h2>
+            <p className="mt-1.5 text-sm leading-6 text-[var(--taupe)]">Set a savings target or track a debt. You can add payments and adjust the path at any time.</p>
+            <button className="vault-link mt-3" type="button" onClick={() => setChooserOpen(true)}>Choose your first path →</button>
+          </div>
         </section>
       )}
 

@@ -1,4 +1,4 @@
-import { lazy, Suspense, useCallback, useEffect, useState } from 'react'
+import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
 import { AppShell } from './components/layout/AppShell'
@@ -35,6 +35,7 @@ const Transactions = lazy(() => import('./pages/Transactions').then((module) => 
 const Onboarding = lazy(() => import('./pages/Onboarding').then((module) => ({ default: module.Onboarding })))
 
 type ActionModal = 'income' | 'expense' | 'transfer' | 'cooloff' | 'goal' | 'debt' | 'simulator' | null
+type ToastState = { message: string; actionLabel?: string; onAction?: () => void | Promise<void> }
 
 const defaultJourneySettings: JourneySettings = {
   typicalIncome: 0,
@@ -130,7 +131,8 @@ function App() {
   const [activeModal, setActiveModal] = useState<ActionModal>(null)
   const [activeDebtId, setActiveDebtId] = useState<string | undefined>()
   const [expenseDraft, setExpenseDraft] = useState<{ amount: number; category: string; wishlistId?: string }>()
-  const [toast, setToast] = useState('')
+  const [toast, setToast] = useState<ToastState | null>(null)
+  const toastTimer = useRef<number | undefined>(undefined)
   const [authReady, setAuthReady] = useState(!isSupabaseConfigured)
   const [dataReady, setDataReady] = useState(!isSupabaseConfigured)
   // Dev-only design QA: /app?vault-preview renders the mock ledger without auth.
@@ -157,9 +159,14 @@ function App() {
   const incomeCategoryNames = categories.filter((category) => category.kind === 'income').map((category) => category.name)
   const expenseCategoryIdFor = useCallback((name?: string) => categories.find((category) => category.kind === 'expense' && category.name === name)?.id, [categories])
 
-  const showToast = useCallback((message: string) => {
-    setToast(message)
-    window.setTimeout(() => setToast(''), 2600)
+  const showToast = useCallback((message: string, action?: { label: string; run: () => void | Promise<void> }) => {
+    if (toastTimer.current !== undefined) window.clearTimeout(toastTimer.current)
+    setToast({ message, actionLabel: action?.label, onAction: action?.run })
+    toastTimer.current = window.setTimeout(() => setToast(null), action ? 8_000 : 2_600)
+  }, [])
+
+  useEffect(() => () => {
+    if (toastTimer.current !== undefined) window.clearTimeout(toastTimer.current)
   }, [])
 
   const awardMoneyWin = useCallback((win: MoneyWin) => {
@@ -352,7 +359,19 @@ function App() {
     }
     applyTransactionEffect(transaction, -1)
     setTransactions((current) => current.filter((item) => item.id !== transactionId))
-    showToast('Transaction deleted')
+    showToast('Transaction deleted', {
+      label: 'Undo',
+      run: async () => {
+        try {
+          if (!designPreview) await recordFinanceAction(transaction)
+          applyTransactionEffect(transaction, 1)
+          setTransactions((current) => current.some((item) => item.id === transaction.id) ? current : [transaction, ...current])
+          showToast('Transaction restored')
+        } catch (error) {
+          showToast(error instanceof Error ? error.message : 'Could not restore transaction')
+        }
+      },
+    })
   }
 
   const accountsWithSavings = accounts
@@ -372,9 +391,41 @@ function App() {
   }
 
   const removeUpcoming = (expenseId: string) => {
+    const expense = upcomingExpenses.find((item) => item.id === expenseId)
+    if (!expense) return
     void deleteUpcomingExpense(expenseId).catch((error) => showToast(error.message))
     setUpcomingExpenses((current) => current.filter((expense) => expense.id !== expenseId))
-    showToast('Upcoming bill deleted')
+    showToast('Upcoming bill deleted', {
+      label: 'Undo',
+      run: async () => {
+        try {
+          if (!designPreview) await saveUpcomingExpense(expense)
+          setUpcomingExpenses((current) => current.some((item) => item.id === expense.id) ? current : [expense, ...current])
+          showToast('Upcoming bill restored')
+        } catch (error) {
+          showToast(error instanceof Error ? error.message : 'Could not restore the bill')
+        }
+      },
+    })
+  }
+
+  const removeGoal = (goalId: string) => {
+    const goal = goals.find((item) => item.id === goalId)
+    if (!goal) return
+    setGoals((current) => current.filter((item) => item.id !== goalId))
+    if (!designPreview) void deleteGoal(goalId).catch((error) => showToast(error.message))
+    showToast('Goal deleted', {
+      label: 'Undo',
+      run: async () => {
+        try {
+          if (!designPreview) await saveGoal(goal)
+          setGoals((current) => current.some((item) => item.id === goal.id) ? current : [goal, ...current])
+          showToast('Goal restored')
+        } catch (error) {
+          showToast(error instanceof Error ? error.message : 'Could not restore the goal')
+        }
+      },
+    })
   }
 
   const payUpcoming = async (expense: UpcomingExpense, { accountId, paymentDate, notes }: { accountId: string; paymentDate: string; notes?: string }) => {
@@ -433,11 +484,7 @@ function App() {
             setGoals((current) => current.map((item) => item.id === goalId ? { ...item, ...payload } : item))
             showToast('Goal updated')
           }}
-          onDeleteGoal={(goalId) => {
-            void deleteGoal(goalId).catch((error) => showToast(error.message))
-            setGoals((current) => current.filter((goal) => goal.id !== goalId))
-            showToast('Goal deleted')
-          }}
+          onDeleteGoal={removeGoal}
           onUpdateDebt={(debtId, payload) => {
             const debt = debts.find((item) => item.id === debtId)
             if (debt) void saveDebt(updateDebtFromPayload(debt, payload)).catch((error) => showToast(error.message))
@@ -724,11 +771,7 @@ function App() {
         if (!designPreview) void saveGoal(next).catch((error) => showToast(error.message))
         showToast('Goal updated')
       }}
-      onDeleteGoal={(goalId) => {
-        setGoals((current) => current.filter((item) => item.id !== goalId))
-        if (!designPreview) void deleteGoal(goalId).catch((error) => showToast(error.message))
-        showToast('Goal deleted')
-      }}
+      onDeleteGoal={removeGoal}
       onCreateDebt={(payload) => {
         const debt = createDebt(payload)
         setDebts((current) => [debt, ...current])
@@ -830,7 +873,7 @@ function App() {
         wishlistItems,
       }}
     >
-      {toast && <div aria-live="polite" className="fixed left-1/2 top-4 z-[60] -translate-x-1/2 rounded-full border border-[rgba(255, 122, 26,.28)] bg-[var(--surface-raised)] px-4 py-2 text-sm font-semibold text-[var(--accent-2)] shadow-2xl shadow-black/40" role="status">{toast}</div>}
+      {toast && <div aria-live="polite" className="pl-action-toast fixed left-1/2 top-4 z-[80] flex -translate-x-1/2 items-center gap-3 rounded-full border border-[rgba(226,112,58,.32)] bg-[var(--espresso)] px-4 py-2.5 text-sm font-semibold text-[var(--bone-text)] shadow-2xl shadow-black/25" role="status"><span>{toast.message}</span>{toast.onAction && <button className="rounded-full bg-[var(--clay)] px-3 py-1.5 text-xs font-extrabold text-[var(--espresso)]" type="button" onClick={() => { const action = toast.onAction; setToast(null); if (toastTimer.current !== undefined) window.clearTimeout(toastTimer.current); void action?.() }}>{toast.actionLabel}</button>}</div>}
       <div className="mobile-page-content"><Suspense fallback={<LedgerLoader label="Loading screen" />}>{(pages[activePage] ?? pages.dashboard).component}</Suspense></div>
       <Suspense fallback={null}>
       {(activeModal === 'income' || activeModal === 'expense') && <RecordSheet
