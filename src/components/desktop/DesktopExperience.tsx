@@ -155,6 +155,29 @@ function dailyChartData(transactions: Transaction[]) {
   }))
 }
 
+function monthlySpendingChartData(transactions: Transaction[]) {
+  const latestExpense = sortedTransactions(transactions).find((transaction) => transaction.type === 'expense')
+  const monthKey = latestExpense?.date.slice(0, 7) ?? localDateKey().slice(0, 7)
+  const [year, month] = monthKey.split('-').map(Number)
+  const daysInMonth = new Date(year, month, 0).getDate()
+  const totals = new Map<number, number>()
+
+  for (const transaction of transactions) {
+    if (transaction.type !== 'expense' || !transaction.date.startsWith(monthKey)) continue
+    const day = Number(transaction.date.slice(8, 10))
+    totals.set(day, (totals.get(day) ?? 0) + transaction.amount)
+  }
+
+  return {
+    label: new Date(year, month - 1, 1).toLocaleDateString('en-PK', { month: 'long', year: 'numeric' }),
+    total: [...totals.values()].reduce((sum, amount) => sum + amount, 0),
+    days: Array.from({ length: daysInMonth }, (_, index) => ({
+      day: index + 1,
+      spending: totals.get(index + 1) ?? 0,
+    })),
+  }
+}
+
 const nav = [
   { id: 'dashboard', label: 'Home', icon: House },
   { id: 'transactions', label: 'Ledger', icon: List },
@@ -372,11 +395,13 @@ function InsightsPage({ openModal, period, setPeriod }: { openModal: OpenModal; 
   const totals = categoryTotals(transactions)
   const top = totals[0]
   const trend = dailyChartData(transactions)
+  const monthlySpending = monthlySpendingChartData(data.transactions)
   const categoryData = totals.slice(0, 6).map(([name, value], index) => ({ name, value, fill: ['#E2703A', '#7C8A6B', '#6B7A85', '#C79A3E', '#B9906B', '#9A8F7D'][index] }))
   const safe = calculateSafeSpend({ accounts, budgets, categories: financeCategories, upcomingExpenses, settings: journeySettings })
   return <div className="d-columns">
     <div className="d-work">
       <Card className="d-spend-chart"><div className="d-card-heading"><div><Label>Money flow · {periodLabels[period]}</Label><h2>Rs {nf(totalExpenses)} spent</h2></div><span><b>Rs {nf(totalIncome)}</b> received · {transactions.length} entries</span></div>{trend.length ? <div className="d-chart-visual" role="img" aria-label="Daily income and spending chart"><ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={1}><AreaChart data={trend} margin={{ top: 12, right: 8, left: -14, bottom: 0 }}><defs><linearGradient id="desktopSpendFill" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#E2703A" stopOpacity=".28"/><stop offset="100%" stopColor="#E2703A" stopOpacity="0"/></linearGradient><linearGradient id="desktopIncomeFill" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#7C8A6B" stopOpacity=".22"/><stop offset="100%" stopColor="#7C8A6B" stopOpacity="0"/></linearGradient></defs><CartesianGrid stroke="#EDE5D5" vertical={false}/><XAxis dataKey="date" tickLine={false} axisLine={false} tick={{ fill: '#9A8F7D', fontSize: 10 }}/><YAxis tickLine={false} axisLine={false} tickFormatter={(value) => `${Math.round(Number(value) / 1000)}k`} tick={{ fill: '#9A8F7D', fontSize: 10 }}/><Tooltip contentStyle={chartTooltipStyle} formatter={(value, name) => [`Rs ${nf(Number(value))}`, name === 'income' ? 'Received' : 'Spent']}/><Area type="monotone" dataKey="income" stroke="#7C8A6B" strokeWidth={2.5} fill="url(#desktopIncomeFill)" dot={false}/><Area type="monotone" dataKey="spending" stroke="#E2703A" strokeWidth={3} fill="url(#desktopSpendFill)" dot={false}/></AreaChart></ResponsiveContainer></div> : <div className="d-inline-empty"><p>{data.transactions.length ? `No entries match ${periodLabels[period].toLowerCase()}.` : 'Record income or spending to see your money flow.'}</p>{data.transactions.length > 0 && period !== 'all' && <Button kind="secondary" onClick={() => setPeriod('all')}>Show all-time graphs</Button>}</div>}</Card>
+      <Card className="d-monthly-spending-card"><div className="d-card-heading"><div><Label>Every day · {monthlySpending.label}</Label><h2>Daily spending</h2></div><span><b>Rs {nf(monthlySpending.total)}</b> this month</span></div><div className="d-monthly-spending-chart" role="img" aria-label={`Spending for each day of ${monthlySpending.label}`}><ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={1}><BarChart data={monthlySpending.days} margin={{ top: 12, right: 8, left: -14, bottom: 0 }}><CartesianGrid stroke="#EDE5D5" vertical={false}/><XAxis dataKey="day" ticks={[1, 5, 10, 15, 20, 25, monthlySpending.days.length]} tickLine={false} axisLine={false} tick={{ fill: '#9A8F7D', fontSize: 10 }}/><YAxis tickLine={false} axisLine={false} tickFormatter={(value) => `${Math.round(Number(value) / 1000)}k`} tick={{ fill: '#9A8F7D', fontSize: 10 }}/><Tooltip contentStyle={chartTooltipStyle} labelFormatter={(day) => `${monthlySpending.label} ${day}`} formatter={(value) => [`Rs ${nf(Number(value))}`, 'Spent']}/><Bar dataKey="spending" fill="#E2703A" radius={[5, 5, 0, 0]} maxBarSize={16}/></BarChart></ResponsiveContainer></div></Card>
       <Card className="d-fill d-category-chart-card"><div className="d-card-heading"><h2>Category story</h2><Label>Live ledger</Label></div>{categoryData.length ? <div className="d-category-chart" role="img" aria-label="Spending by category chart"><ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={1}><BarChart data={categoryData} layout="vertical" margin={{ top: 8, right: 28, left: 12, bottom: 0 }}><CartesianGrid stroke="#EDE5D5" horizontal={false}/><XAxis type="number" hide/><YAxis type="category" dataKey="name" width={105} tickLine={false} axisLine={false} tick={{ fill: '#5C544A', fontSize: 11, fontWeight: 600 }}/><Tooltip contentStyle={chartTooltipStyle} formatter={(value) => [`Rs ${nf(Number(value))}`, 'Spent']}/><Bar dataKey="value" radius={[0, 8, 8, 0]}>{categoryData.map((item) => <Cell key={item.name} fill={item.fill}/>)}</Bar></BarChart></ResponsiveContainer></div> : <p className="d-empty">No category data in this period.</p>}<div className="d-insight-note"><Utensils size={19}/><p><strong>{top ? `${top[0]} is your largest recorded category.` : 'No category pattern yet.'}</strong><br/>{top ? `Rs ${nf(top[1])} in ${periodLabels[period].toLowerCase()}.` : 'Record spending to build your story.'}</p><Button kind="secondary" onClick={() => openModal('plan')}>Set a limit</Button></div></Card>
     </div>
     <aside className="d-attention">
