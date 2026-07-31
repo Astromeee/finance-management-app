@@ -432,7 +432,6 @@ function TransactionRows({ compact = false, transactions: suppliedTransactions, 
       <i className={`is-${transactionTone(row)}`} /><div className="d-entry"><strong>{row.title}</strong><small>{new Date(`${row.date}T12:00:00`).toLocaleDateString('en-PK', { day: 'numeric', month: 'short' })}</small></div>
       {!compact && <><span className="d-category">■ &nbsp; {transactionCategory(row)}</span><span>{row.account}</span></>}
       <Money accent={row.type === 'income'}>{transactionSign(row)}{nf(row.amount)}</Money>
-      {!compact && openModal && <button type="button" className="d-row-action" aria-label={`Manage ${row.title}`} onClick={(event) => { event.stopPropagation(); openEntry() }}><ChevronRight size={15}/></button>}
     </div>
   })}</div>
 }
