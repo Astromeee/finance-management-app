@@ -5,7 +5,7 @@ import { AppShell } from './components/layout/AppShell'
 import { LedgerLoader } from './components/SplashScreen'
 import { accounts as initialAccounts, budgets as initialBudgets, debts as initialDebts, expenseCategories as initialExpenseCategories, goals as initialGoals, incomeSources as initialIncomeSources, transactions as initialTransactions, upcomingExpenses as initialUpcomingExpenses } from './data/mockData'
 import * as vaultPreview from './data/vaultPreviewData'
-import { adjustAccountBalance, archiveAccount, archiveCategory, deleteBudget, deleteDebt, deleteFinanceTransaction, deleteGoal, deleteUpcomingExpense, deleteWishlistItem, loadFinanceData, markUpcomingExpensePaid, recordFinanceAction, saveAccount, saveBudget, saveCategory, saveDebt, saveGoal, saveJourneySettings, saveMoneyQuest, saveMoneyWin, saveUpcomingExpense, saveUserSettings, saveWishlistItem, updateFinanceTransaction } from './lib/financeRepository'
+import { adjustAccountBalance, archiveAccount, archiveCategory, deleteBudget, deleteDebt, deleteFinanceTransaction, deleteGoal, deleteUpcomingExpense, deleteWishlistItem, loadArchivedAccounts, loadFinanceData, markUpcomingExpensePaid, recordFinanceAction, restoreAccount, saveAccount, saveBudget, saveCategory, saveDebt, saveGoal, saveJourneySettings, saveMoneyQuest, saveMoneyWin, saveUpcomingExpense, saveUserSettings, saveWishlistItem, updateFinanceTransaction } from './lib/financeRepository'
 import { addRecurringDate, localDateKey } from './lib/date'
 import { applyAccountOrder } from './lib/accountOrder'
 import { setAnalyticsConsent, trackEvent } from './lib/analytics'
@@ -145,6 +145,7 @@ function App() {
   const [onboardingCompleted, setOnboardingCompleted] = useState(!isSupabaseConfigured)
   const [journeySettings, setJourneySettings] = useState<JourneySettings>(designPreview ? vaultPreview.journeySettings : defaultJourneySettings)
   const [accounts, setAccounts] = useState(() => applyAccountOrder(designPreview ? vaultPreview.accounts : initialAccounts))
+  const [archivedAccounts, setArchivedAccounts] = useState<Account[]>([])
   const [transactions, setTransactions] = useState(designPreview ? vaultPreview.transactions : initialTransactions)
   const [goals, setGoals] = useState<Goal[]>(designPreview ? vaultPreview.goals : initialGoals)
   const [debts, setDebts] = useState<Debt[]>(designPreview ? vaultPreview.debts : initialDebts)
@@ -250,9 +251,10 @@ function App() {
 
       try {
         setDataReady(false)
-        const remoteState = await loadFinanceData()
+        const [remoteState, remoteArchivedAccounts] = await Promise.all([loadFinanceData(), loadArchivedAccounts()])
         if (cancelled) return
         setAccounts(applyAccountOrder(remoteState.accounts))
+        setArchivedAccounts(remoteArchivedAccounts)
         setTransactions(remoteState.transactions)
         setGoals(remoteState.goals)
         setDebts(remoteState.debts)
@@ -288,6 +290,28 @@ function App() {
 
   const updateAccountBalance = (accountId: string, delta: number) => {
     setAccounts((current) => current.map((account) => account.id === accountId ? { ...account, balance: account.balance + delta } : account))
+  }
+
+  const restoreArchivedAccount = async (account: Account) => {
+    if (!designPreview) await restoreAccount(account.id)
+    setArchivedAccounts((current) => current.filter((item) => item.id !== account.id))
+    setAccounts((current) => current.some((item) => item.id === account.id) ? current : [...current, account])
+    showToast(`${account.name} restored`)
+  }
+
+  const handleRestoreAccount = async (accountId: string) => {
+    const account = archivedAccounts.find((item) => item.id === accountId)
+    if (!account) return
+    await restoreArchivedAccount(account)
+  }
+
+  const handleArchiveAccount = async (accountId: string) => {
+    const account = accounts.find((item) => item.id === accountId)
+    if (!account) return
+    if (!designPreview) await archiveAccount(accountId)
+    setAccounts((current) => current.filter((item) => item.id !== accountId))
+    setArchivedAccounts((current) => [account, ...current.filter((item) => item.id !== accountId)])
+    showToast(`${account.name} archived`, { label: 'Undo', run: () => restoreArchivedAccount(account) })
   }
 
   const applyTransactionEffect = (transaction: Transaction, direction: 1 | -1) => {
@@ -456,7 +480,7 @@ function App() {
     accounts: {
       title: 'Accounts',
       subtitle: 'Manage cash, banks, and wallets',
-      component: <Accounts accounts={accounts} transactions={transactions} setAccounts={setAccounts} setTransactions={setTransactions} onTransfer={() => setActiveModal('transfer')} onOpenTransactions={() => setActivePage('transactions')} onSaveAccount={designPreview ? undefined : saveAccount} onAdjustBalance={designPreview ? undefined : async (account, transaction) => { await adjustAccountBalance(account, transaction) }} onArchiveAccount={designPreview ? undefined : archiveAccount} />,
+      component: <Accounts accounts={accounts} archivedAccounts={archivedAccounts} transactions={transactions} setAccounts={setAccounts} setTransactions={setTransactions} onTransfer={() => setActiveModal('transfer')} onOpenTransactions={() => setActivePage('transactions')} onSaveAccount={designPreview ? undefined : saveAccount} onAdjustBalance={designPreview ? undefined : async (account, transaction) => { await adjustAccountBalance(account, transaction) }} onArchiveAccount={handleArchiveAccount} onRestoreAccount={handleRestoreAccount} />,
     },
     goals: {
       title: 'Goals & Debts',
@@ -758,11 +782,8 @@ function App() {
         if (!designPreview) void saveAccount(account).catch((error) => showToast(error.message))
         showToast('Account updated')
       }}
-      onArchiveAccount={(accountId) => {
-        setAccounts((current) => current.filter((item) => item.id !== accountId))
-        if (!designPreview) void archiveAccount(accountId).catch((error) => showToast(error.message))
-        showToast('Account archived')
-      }}
+      onArchiveAccount={(accountId) => { void handleArchiveAccount(accountId).catch((error) => showToast(error.message)) }}
+      onRestoreAccount={(accountId) => { void handleRestoreAccount(accountId).catch((error) => showToast(error.message)) }}
       onUpdateGoal={(goalId, payload) => {
         const goal = goals.find((item) => item.id === goalId)
         if (!goal) return
@@ -860,6 +881,7 @@ function App() {
       }}
       desktopData={{
         accounts: accountsWithSavings,
+        archivedAccounts,
         budgets,
         categories,
         debts,

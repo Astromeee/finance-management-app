@@ -1133,6 +1133,33 @@ body::after,
 }
 .vault-sheet-title em { font-style: italic; color: var(--clay); }
 
+.vault-archived-link {
+  width: 100%;
+  min-height: 48px;
+  margin-top: 14px;
+  padding: 0 15px;
+  border: 1px solid var(--rule);
+  border-radius: 16px;
+  background: var(--paper);
+  color: var(--ink);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  font-weight: 700;
+}
+.vault-archived-link svg { color: var(--clay); }
+.vault-archived-link span { flex: 1; text-align: left; }
+.vault-archived-link small { color: var(--taupe); font-size: 12px; }
+.vault-archived-help { margin: 8px 0 18px; color: var(--taupe); font-size: 13px; line-height: 1.55; }
+.vault-archived-list { display: grid; gap: 10px; }
+.vault-archived-row { min-height: 68px; padding: 11px 12px 11px 15px; border: 1px solid var(--rule); border-radius: 18px; background: var(--paper); display: flex; align-items: center; gap: 12px; }
+.vault-archived-row>span { flex: 1; min-width: 0; }
+.vault-archived-row strong,.vault-archived-row small { display: block; }
+.vault-archived-row strong { color: var(--ink); font-size: 14px; }
+.vault-archived-row small { margin-top: 4px; color: var(--taupe); font-size: 11px; }
+.vault-archived-row button { min-height: 44px; padding: 0 13px; border: 0; border-radius: 14px; background: var(--espresso); color: var(--bone-text); display: inline-flex; align-items: center; gap: 7px; font-size: 12px; font-weight: 800; }
+
 /* Segmented direction toggle (17a/17b §2) */
 .vault-seg {
   display: flex;

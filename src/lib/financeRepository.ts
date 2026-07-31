@@ -214,6 +214,12 @@ export async function loadFinanceData(): Promise<FinanceData> {
   }
 }
 
+export async function loadArchivedAccounts(): Promise<Account[]> {
+  const { data, error } = await client().from('accounts').select('*').eq('archived', true).order('updated_at', { ascending: false })
+  if (error) throw error
+  return (data as Row[]).map(accountFromRow)
+}
+
 export type FinanceAction = Omit<Transaction, 'id' | 'createdAt'> & { id?: string }
 
 export async function recordFinanceAction(action: FinanceAction) {
@@ -301,6 +307,11 @@ export async function adjustAccountBalance(account: Account, transaction: Transa
 
 export async function archiveAccount(id: string) {
   const { error } = await client().from('accounts').update({ archived: true }).eq('id', id)
+  if (error) throw error
+}
+
+export async function restoreAccount(id: string) {
+  const { error } = await client().from('accounts').update({ archived: false }).eq('id', id)
   if (error) throw error
 }
 

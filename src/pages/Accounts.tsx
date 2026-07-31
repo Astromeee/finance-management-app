@@ -1,4 +1,4 @@
-import { ArrowRightLeft, GripVertical, PencilLine, Plus, ShieldCheck, Trash2, WalletCards, X } from 'lucide-react'
+import { ArchiveRestore, ArrowRightLeft, GripVertical, PencilLine, Plus, RotateCcw, ShieldCheck, Trash2, WalletCards, X } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { useRef, useState, type Dispatch, type PointerEvent as ReactPointerEvent, type SetStateAction } from 'react'
 import type { Account, Transaction } from '../types/finance'
@@ -7,6 +7,7 @@ import { cn } from '../utils/ui'
 import { localDateKey } from '../lib/date'
 import { saveAccountOrder } from '../lib/accountOrder'
 import { hapticTap } from '../components/sheets/numpad'
+import { VaultSheet } from '../components/sheets/VaultSheet'
 
 /* ============================================================
    Accounts — "Your wallet." (Vault spec 14b)
@@ -31,6 +32,7 @@ function isValidHex(value: string) {
 
 interface AccountsProps {
   accounts: Account[]
+  archivedAccounts: Account[]
   setAccounts: Dispatch<SetStateAction<Account[]>>
   setTransactions: Dispatch<SetStateAction<Transaction[]>>
   onTransfer: () => void
@@ -41,6 +43,7 @@ interface AccountsProps {
   onSaveAccount?: (account: Account, openingBalance?: number) => Promise<void>
   onAdjustBalance?: (account: Account, transaction: Transaction) => Promise<void>
   onArchiveAccount?: (id: string) => Promise<void>
+  onRestoreAccount: (id: string) => Promise<void>
 }
 
 const makeAccountId = (name: string) => `${name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'account'}-${Date.now().toString(36)}`
@@ -75,12 +78,13 @@ function typeTag(account: Account) {
 
 /* ============================================================ */
 
-export function Accounts({ accounts, setAccounts, setTransactions, onTransfer, onSaveAccount, onAdjustBalance, onArchiveAccount }: AccountsProps) {
+export function Accounts({ accounts, archivedAccounts, setAccounts, setTransactions, onTransfer, onSaveAccount, onAdjustBalance, onArchiveAccount, onRestoreAccount }: AccountsProps) {
   const [addingAccount, setAddingAccount] = useState(false)
   const [selectedAccount, setSelectedAccount] = useState<Account | null>(null)
   const [editingAccount, setEditingAccount] = useState<Account | null>(null)
   const [menuAccount, setMenuAccount] = useState<Account | null>(null)
   const [notice, setNotice] = useState('')
+  const [showArchived, setShowArchived] = useState(false)
 
   const total = totalBalance(accounts)
   const fallbacks = fallbackTreatments(accounts)
@@ -146,6 +150,8 @@ export function Accounts({ accounts, setAccounts, setTransactions, onTransfer, o
           <p className="vault-cell-value">{safeSpendUses} <span className="vault-sub">of {accounts.length}</span></p>
         </div>
       </section>
+
+      {archivedAccounts.length > 0 && <button className="vault-archived-link" type="button" onClick={() => setShowArchived(true)}><ArchiveRestore size={17}/><span>Archived accounts</span><small>{archivedAccounts.length}</small></button>}
 
       {hasCash && (
         <p className="mt-5 text-xs leading-5 text-[var(--taupe)]">
@@ -241,6 +247,13 @@ export function Accounts({ accounts, setAccounts, setTransactions, onTransfer, o
         setAccounts={setAccounts}
         setTransactions={setTransactions}
       />
+      <VaultSheet open={showArchived} label="Archived accounts" onClose={() => setShowArchived(false)}>
+        <h2 className="vault-sheet-title">Archived <em>accounts.</em></h2>
+        <p className="vault-archived-help">Restoring an account brings its balance and transaction history back into your wallet.</p>
+        <div className="vault-archived-list">
+          {archivedAccounts.map((account) => <div key={account.id} className="vault-archived-row"><span><strong>{account.name}</strong><small>{typeTag(account)} · Rs {nf(account.balance)}</small></span><button type="button" onClick={async () => { try { await onRestoreAccount(account.id); setNotice(`${account.name} restored.`); if (archivedAccounts.length === 1) setShowArchived(false) } catch (error) { setNotice(error instanceof Error ? error.message : 'Could not restore account.') } }}><RotateCcw size={15}/>Restore</button></div>)}
+        </div>
+      </VaultSheet>
     </div>
   )
 }

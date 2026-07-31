@@ -25,6 +25,7 @@ interface AppShellProps {
   onDeleteTransaction: DesktopExperienceProps['onDeleteTransaction']
   onUpdateAccount: DesktopExperienceProps['onUpdateAccount']
   onArchiveAccount: DesktopExperienceProps['onArchiveAccount']
+  onRestoreAccount: DesktopExperienceProps['onRestoreAccount']
   onUpdateGoal: DesktopExperienceProps['onUpdateGoal']
   onDeleteGoal: DesktopExperienceProps['onDeleteGoal']
   onCreateDebt: DesktopExperienceProps['onCreateDebt']
@@ -47,7 +48,7 @@ interface AppShellProps {
   onAnalyticsConsentChange: DesktopExperienceProps['onAnalyticsConsentChange']
 }
 
-export function AppShell({ activePage, children, setActivePage, onAdd, desktopData, onSignOut, onRecordEntry, onMoveMoney, onCreateGoal, onCreateWishlistItem, onCreateAccount, onAddFunds, onCreateBudget, onUpdateTransaction, onDeleteTransaction, onUpdateAccount, onArchiveAccount, onUpdateGoal, onDeleteGoal, onCreateDebt, onUpdateDebt, onDeleteDebt, onPayDebt, onCreateUpcoming, onUpdateUpcoming, onDeleteUpcoming, onPayUpcoming, onUpdateWishlist, onDeleteWishlist, onBuyWishlist, onSaveQuest, onCancelQuest, onSaveCategory, onArchiveCategory, onRestartJourney, onUpdateProfile, onAnalyticsConsentChange }: AppShellProps) {
+export function AppShell({ activePage, children, setActivePage, onAdd, desktopData, onSignOut, onRecordEntry, onMoveMoney, onCreateGoal, onCreateWishlistItem, onCreateAccount, onAddFunds, onCreateBudget, onUpdateTransaction, onDeleteTransaction, onUpdateAccount, onArchiveAccount, onRestoreAccount, onUpdateGoal, onDeleteGoal, onCreateDebt, onUpdateDebt, onDeleteDebt, onPayDebt, onCreateUpcoming, onUpdateUpcoming, onDeleteUpcoming, onPayUpcoming, onUpdateWishlist, onDeleteWishlist, onBuyWishlist, onSaveQuest, onCancelQuest, onSaveCategory, onArchiveCategory, onRestartJourney, onUpdateProfile, onAnalyticsConsentChange }: AppShellProps) {
   const isVaultPage = VAULT_PAGES.has(activePage)
 
   return (
@@ -68,6 +69,7 @@ export function AppShell({ activePage, children, setActivePage, onAdd, desktopDa
         onDeleteTransaction={onDeleteTransaction}
         onUpdateAccount={onUpdateAccount}
         onArchiveAccount={onArchiveAccount}
+        onRestoreAccount={onRestoreAccount}
         onUpdateGoal={onUpdateGoal}
         onDeleteGoal={onDeleteGoal}
         onCreateDebt={onCreateDebt}
