@@ -32,6 +32,7 @@ import type { Profile } from '../../lib/profile'
 import { exportTransactionsCsv } from '../../lib/exports'
 import { calculateSafeSpend, detectMoneyLeak } from '../../utils/journeyCalculations'
 import { buildAttentionItems } from '../../utils/attention'
+import { categoryPresentationFor } from '../../utils/categoryPresentation'
 import { CategoryIcon } from '../icons/CategoryIcon'
 
 type DesktopPage = 'dashboard' | 'transactions' | 'accounts' | 'reports' | 'goals' | 'budgets' | 'settings' | 'categories'
@@ -584,9 +585,23 @@ function SettingsPage({ setActivePage, onSignOut, openModal, onAnalyticsConsentC
 
 function CategoriesPage({ openModal, onArchiveCategory }: { openModal: OpenModal; onArchiveCategory: DesktopExperienceProps['onArchiveCategory'] }) {
   const { categories, transactions } = useDesktopData()
+  const [kind, setKind] = useState<Category['kind']>('expense')
+  const stats = useMemo(() => {
+    const month = new Date().toISOString().slice(0, 7)
+    const totals = new Map<string, { total: number; count: number }>()
+    for (const transaction of transactions) {
+      if (!transaction.date.startsWith(month)) continue
+      const category = (transaction.category ?? transaction.source ?? '').toLowerCase()
+      if (!category) continue
+      const current = totals.get(category) ?? { total: 0, count: 0 }
+      totals.set(category, { total: current.total + transaction.amount, count: current.count + 1 })
+    }
+    return totals
+  }, [transactions])
+  const shown = categories.filter((category) => category.kind === kind)
   return <div className="d-columns d-settings-grid">
     <div className="d-work">
-      <Card className="d-category-manager d-fill"><div className="d-card-heading"><div><h2>Categories</h2><p className="d-muted">Keep reports and spending limits consistent across devices.</p></div><Button onClick={() => openModal('category')}><Plus size={16}/>New category</Button></div>{categories.map((category) => { const inUse = transactions.some((transaction) => transaction.categoryId === category.id || transactionCategory(transaction) === category.name); return <div className="d-path-row" key={category.id}><span className="d-category-swatch" style={{ background: category.color }}/><p><strong>{category.name}</strong><small>{category.kind} · {category.spendingNature}</small></p><Button kind="secondary" onClick={() => openModal('category', category.id)}>Edit</Button><button type="button" className="d-row-action is-danger" aria-label={`Archive ${category.name}`} disabled={inUse} title={inUse ? 'Categories used by transactions cannot be archived' : 'Archive category'} onClick={() => onArchiveCategory(category.id)}><Trash2 size={15}/></button></div>})}</Card>
+      <Card className="d-category-manager d-fill"><div className="d-card-heading"><div><h2>Categories</h2><p className="d-muted">Keep reports and spending limits consistent across devices.</p></div><Button onClick={() => openModal('category')}><Plus size={16}/>New category</Button></div><div className="d-tabs d-category-tabs" aria-label="Category type"><button type="button" className={kind === 'expense' ? 'is-active' : ''} aria-pressed={kind === 'expense'} onClick={() => setKind('expense')}>Expenses</button><button type="button" className={kind === 'income' ? 'is-active' : ''} aria-pressed={kind === 'income'} onClick={() => setKind('income')}>Income</button></div><p className="d-category-helper">{shown.length} categories · Click a card to edit</p><div className="d-category-grid">{shown.map((category) => { const { color, icon: Icon } = categoryPresentationFor(category); const stat = stats.get(category.name.toLowerCase()); const inUse = transactions.some((transaction) => transaction.categoryId === category.id || transactionCategory(transaction) === category.name); return <div className="d-category-tile-wrap" key={category.id}><button type="button" className="d-category-tile" onClick={() => openModal('category', category.id)}><span className="d-category-tile-icon" style={{ background: color }}><Icon size={19}/></span><strong>{category.name}</strong><small>Rs {nf(stat?.total ?? 0)} · {stat?.count ?? 0} entries</small></button><button type="button" className="d-category-archive" aria-label={`Archive ${category.name}`} disabled={inUse} title={inUse ? 'Categories used by transactions cannot be archived' : 'Archive category'} onClick={() => onArchiveCategory(category.id)}><Trash2 size={14}/></button></div>})}<button type="button" className="d-category-tile is-new" onClick={() => openModal('category')}><span className="d-category-tile-icon"><Plus size={19}/></span><strong>New category</strong><small>Add a clearer label</small></button></div></Card>
     </div>
     <aside className="d-attention"><Card><Label>Good category hygiene</Label><h2>Fewer, clearer labels make insights easier to trust.</h2><p className="d-muted">Archive unused categories and avoid creating near-duplicates.</p></Card></aside>
   </div>

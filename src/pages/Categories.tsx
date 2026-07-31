@@ -1,6 +1,7 @@
-import { Car, ChevronLeft, GraduationCap, Heart, Home, Music, PencilLine, Plus, Receipt, ShoppingBag, ShoppingBasket, Smartphone, UtensilsCrossed, Wallet, type LucideIcon } from 'lucide-react'
+import { ChevronLeft, PencilLine, Plus, ShoppingBag } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { cn } from '../utils/ui'
+import { categoryPresentationFor } from '../utils/categoryPresentation'
 import type { Category, Transaction } from '../types/finance'
 
 /* Categories manager (spec 22c) — colour-coded tiles with monthly total and
@@ -8,24 +9,6 @@ import type { Category, Transaction } from '../types/finance'
    falling back to the category's own colour + a generic tag. */
 
 const nf = (value: number) => Math.round(value).toLocaleString('en-PK')
-
-const STYLE: Array<{ match: RegExp; color: string; icon: LucideIcon }> = [
-  { match: /din(e|ing)|food|restaurant/i, color: '#E2703A', icon: UtensilsCrossed },
-  { match: /transport|fuel|travel|car/i, color: '#6B7A85', icon: Car },
-  { match: /grocer/i, color: '#7C8A6B', icon: ShoppingBasket },
-  { match: /bill|util|rent|housing/i, color: '#B08968', icon: Receipt },
-  { match: /shop|cloth/i, color: '#9B6A7D', icon: ShoppingBag },
-  { match: /health|care|medic/i, color: '#C79A3E', icon: Heart },
-  { match: /fun|entertain|game/i, color: '#8A8A3F', icon: Music },
-  { match: /mobile|internet|phone/i, color: '#6B7A85', icon: Smartphone },
-  { match: /educat|school|fee/i, color: '#8A7B63', icon: GraduationCap },
-  { match: /home|family/i, color: '#B08968', icon: Home },
-]
-
-function styleFor(category: Category) {
-  const found = STYLE.find((entry) => entry.match.test(category.name))
-  return { color: found?.color ?? category.color ?? '#9A8F7D', icon: found?.icon ?? Wallet }
-}
 
 export function Categories({
   categories,
@@ -95,7 +78,7 @@ export function Categories({
 
       <div className="vault-catgrid mt-4">
         {shown.map((category) => {
-          const { color, icon: Icon } = styleFor(category)
+          const { color, icon: Icon } = categoryPresentationFor(category)
           const stat = stats.get(category.name.toLowerCase())
           return (
             <button key={category.id} className="vault-cattile" type="button" onClick={() => void editCategory(category)}>
