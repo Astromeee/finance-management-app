@@ -298,6 +298,7 @@ function CommandPalette({ close, setActivePage, openModal }: { close: () => void
   const [query, setQuery] = useState('')
   const [selected, setSelected] = useState(0)
   const inputRef = useRef<HTMLInputElement>(null)
+  const resultRefs = useRef<Array<HTMLButtonElement | null>>([])
 
   const results = useMemo(() => {
     const go = (page: string) => { close(); setActivePage(page) }
@@ -325,6 +326,10 @@ function CommandPalette({ close, setActivePage, openModal }: { close: () => void
   }, [])
 
   useEffect(() => {
+    resultRefs.current[selected]?.scrollIntoView({ block: 'nearest' })
+  }, [selected])
+
+  useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       if (event.key === 'Escape') { event.preventDefault(); close() }
       if (event.key === 'ArrowDown') { event.preventDefault(); setSelected((value) => results.length ? (value + 1) % results.length : 0) }
@@ -343,7 +348,7 @@ function CommandPalette({ close, setActivePage, openModal }: { close: () => void
         {results.map((result, index) => {
           const showGroup = result.group !== previousGroup
           previousGroup = result.group
-          return <div key={result.id}>{showGroup && <Label>{result.group}</Label>}<button type="button" className={selected === index ? 'is-selected' : ''} onMouseEnter={() => setSelected(index)} onClick={result.run}>
+          return <div key={result.id}>{showGroup && <Label>{result.group}</Label>}<button ref={(element) => { resultRefs.current[index] = element }} type="button" className={selected === index ? 'is-selected' : ''} onMouseEnter={() => setSelected(index)} onClick={result.run}>
             <span className="d-command-mark">{result.group === 'Ledger' ? <List size={16}/> : result.group === 'Pages' ? <ArrowRight size={16}/> : <Command size={16}/>}</span>
             <span><strong>{result.title}</strong><small>{result.detail}</small></span>
             {selected === index && <kbd>↵</kbd>}
