@@ -13,7 +13,7 @@ export type MoneyPriority = 'stretch' | 'save' | 'control_spending' | 'bills_deb
 export type SpendingNature = 'essential' | 'flexible'
 export type JourneyState = 'comfortable' | 'watchful' | 'protect' | 'needs_setup'
 export type AffordabilityState = 'safe' | 'caution' | 'risky' | 'needs_setup'
-export type CategoryIconName = 'home' | 'dining' | 'groceries' | 'coffee' | 'car' | 'transport' | 'fuel' | 'shopping' | 'clothing' | 'health' | 'medicine' | 'education' | 'bills' | 'phone' | 'internet' | 'entertainment' | 'tickets' | 'work' | 'gift' | 'wallet' | 'bank' | 'fitness' | 'travel' | 'grooming'
+export type CategoryIconName = 'home' | 'dining' | 'groceries' | 'coffee' | 'car' | 'transport' | 'fuel' | 'shopping' | 'clothing' | 'health' | 'medicine' | 'education' | 'bills' | 'phone' | 'internet' | 'entertainment' | 'tickets' | 'work' | 'gift' | 'wallet' | 'bank' | 'fitness' | 'travel' | 'grooming' | 'laptop' | 'refund' | 'salary' | 'investment' | 'allowance' | 'family' | 'charity' | 'utilities' | 'subscription' | 'miscellaneous' | 'gaming'
 
 export interface Account {
   id: string
