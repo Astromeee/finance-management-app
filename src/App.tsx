@@ -357,11 +357,17 @@ function App() {
   const updateTransaction = async (nextTransaction: Transaction) => {
     const previous = transactions.find((transaction) => transaction.id === nextTransaction.id)
     if (!previous) return
-    const normalizedTransaction = nextTransaction.categoryId || nextTransaction.type !== 'expense'
-      ? nextTransaction
-      : { ...nextTransaction, categoryId: expenseCategoryIdFor(nextTransaction.category) }
+    const normalizedTransaction: Transaction = {
+      ...nextTransaction,
+      categoryId: nextTransaction.type === 'expense' ? expenseCategoryIdFor(nextTransaction.category) : undefined,
+      accountId: nextTransaction.type === 'transfer' ? undefined : nextTransaction.accountId,
+      fromAccountId: nextTransaction.type === 'transfer' ? nextTransaction.fromAccountId : undefined,
+      toAccountId: nextTransaction.type === 'transfer' ? nextTransaction.toAccountId : undefined,
+      goalId: nextTransaction.type === 'goal_saving' ? nextTransaction.goalId : undefined,
+      debtId: nextTransaction.type === 'debt_payment' ? nextTransaction.debtId : undefined,
+    }
     try {
-      await updateFinanceTransaction(normalizedTransaction)
+      if (!designPreview) await updateFinanceTransaction(normalizedTransaction)
     } catch (error) {
       showToast(error instanceof Error ? error.message : 'Could not update transaction')
       return
@@ -376,7 +382,7 @@ function App() {
     const transaction = transactions.find((item) => item.id === transactionId)
     if (!transaction) return
     try {
-      await deleteFinanceTransaction(transactionId)
+      if (!designPreview) await deleteFinanceTransaction(transactionId)
     } catch (error) {
       showToast(error instanceof Error ? error.message : 'Could not delete transaction')
       return

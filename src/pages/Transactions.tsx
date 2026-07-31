@@ -392,7 +392,7 @@ function EditTransactionModal({ transaction, accounts, expenseCategories, income
           <label><span className="form-label">Date</span><input className="form-input" type="date" value={date} onChange={(event) => setDate(event.target.value)} /></label>
           <label><span className="form-label">Notes</span><textarea className="form-input min-h-20 resize-none" value={notes} onChange={(event) => setNotes(event.target.value)} /></label>
           {fromAccountId === toAccountId && isTransfer && <p className="text-sm text-[var(--clay)]">From and To account cannot be the same.</p>}
-          <button className="btn-primary justify-center disabled:opacity-60" disabled={invalid}>Save entry</button>
+          <button className="btn-primary justify-center disabled:opacity-60" disabled={invalid}>Save changes</button>
         </form>
       </motion.section>
     </div>
