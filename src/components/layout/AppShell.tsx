@@ -21,6 +21,10 @@ interface AppShellProps {
   onCreateAccount: DesktopExperienceProps['onCreateAccount']
   onAddFunds: DesktopExperienceProps['onAddFunds']
   onCreateBudget: DesktopExperienceProps['onCreateBudget']
+  onSaveBudget: DesktopExperienceProps['onSaveBudget']
+  onArchiveBudget: DesktopExperienceProps['onArchiveBudget']
+  onRestoreBudget: DesktopExperienceProps['onRestoreBudget']
+  onCopyLastMonthBudgets: DesktopExperienceProps['onCopyLastMonthBudgets']
   onUpdateTransaction: DesktopExperienceProps['onUpdateTransaction']
   onDeleteTransaction: DesktopExperienceProps['onDeleteTransaction']
   onUpdateAccount: DesktopExperienceProps['onUpdateAccount']
@@ -48,7 +52,7 @@ interface AppShellProps {
   onAnalyticsConsentChange: DesktopExperienceProps['onAnalyticsConsentChange']
 }
 
-export function AppShell({ activePage, children, setActivePage, onAdd, desktopData, onSignOut, onRecordEntry, onMoveMoney, onCreateGoal, onCreateWishlistItem, onCreateAccount, onAddFunds, onCreateBudget, onUpdateTransaction, onDeleteTransaction, onUpdateAccount, onArchiveAccount, onRestoreAccount, onUpdateGoal, onDeleteGoal, onCreateDebt, onUpdateDebt, onDeleteDebt, onPayDebt, onCreateUpcoming, onUpdateUpcoming, onDeleteUpcoming, onPayUpcoming, onUpdateWishlist, onDeleteWishlist, onBuyWishlist, onSaveQuest, onCancelQuest, onSaveCategory, onArchiveCategory, onRestartJourney, onUpdateProfile, onAnalyticsConsentChange }: AppShellProps) {
+export function AppShell({ activePage, children, setActivePage, onAdd, desktopData, onSignOut, onRecordEntry, onMoveMoney, onCreateGoal, onCreateWishlistItem, onCreateAccount, onAddFunds, onCreateBudget, onSaveBudget, onArchiveBudget, onRestoreBudget, onCopyLastMonthBudgets, onUpdateTransaction, onDeleteTransaction, onUpdateAccount, onArchiveAccount, onRestoreAccount, onUpdateGoal, onDeleteGoal, onCreateDebt, onUpdateDebt, onDeleteDebt, onPayDebt, onCreateUpcoming, onUpdateUpcoming, onDeleteUpcoming, onPayUpcoming, onUpdateWishlist, onDeleteWishlist, onBuyWishlist, onSaveQuest, onCancelQuest, onSaveCategory, onArchiveCategory, onRestartJourney, onUpdateProfile, onAnalyticsConsentChange }: AppShellProps) {
   const isVaultPage = VAULT_PAGES.has(activePage)
 
   return (
@@ -65,6 +69,10 @@ export function AppShell({ activePage, children, setActivePage, onAdd, desktopDa
         onCreateAccount={onCreateAccount}
         onAddFunds={onAddFunds}
         onCreateBudget={onCreateBudget}
+        onSaveBudget={onSaveBudget}
+        onArchiveBudget={onArchiveBudget}
+        onRestoreBudget={onRestoreBudget}
+        onCopyLastMonthBudgets={onCopyLastMonthBudgets}
         onUpdateTransaction={onUpdateTransaction}
         onDeleteTransaction={onDeleteTransaction}
         onUpdateAccount={onUpdateAccount}

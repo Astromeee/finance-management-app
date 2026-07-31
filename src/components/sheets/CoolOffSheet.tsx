@@ -10,33 +10,48 @@ import { VaultSheet } from './VaultSheet'
    Plan page.
    ============================================================ */
 
-export function CoolOffSheet({ open, categories, onClose, onSave }: { open: boolean; categories: Category[]; onClose: () => void; onSave: (item: WishlistItem) => void }) {
-  const [name, setName] = useState('')
-  const [amount, setAmount] = useState('')
-  const [days, setDays] = useState('3')
-  const [categoryId, setCategoryId] = useState(categories.find((item) => item.kind === 'expense')?.id ?? '')
+export function CoolOffSheet({ open, categories, item, onClose, onSave }: { open: boolean; categories: Category[]; item?: WishlistItem; onClose: () => void; onSave: (item: WishlistItem) => void }) {
+  const [name, setName] = useState(item?.name ?? '')
+  const [amount, setAmount] = useState(item ? String(item.amount) : '')
+  const [duration, setDuration] = useState('2')
+  const [customHours, setCustomHours] = useState('72')
+  const [reason, setReason] = useState(item?.reason ?? '')
+  const [categoryId, setCategoryId] = useState(item?.categoryId ?? categories.find((entry) => entry.kind === 'expense')?.id ?? '')
 
   const submit = (event: FormEvent) => {
     event.preventDefault()
     const value = Number(amount)
     if (!name.trim() || !Number.isSafeInteger(value) || value <= 0) return
     const reconsider = new Date()
-    reconsider.setDate(reconsider.getDate() + Number(days))
-    onSave({ id: crypto.randomUUID(), name: name.trim(), amount: value, categoryId: categoryId || undefined, reconsiderAt: reconsider.toISOString(), status: 'waiting' })
+    const hours = duration === 'custom' ? Math.max(1, Number(customHours)) : Number(duration) * 24
+    reconsider.setHours(reconsider.getHours() + hours)
+    onSave({
+      ...item,
+      id: item?.id ?? crypto.randomUUID(),
+      name: name.trim(),
+      amount: value,
+      categoryId: categoryId || undefined,
+      reason: reason.trim() || undefined,
+      reconsiderAt: reconsider.toISOString(),
+      status: item?.status === 'ready' ? 'waiting' : item?.status ?? 'waiting',
+      createdAt: item?.createdAt ?? new Date().toISOString(),
+    })
     trackEvent('wishlist_item_added', { surface: 'plan' })
     onClose()
   }
 
   return (
     <VaultSheet open={open} label="Cool off a purchase" onClose={onClose}>
-      <h2 className="vault-sheet-title">Cool off a <em>buy.</em></h2>
+      <h2 className="vault-sheet-title">{item ? 'Edit your' : 'Cool off a'} <em>{item ? 'pause.' : 'buy.'}</em></h2>
       <p className="mt-2 text-center text-[12px] text-[var(--taupe)]">Park it here, sleep on it, decide with a clear head.</p>
       <form className="mt-5 grid gap-3" onSubmit={submit}>
         <label><span className="form-label">Item</span><input className="form-input" value={name} onChange={(event) => setName(event.target.value)} placeholder="What are you considering?" /></label>
         <label><span className="form-label">Amount</span><input className="form-input" inputMode="numeric" min="1" step="1" type="number" value={amount} onChange={(event) => setAmount(event.target.value)} placeholder="PKR amount" /></label>
         <label><span className="form-label">Category</span><select className="form-input" value={categoryId} onChange={(event) => setCategoryId(event.target.value)}>{categories.filter((item) => item.kind === 'expense').map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
-        <label><span className="form-label">Wait before deciding</span><select aria-label="Cool-off duration" className="form-input" value={days} onChange={(event) => setDays(event.target.value)}><option value="1">24 hours</option><option value="3">3 days</option><option value="7">7 days</option></select></label>
-        <button className="vault-commit is-espresso mt-1" disabled={!name.trim() || Number(amount) <= 0} type="submit">Start the cool-off</button>
+        <label><span className="form-label">Why are you pausing?</span><textarea className="form-input min-h-20 resize-none" value={reason} onChange={(event) => setReason(event.target.value)} placeholder="Optional — what do you want time to clarify?" /></label>
+        <label><span className="form-label">Wait before deciding</span><select aria-label="Cool-off duration" className="form-input" value={duration} onChange={(event) => setDuration(event.target.value)}><option value="1">24 hours</option><option value="2">48 hours</option><option value="7">7 days</option><option value="custom">Custom</option></select></label>
+        {duration === 'custom' && <label><span className="form-label">Custom hours</span><input className="form-input" min="1" step="1" type="number" value={customHours} onChange={(event) => setCustomHours(event.target.value)} /></label>}
+        <button className="vault-commit is-espresso mt-1" disabled={!name.trim() || Number(amount) <= 0 || (duration === 'custom' && Number(customHours) <= 0)} type="submit">{item ? 'Save changes' : 'Start the cool-off'}</button>
       </form>
     </VaultSheet>
   )

@@ -37,6 +37,7 @@ import { buildAttentionItems } from '../../utils/attention'
 import { categoryPresentationFor } from '../../utils/categoryPresentation'
 import { CategoryAppearancePicker } from '../categories/CategoryAppearancePicker'
 import { CategoryIcon } from '../icons/CategoryIcon'
+import { PlanDesktop } from '../plan/PlanDesktop'
 
 type DesktopPage = 'dashboard' | 'transactions' | 'accounts' | 'reports' | 'goals' | 'budgets' | 'settings' | 'categories'
 type ModalKind = 'record' | 'entry' | 'move' | 'account' | 'accountManage' | 'archivedAccounts' | 'category' | 'cooloff' | 'wishlist' | 'funds' | 'goal' | 'goalManage' | 'debt' | 'debtManage' | 'debtPayment' | 'plan' | 'billManage' | 'billPayment' | 'quest' | 'profile' | 'search' | 'notifications'
@@ -59,6 +60,10 @@ export interface DesktopExperienceProps {
   onCreateAccount: (payload: { name: string; type: AccountType; balance: number }) => void
   onAddFunds: (payload: { goalId: string; accountId: string; amount: number }) => void
   onCreateBudget: (payload: { category: string; amount: number }) => void
+  onSaveBudget: (budget: Budget) => void
+  onArchiveBudget: (budget: Budget) => void
+  onRestoreBudget: (budget: Budget) => void
+  onCopyLastMonthBudgets: () => void
   onUpdateTransaction: (transaction: Transaction) => void
   onDeleteTransaction: (transactionId: string) => void
   onUpdateAccount: (account: Account) => void
@@ -90,11 +95,12 @@ export interface DesktopFinanceData {
   accounts: Account[]
   archivedAccounts: Account[]
   budgets: Budget[]
+  budgetHistory: Budget[]
   categories: Category[]
   debts: Debt[]
   goals: Goal[]
   journeySettings: JourneySettings
-  moneyQuest?: MoneyQuest
+  moneyQuests: MoneyQuest[]
   profile: Profile
   authEmail?: string
   transactions: Transaction[]
@@ -382,7 +388,6 @@ function Topbar({ page, openModal, openPalette, attentionCount, setActivePage, p
       {hasPeriod && <div className="d-filter-wrap"><button type="button" className="d-filter" aria-expanded={periodOpen} aria-haspopup="menu" onClick={() => setPeriodOpen((value) => !value)}>{page === 'transactions' && <CalendarDays size={16} />}{periodLabels[period]}<ChevronDown size={14} /></button>{periodOpen && <div className="d-filter-menu" role="menu">{(Object.keys(periodLabels) as PeriodKey[]).map((key) => <button type="button" role="menuitemradio" aria-checked={period === key} className={period === key ? 'is-active' : ''} key={key} onClick={() => { setPeriod(key); setPeriodOpen(false) }}>{periodLabels[key]}{period === key && <Check size={14}/>}</button>)}</div>}</div>}
       {page === 'accounts' && <div className="d-filter-wrap"><button type="button" className="d-filter" aria-expanded={periodOpen} aria-haspopup="menu" onClick={() => setPeriodOpen((value) => !value)}><SlidersHorizontal size={16}/>{accountFilter === 'all' ? 'All accounts' : accounts.find((account) => account.id === accountFilter)?.name ?? 'All accounts'}<ChevronDown size={14}/></button>{periodOpen && <div className="d-filter-menu" role="menu"><button type="button" role="menuitemradio" aria-checked={accountFilter === 'all'} className={accountFilter === 'all' ? 'is-active' : ''} onClick={() => { setAccountFilter('all'); setPeriodOpen(false) }}>All accounts{accountFilter === 'all' && <Check size={14}/>}</button>{accounts.map((account) => <button type="button" role="menuitemradio" aria-checked={accountFilter === account.id} className={accountFilter === account.id ? 'is-active' : ''} key={account.id} onClick={() => { setAccountFilter(account.id); setPeriodOpen(false) }}>{account.name}{accountFilter === account.id && <Check size={14}/>}</button>)}</div>}</div>}
       {page === 'goals' && <Button onClick={() => openModal('goal')}><Plus size={17} />New goal</Button>}
-      {page === 'budgets' && <Button onClick={() => openModal('plan')}><Plus size={17} />Add to plan</Button>}
       {(page === 'dashboard' || page === 'transactions' || page === 'reports') && <Button onClick={() => openModal('record')}><Plus size={17} />Record</Button>}
       {isSettings && <Button kind="secondary" onClick={() => setActivePage(page === 'categories' ? 'settings' : 'dashboard')}><X size={16} />{page === 'categories' ? 'Back to settings' : 'Close'}</Button>}
     </div>
@@ -390,7 +395,8 @@ function Topbar({ page, openModal, openPalette, attentionCount, setActivePage, p
 }
 
 function HomePage({ setActivePage, openModal }: { setActivePage: (page: string) => void; openModal: OpenModal }) {
-  const { accounts, budgets, categories: financeCategories, goals, journeySettings, moneyQuest, transactions, upcomingExpenses, wishlistItems } = useDesktopData()
+  const { accounts, budgets, categories: financeCategories, goals, journeySettings, moneyQuests, transactions, upcomingExpenses, wishlistItems } = useDesktopData()
+  const moneyQuest = moneyQuests.find((quest) => quest.status === 'active')
   const balance = totalOf(accounts)
   const safe = calculateSafeSpend({ accounts, budgets, categories: financeCategories, upcomingExpenses, settings: journeySettings })
   const accountTotal = Math.max(1, accounts.reduce((sum, account) => sum + Math.max(0, account.balance), 0))
@@ -551,28 +557,6 @@ function GoalsPage({ openModal }: { openModal: OpenModal }) {
   </div>
 }
 
-function PlanPage({ openModal }: { openModal: OpenModal }) {
-  const { budgets, upcomingExpenses, wishlistItems, moneyQuest } = useDesktopData()
-  const totalBudget = budgets.reduce((sum, budget) => sum + budget.amount, 0)
-  const totalUsed = budgets.reduce((sum, budget) => sum + budget.used, 0)
-  const left = Math.max(0, totalBudget - totalUsed)
-  const remaining = totalBudget > 0 ? Math.round((left / totalBudget) * 100) : 0
-  const tones = ['clay', 'sage', 'blue', 'sand'] as const
-  const activeWishlist = wishlistItems.filter((item) => item.status === 'waiting' || item.status === 'ready')
-  return <div className="d-columns">
-    <div className="d-work">
-      <section className="d-hero d-plan-hero"><div><Label>Current plan</Label><p className="d-hero-number"><small>Rs</small> {nf(left)} <small>left</small></p><span>of Rs {nf(totalBudget)} · <b>{100 - remaining}% used</b></span></div><div className="d-plan-ring" style={{ background: `conic-gradient(#E2703A ${remaining}%,#4A4035 0)` }}><span>{remaining}<small>%</small><em>remaining</em></span></div></section>
-      <Card className="d-fill d-limits"><div className="d-card-heading"><h2>Spending limits</h2><Label>{budgets.length} active</Label></div>{budgets.slice(0, 5).map((budget, index) => { const progress = budget.amount > 0 ? Math.min(100, Math.round((budget.used / budget.amount) * 100)) : 0; const tone = tones[index % tones.length]; return <div key={budget.id}><span className={`d-account-icon is-${tone}`}>●</span><strong>{budget.category}</strong><span className="d-limit-bar"><i><b className={`is-${tone}`} style={{width:`${progress}%`}}/></i><small>{progress}% used</small></span><Money>{nf(budget.used)}<small> / {nf(budget.amount)}</small></Money><ChevronRight size={15}/></div>})}{budgets.length === 0 && <DesktopEmptyState icon={PieChart} title="Plan the categories that need guardrails" detail="Add only the limits that help you make a better spending decision." action="Create a limit" onAction={() => openModal('plan')}/>}</Card>
-    </div>
-    <aside className="d-attention">
-      <Card className="d-scheduled d-plan-actions"><div className="d-card-heading"><Label>Scheduled bills</Label><button type="button" onClick={() => openModal('billManage')}>Add bill <Plus size={13}/></button></div>{upcomingExpenses.filter((item) => item.status !== 'paid').slice(0, 3).map((item) => <div className="d-plan-action-row" key={item.id}><span>↑</span><p><strong>{item.title}</strong><small>{item.dueDate} · Rs {nf(item.amount)}</small></p><button type="button" onClick={() => openModal('billPayment', item.id)}>Pay</button><button type="button" aria-label={`Manage ${item.title}`} onClick={() => openModal('billManage', item.id)}><ChevronRight size={15}/></button></div>)}{upcomingExpenses.filter((item) => item.status !== 'paid').length === 0 && <DesktopEmptyState icon={CalendarDays} title="No bills are scheduled" detail="Add rent, subscriptions, or recurring payments so they are protected in your plan." action="Add a bill" onAction={() => openModal('billManage')}/>}</Card>
-      <section className="d-leak d-nudge"><Label>Cool-off list</Label><h2>{activeWishlist.length} {activeWishlist.length === 1 ? 'decision is' : 'decisions are'} waiting</h2><p>{activeWishlist[0]?.name ?? 'Nothing waiting right now'}</p><Button kind="secondary" onClick={() => openModal(activeWishlist.length ? 'wishlist' : 'cooloff')}>{activeWishlist.length ? 'Review decisions' : 'Add an item'} <ArrowRight size={15}/></Button></section>
-      <Card className="d-quest"><div><Label>This week's quest</Label><small>{moneyQuest?.status ?? 'not started'}</small></div><h2>{moneyQuest?.title ?? 'Choose a small money quest'}</h2><div className="d-segments"><i/><i/><i/></div><p><strong>{moneyQuest ? 'In progress' : 'Ready when you are'}</strong></p><Button kind="secondary" onClick={() => openModal('quest', moneyQuest?.id)}>{moneyQuest ? 'Manage quest' : 'Start quest'}</Button></Card>
-      <Card className="d-fill d-plan-note"><Label>Plan balance</Label><h2>You have <Money accent>Rs {nf(left)}</Money> left across your limits.</h2><p>Based on your current budgets.</p></Card>
-    </aside>
-  </div>
-}
-
 function Toggle({ on = true, onClick }: { on?: boolean; onClick?: () => void }) { return <button type="button" aria-label="Toggle setting" aria-pressed={on} className={`d-toggle ${on ? 'is-on' : ''}`} onClick={onClick}><i/></button> }
 
 function SettingsPage({ setActivePage, onSignOut, openModal, onAnalyticsConsentChange, onRestartJourney }: { setActivePage: (page: string) => void; onSignOut: () => void; openModal: OpenModal; onAnalyticsConsentChange: (granted: boolean) => void; onRestartJourney: () => void }) {
@@ -679,7 +663,8 @@ function SlideOver({ kind, targetId, close, setActivePage, onRecordEntry, onMove
   onUpdateProfile: DesktopExperienceProps['onUpdateProfile']
 }) {
   const copy = modalCopy[kind]
-  const { accounts, archivedAccounts, budgets, categories, debts, goals, moneyQuest, profile, transactions, upcomingExpenses, wishlistItems } = useDesktopData()
+  const { accounts, archivedAccounts, budgets, categories, debts, goals, moneyQuests, profile, transactions, upcomingExpenses, wishlistItems } = useDesktopData()
+  const moneyQuest = moneyQuests.find((quest) => quest.status === 'active')
   const selectedTransaction = transactions.find((item) => item.id === targetId)
   const selectedAccount = accounts.find((item) => item.id === targetId)
   const selectedGoal = goals.find((item) => item.id === targetId)
@@ -803,7 +788,7 @@ function SlideOver({ kind, targetId, close, setActivePage, onRecordEntry, onMove
   </div>
 }
 
-export function DesktopExperience({ activePage, setActivePage, data, onSignOut, onRecordEntry, onMoveMoney, onCreateGoal, onCreateWishlistItem, onCreateAccount, onAddFunds, onCreateBudget, onUpdateTransaction, onDeleteTransaction, onUpdateAccount, onArchiveAccount, onRestoreAccount, onUpdateGoal, onDeleteGoal, onCreateDebt, onUpdateDebt, onDeleteDebt, onPayDebt, onCreateUpcoming, onUpdateUpcoming, onDeleteUpcoming, onPayUpcoming, onUpdateWishlist, onDeleteWishlist, onBuyWishlist, onSaveQuest, onCancelQuest, onSaveCategory, onArchiveCategory, onRestartJourney, onUpdateProfile, onAnalyticsConsentChange }: DesktopExperienceProps) {
+export function DesktopExperience({ activePage, setActivePage, data, onSignOut, onRecordEntry, onMoveMoney, onCreateGoal, onCreateWishlistItem, onCreateAccount, onAddFunds, onCreateBudget, onSaveBudget, onArchiveBudget, onRestoreBudget, onCopyLastMonthBudgets, onUpdateTransaction, onDeleteTransaction, onUpdateAccount, onArchiveAccount, onRestoreAccount, onUpdateGoal, onDeleteGoal, onCreateDebt, onUpdateDebt, onDeleteDebt, onPayDebt, onCreateUpcoming, onUpdateUpcoming, onDeleteUpcoming, onPayUpcoming, onUpdateWishlist, onDeleteWishlist, onBuyWishlist, onSaveQuest, onCancelQuest, onSaveCategory, onArchiveCategory, onRestartJourney, onUpdateProfile, onAnalyticsConsentChange }: DesktopExperienceProps) {
   const [modal, setModal] = useState<ModalKind | null>(null)
   const [modalTargetId, setModalTargetId] = useState<string>()
   const [paletteOpen, setPaletteOpen] = useState(false)
@@ -832,7 +817,7 @@ export function DesktopExperience({ activePage, setActivePage, data, onSignOut, 
         {page === 'accounts' && <WalletPage openModal={openModal} accountFilter={accountFilter} setAccountFilter={setAccountFilter}/>}
         {page === 'reports' && <InsightsPage openModal={openModal} period={period} setPeriod={setPeriod}/>}
         {page === 'goals' && <GoalsPage openModal={openModal}/>}
-        {page === 'budgets' && <PlanPage openModal={openModal}/>}
+        {page === 'budgets' && <PlanDesktop {...data} onSaveBudget={onSaveBudget} onArchiveBudget={onArchiveBudget} onRestoreBudget={onRestoreBudget} onCopyLastMonthBudgets={onCopyLastMonthBudgets} onAddUpcoming={onCreateUpcoming} onUpdateUpcoming={onUpdateUpcoming} onCancelUpcoming={(expense) => onDeleteUpcoming(expense.id)} onMarkUpcomingPaid={onPayUpcoming} onSaveWishlist={onUpdateWishlist} onRemoveWishlist={(item) => onDeleteWishlist(item.id)} onBuyWishlist={onBuyWishlist} onSaveQuest={onSaveQuest} onEndQuest={onCancelQuest} />}
         {page === 'settings' && <SettingsPage setActivePage={setActivePage} onSignOut={onSignOut} openModal={openModal} onAnalyticsConsentChange={onAnalyticsConsentChange} onRestartJourney={onRestartJourney}/>}
         {page === 'categories' && <CategoriesPage openModal={openModal} onArchiveCategory={onArchiveCategory}/>}
       </main>

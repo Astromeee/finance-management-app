@@ -5,8 +5,8 @@ import { AppShell } from './components/layout/AppShell'
 import { LedgerLoader } from './components/SplashScreen'
 import { accounts as initialAccounts, budgets as initialBudgets, debts as initialDebts, expenseCategories as initialExpenseCategories, goals as initialGoals, incomeSources as initialIncomeSources, transactions as initialTransactions, upcomingExpenses as initialUpcomingExpenses } from './data/mockData'
 import * as vaultPreview from './data/vaultPreviewData'
-import { adjustAccountBalance, archiveAccount, archiveCategory, deleteBudget, deleteDebt, deleteFinanceTransaction, deleteGoal, deleteUpcomingExpense, deleteWishlistItem, loadArchivedAccounts, loadFinanceData, markUpcomingExpensePaid, recordFinanceAction, restoreAccount, saveAccount, saveBudget, saveCategory, saveDebt, saveGoal, saveJourneySettings, saveMoneyQuest, saveMoneyWin, saveUpcomingExpense, saveUserSettings, saveWishlistItem, updateFinanceTransaction } from './lib/financeRepository'
-import { addRecurringDate, localDateKey } from './lib/date'
+import { adjustAccountBalance, archiveAccount, archiveCategory, deleteBudget, deleteDebt, deleteFinanceTransaction, deleteGoal, loadArchivedAccounts, loadFinanceData, markUpcomingExpensePaid, recordFinanceAction, restoreAccount, restoreBudget, saveAccount, saveBudget, saveCategory, saveDebt, saveGoal, saveJourneySettings, saveMoneyQuest, saveMoneyWin, saveUpcomingExpense, saveUserSettings, saveWishlistItem, updateFinanceTransaction } from './lib/financeRepository'
+import { addRecurringDate, localDateKey, localMonthKey } from './lib/date'
 import { applyAccountOrder } from './lib/accountOrder'
 import { setAnalyticsConsent, trackEvent } from './lib/analytics'
 import { getProfile, onProfileChange, setProfile, type Profile } from './lib/profile'
@@ -150,6 +150,7 @@ function App() {
   const [goals, setGoals] = useState<Goal[]>(designPreview ? vaultPreview.goals : initialGoals)
   const [debts, setDebts] = useState<Debt[]>(designPreview ? vaultPreview.debts : initialDebts)
   const [budgets, setBudgets] = useState<Budget[]>(designPreview ? vaultPreview.budgets : initialBudgets)
+  const [budgetHistory, setBudgetHistory] = useState<Budget[]>([])
   const [upcomingExpenses, setUpcomingExpenses] = useState<UpcomingExpense[]>(designPreview ? vaultPreview.upcomingExpenses : initialUpcomingExpenses)
   const [categories, setCategories] = useState<Category[]>(() => [...initialIncomeSources, ...initialExpenseCategories])
   const [moneyQuests, setMoneyQuests] = useState<MoneyQuest[]>(designPreview ? vaultPreview.moneyQuests : [])
@@ -189,28 +190,22 @@ function App() {
   useEffect(() => onProfileChange(setProfileState), [])
 
   const reconcileActiveQuest = useCallback((nextTransactions: Transaction[]) => {
-    const activeQuest = moneyQuests.find((quest) => quest.status === 'active')
-    if (!activeQuest) return
-    const status = resolveQuestStatus(activeQuest, nextTransactions, localDateKey())
-    if (!status) return
-
-    const settledQuest = { ...activeQuest, status }
-    setMoneyQuests((current) => current.map((quest) => quest.id === activeQuest.id ? settledQuest : quest))
-    void saveMoneyQuest(settledQuest).catch((error) => showToast(error instanceof Error ? error.message : 'Could not update your quest'))
-
-    if (status === 'completed') {
-      awardMoneyWin({
-        id: `quest-completed:${activeQuest.id}`,
-        type: 'quest_completed',
-        title: 'Weekly quest completed',
-        detail: activeQuest.title,
-        earnedAt: new Date().toISOString(),
-      })
-      trackEvent('quest_completed', { surface: 'plan', action: 'complete' })
-      showToast('Quest complete — added to Tiny Wins')
-    } else {
-      trackEvent('quest_ended', { surface: 'plan', action: 'expire' })
-    }
+    const settled = moneyQuests.flatMap((quest) => {
+      if (quest.status !== 'active') return []
+      const status = resolveQuestStatus(quest, nextTransactions, localDateKey())
+      return status ? [{ previous: quest, next: { ...quest, status } }] : []
+    })
+    if (!settled.length) return
+    const byId = new Map(settled.map(({ next }) => [next.id, next]))
+    setMoneyQuests((current) => current.map((quest) => byId.get(quest.id) ?? quest))
+    settled.forEach(({ previous, next }) => {
+      void saveMoneyQuest(next).catch((error) => showToast(error instanceof Error ? error.message : 'Could not update your quest'))
+      if (next.status === 'completed') {
+        awardMoneyWin({ id: `quest-completed:${previous.id}`, type: 'quest_completed', title: 'Weekly quest completed', detail: previous.title, earnedAt: new Date().toISOString() })
+        trackEvent('quest_completed', { surface: 'plan', action: 'complete' })
+      } else trackEvent('quest_ended', { surface: 'plan', action: 'expire' })
+    })
+    showToast(settled.length === 1 ? 'Quest progress updated' : `${settled.length} quests updated`)
   }, [awardMoneyWin, moneyQuests, showToast])
 
   useEffect(() => {
@@ -259,6 +254,7 @@ function App() {
         setGoals(remoteState.goals)
         setDebts(remoteState.debts)
         setBudgets(remoteState.budgets)
+        setBudgetHistory(remoteState.budgetHistory)
         setUpcomingExpenses(remoteState.upcomingExpenses)
         setCategories(remoteState.categories)
         setMoneyQuests(remoteState.moneyQuests)
@@ -423,20 +419,62 @@ function App() {
   const removeUpcoming = (expenseId: string) => {
     const expense = upcomingExpenses.find((item) => item.id === expenseId)
     if (!expense) return
-    void deleteUpcomingExpense(expenseId).catch((error) => showToast(error.message))
-    setUpcomingExpenses((current) => current.filter((expense) => expense.id !== expenseId))
-    showToast('Upcoming bill deleted', {
+    const cancelled = { ...expense, status: 'cancelled' as const }
+    if (!designPreview) void saveUpcomingExpense(cancelled).catch((error) => showToast(error.message))
+    setUpcomingExpenses((current) => current.map((item) => item.id === expenseId ? cancelled : item))
+    showToast('Bill moved to history', {
       label: 'Undo',
       run: async () => {
         try {
           if (!designPreview) await saveUpcomingExpense(expense)
-          setUpcomingExpenses((current) => current.some((item) => item.id === expense.id) ? current : [expense, ...current])
+          setUpcomingExpenses((current) => current.map((item) => item.id === expense.id ? expense : item))
           showToast('Upcoming bill restored')
         } catch (error) {
           showToast(error instanceof Error ? error.message : 'Could not restore the bill')
         }
       },
     })
+  }
+
+  const savePlanBudget = (budget: Budget) => {
+    const next = { ...budget, archived: false, periodMonth: budget.periodMonth ?? `${localMonthKey()}-01` }
+    setBudgets((current) => [next, ...current.filter((item) => item.id !== next.id)])
+    setBudgetHistory((current) => current.filter((item) => item.id !== next.id))
+    if (!designPreview) void saveBudget(next).catch((error) => showToast(error.message))
+    showToast(`${next.category} limit saved`)
+  }
+
+  const restorePlanBudget = async (budget: Budget) => {
+    const currentMonth = `${localMonthKey()}-01`
+    const restoringPastMonth = budget.periodMonth?.slice(0, 7) !== localMonthKey()
+    const restored: Budget = restoringPastMonth
+      ? { ...budget, id: makeId(), used: 0, periodMonth: currentMonth, archived: false, createdAt: new Date().toISOString() }
+      : { ...budget, archived: false }
+    if (!designPreview) {
+      if (restoringPastMonth) await saveBudget(restored)
+      else await restoreBudget(restored.id)
+    }
+    setBudgetHistory((current) => restoringPastMonth ? current : current.filter((item) => item.id !== budget.id))
+    setBudgets((current) => current.some((item) => item.categoryId === restored.categoryId || item.category === restored.category) ? current : [restored, ...current])
+    showToast(`${restored.category} limit restored`)
+  }
+
+  const archivePlanBudget = (budget: Budget) => {
+    const archived = { ...budget, archived: true, updatedAt: new Date().toISOString() }
+    setBudgets((current) => current.filter((item) => item.id !== budget.id))
+    setBudgetHistory((current) => [archived, ...current.filter((item) => item.id !== budget.id)])
+    if (!designPreview) void deleteBudget(budget.id).catch((error) => showToast(error.message))
+    showToast(`${budget.category} limit archived`, { label: 'Undo', run: () => restorePlanBudget(archived) })
+  }
+
+  const copyLastMonthBudgets = () => {
+    const candidates = budgetHistory.filter((budget) => !budget.archived)
+    const latestMonth = candidates.map((budget) => budget.periodMonth?.slice(0, 7) ?? '').sort().at(-1)
+    const copies = candidates.filter((budget) => budget.periodMonth?.startsWith(latestMonth ?? '') && !budgets.some((current) => current.categoryId ? current.categoryId === budget.categoryId : current.category === budget.category)).map((budget) => ({ ...budget, id: makeId(), used: 0, archived: false, periodMonth: `${localMonthKey()}-01`, createdAt: new Date().toISOString(), updatedAt: undefined }))
+    if (!copies.length) { showToast('No limits are available to copy'); return }
+    setBudgets((current) => [...copies, ...current])
+    if (!designPreview) copies.forEach((budget) => { void saveBudget(budget).catch((error) => showToast(error.message)) })
+    showToast(`${copies.length} ${copies.length === 1 ? 'limit' : 'limits'} copied`)
   }
 
   const removeGoal = (goalId: string) => {
@@ -572,9 +610,7 @@ function App() {
             showToast('Upcoming expense updated')
           }}
           onDeleteUpcomingExpense={(expenseId) => {
-            void deleteUpcomingExpense(expenseId).catch((error) => showToast(error.message))
-            setUpcomingExpenses((current) => current.filter((expense) => expense.id !== expenseId))
-            showToast('Upcoming expense deleted')
+            removeUpcoming(expenseId)
           }}
           onMarkUpcomingPaid={async (expense, { accountId, paymentDate, notes }) => {
             const account = accounts.find((item) => item.id === accountId)
@@ -627,16 +663,21 @@ function App() {
       subtitle: 'Budgets, bills, and considered purchases',
       component: <Budgets
         budgets={budgets}
+        budgetHistory={budgetHistory}
         upcomingExpenses={upcomingExpenses}
         accounts={accounts}
         categories={categories}
+        goals={goals}
         transactions={transactions}
         wishlistItems={wishlistItems}
-        activeQuest={moneyQuests.find((item) => item.status === 'active')}
-        onNavigateSettings={() => setActivePage('settings')}
+        moneyQuests={moneyQuests}
+        onSaveBudget={savePlanBudget}
+        onArchiveBudget={archivePlanBudget}
+        onRestoreBudget={(budget) => { void restorePlanBudget(budget).catch((error) => showToast(error.message)) }}
+        onCopyLastMonthBudgets={copyLastMonthBudgets}
         onAddUpcoming={addUpcoming}
         onUpdateUpcoming={updateUpcoming}
-        onDeleteUpcoming={removeUpcoming}
+        onCancelUpcoming={(expense) => removeUpcoming(expense.id)}
         onMarkUpcomingPaid={payUpcoming}
         onSaveWishlist={(item) => {
           void saveWishlistItem(item).catch((error) => showToast(error.message))
@@ -654,9 +695,15 @@ function App() {
             trackEvent('wishlist_decision', { surface: 'plan', action: 'wait' })
           }
         }}
-        onDeleteWishlist={(id) => {
-          void deleteWishlistItem(id).catch((error) => showToast(error.message))
-          setWishlistItems((current) => current.filter((item) => item.id !== id))
+        onRemoveWishlist={(item) => {
+          const removed = { ...item, status: 'removed' as const }
+          if (!designPreview) void saveWishlistItem(removed).catch((error) => showToast(error.message))
+          setWishlistItems((current) => current.map((entry) => entry.id === item.id ? removed : entry))
+          showToast('Item moved to history', { label: 'Undo', run: async () => {
+            if (!designPreview) await saveWishlistItem(item)
+            setWishlistItems((current) => current.map((entry) => entry.id === item.id ? item : entry))
+            showToast('Cool-off item restored')
+          } })
         }}
         onBuyWishlist={(item) => {
           setExpenseDraft({ amount: item.amount, category: categories.find((category) => category.id === item.categoryId)?.name ?? 'Miscellaneous', wishlistId: item.id })
@@ -664,10 +711,12 @@ function App() {
           trackEvent('wishlist_decision', { surface: 'plan', action: 'buy' })
         }}
         onSaveQuest={(quest) => {
+          if (quest.status === 'active' && moneyQuests.filter((item) => item.status === 'active' && item.id !== quest.id).length >= 3) { showToast('Finish a quest before starting another'); return }
           void saveMoneyQuest(quest).catch((error) => showToast(error.message))
-          setMoneyQuests((current) => [quest, ...current.filter((item) => item.id !== quest.id && item.status !== 'active')])
+          setMoneyQuests((current) => [quest, ...current.filter((item) => item.id !== quest.id)])
+          showToast('Quest started')
         }}
-        onCancelQuest={(quest) => {
+        onEndQuest={(quest) => {
           const next = { ...quest, status: 'cancelled' as const }
           void saveMoneyQuest(next).catch((error) => showToast(error.message))
           setMoneyQuests((current) => current.map((item) => item.id === quest.id ? next : item))
@@ -777,10 +826,12 @@ function App() {
       onCreateBudget={({ category, amount }) => {
         const existing = budgets.find((budget) => budget.category === category)
         const budget: Budget = existing ? { ...existing, amount } : { id: makeId(), category, amount, used: 0, categoryId: categories.find((item) => item.kind === 'expense' && item.name === category)?.id }
-        setBudgets((current) => [budget, ...current.filter((item) => item.id !== budget.id)])
-        if (!designPreview) void saveBudget(budget).catch((error) => showToast(error.message))
-        showToast(`${category} limit saved`)
+        savePlanBudget(budget)
       }}
+      onSaveBudget={savePlanBudget}
+      onArchiveBudget={archivePlanBudget}
+      onRestoreBudget={(budget) => { void restorePlanBudget(budget).catch((error) => showToast(error.message)) }}
+      onCopyLastMonthBudgets={copyLastMonthBudgets}
       onUpdateTransaction={(transaction) => { void updateTransaction(transaction) }}
       onDeleteTransaction={(transactionId) => { void deleteTransaction(transactionId) }}
       onUpdateAccount={(account) => {
@@ -844,16 +895,23 @@ function App() {
         showToast(item.status === 'skipped' ? 'Item skipped' : 'Decision updated')
       }}
       onDeleteWishlist={(itemId) => {
-        setWishlistItems((current) => current.filter((item) => item.id !== itemId))
-        if (!designPreview) void deleteWishlistItem(itemId).catch((error) => showToast(error.message))
-        showToast('Item removed')
+        const item = wishlistItems.find((entry) => entry.id === itemId)
+        if (!item) return
+        const removed = { ...item, status: 'removed' as const }
+        setWishlistItems((current) => current.map((entry) => entry.id === itemId ? removed : entry))
+        if (!designPreview) void saveWishlistItem(removed).catch((error) => showToast(error.message))
+        showToast('Item moved to history', { label: 'Undo', run: async () => {
+          if (!designPreview) await saveWishlistItem(item)
+          setWishlistItems((current) => current.map((entry) => entry.id === itemId ? item : entry))
+        } })
       }}
       onBuyWishlist={(item) => {
         setExpenseDraft({ amount: item.amount, category: categories.find((category) => category.id === item.categoryId)?.name ?? 'Miscellaneous', wishlistId: item.id })
         setActiveModal('expense')
       }}
       onSaveQuest={(quest) => {
-        setMoneyQuests((current) => [quest, ...current.filter((item) => item.id !== quest.id && item.status !== 'active')])
+        if (quest.status === 'active' && moneyQuests.filter((item) => item.status === 'active' && item.id !== quest.id).length >= 3) { showToast('Finish a quest before starting another'); return }
+        setMoneyQuests((current) => [quest, ...current.filter((item) => item.id !== quest.id)])
         if (!designPreview) void saveMoneyQuest(quest).catch((error) => showToast(error.message))
         showToast('Quest started')
       }}
@@ -889,11 +947,12 @@ function App() {
         accounts: accountsWithSavings,
         archivedAccounts,
         budgets,
+        budgetHistory,
         categories,
         debts,
         goals,
         journeySettings,
-        moneyQuest: moneyQuests.find((item) => item.status === 'active'),
+        moneyQuests,
         profile,
         authEmail,
         transactions,

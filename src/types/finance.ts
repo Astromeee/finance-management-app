@@ -5,7 +5,7 @@ export type TransactionType = 'income' | 'expense' | 'transfer' | 'goal' | 'debt
 export type Status = 'Active' | 'Completed' | 'Overdue'
 export type DebtCategory = 'Debt' | 'Overdue Payment' | 'Money I Owe' | 'Installment' | 'Other'
 export type DebtStatus = 'Active' | 'Due Soon' | 'Overdue' | 'Paid'
-export type UpcomingExpenseStatus = 'upcoming' | 'due_soon' | 'overdue' | 'paid'
+export type UpcomingExpenseStatus = 'upcoming' | 'due_soon' | 'overdue' | 'paid' | 'cancelled'
 export type RecurringFrequency = 'weekly' | 'monthly' | 'quarterly' | 'semi_annual' | 'yearly'
 export type IncomeSourceType = 'salary' | 'allowance' | 'irregular' | 'mixed'
 export type IncomeCadence = 'weekly' | 'monthly' | 'custom'
@@ -127,7 +127,7 @@ export interface MoneyQuest {
   updatedAt?: string
 }
 
-export type WishlistStatus = 'waiting' | 'ready' | 'bought' | 'skipped' | 'moved_to_goal'
+export type WishlistStatus = 'waiting' | 'ready' | 'bought' | 'skipped' | 'moved_to_goal' | 'removed'
 
 export interface WishlistItem {
   id: string
@@ -138,6 +138,7 @@ export interface WishlistItem {
   reconsiderAt: string
   status: WishlistStatus
   transactionId?: string
+  reason?: string
   createdAt?: string
   updatedAt?: string
 }
@@ -208,6 +209,9 @@ export interface Budget {
   used: number
   categoryId?: string
   periodMonth?: string
+  archived?: boolean
+  createdAt?: string
+  updatedAt?: string
 }
 
 export interface UpcomingExpense {

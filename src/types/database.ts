@@ -658,6 +658,7 @@ export type Database = {
           id: string
           name: string
           reconsider_at: string
+          reason: string | null
           status: string
           transaction_id: string | null
           updated_at: string
@@ -671,6 +672,7 @@ export type Database = {
           id: string
           name: string
           reconsider_at: string
+          reason?: string | null
           status?: string
           transaction_id?: string | null
           updated_at?: string
@@ -684,6 +686,7 @@ export type Database = {
           id?: string
           name?: string
           reconsider_at?: string
+          reason?: string | null
           status?: string
           transaction_id?: string | null
           updated_at?: string

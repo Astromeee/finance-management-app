@@ -1,430 +1,266 @@
-import { CalendarDays, ChevronRight, Clock3, Flag, PieChart, Plus, X } from 'lucide-react'
-import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
-import type { Account, Budget, Category, MoneyQuest, Transaction, UpcomingExpense, WishlistItem } from '../types/finance'
-import { budgetUsage } from '../utils/financeCalculations'
-import { cn } from '../utils/ui'
-import { AddUpcomingExpenseModal, RecordUpcomingExpensePaidModal } from './GoalsDebts'
+import {
+  Archive,
+  CalendarDays,
+  Check,
+  ChevronRight,
+  Clock3,
+  Copy,
+  Flag,
+  History,
+  Pencil,
+  PieChart,
+  Plus,
+  RotateCcw,
+  Trash2,
+  X,
+} from 'lucide-react'
+import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react'
 import { CoolOffSheet } from '../components/sheets/CoolOffSheet'
-import { trackEvent } from '../lib/analytics'
+import { VaultSheet } from '../components/sheets/VaultSheet'
+import { AddUpcomingExpenseModal, RecordUpcomingExpensePaidModal } from './GoalsDebts'
+import { CategoryIcon } from '../components/icons/CategoryIcon'
+import type { Budget, MoneyQuest, UpcomingExpense, WishlistItem } from '../types/finance'
+import { localDateKey, localMonthKey } from '../lib/date'
 import { questProgress } from '../utils/retention'
+import { cn } from '../utils/ui'
+import {
+  daysUntil,
+  formatPlanDate,
+  isBillActive,
+  isWishlistActive,
+  nf,
+  sectionDescriptions,
+  type PlanActions,
+  type PlanData,
+  type PlanHistoryFilter,
+  type PlanSection,
+} from '../components/plan/planTypes'
 
-/* ============================================================
-   Plan — "The plan." (Vault spec 16a)
-   Four former tabs folded into one scroll with anchor chips.
-   Renames: Budgets → Spending limits · Bills → Locked for bills ·
-   Wishlist → Cooling off · Quest → This week's quest.
-   ============================================================ */
+type DetailTarget =
+  | { kind: 'limit'; item: Budget }
+  | { kind: 'bill'; item: UpcomingExpense }
+  | { kind: 'cooling'; item: WishlistItem }
+  | { kind: 'quests'; item: MoneyQuest }
 
-type SectionKey = 'limits' | 'bills' | 'cooling' | 'quest'
-type QuestDraftType = Exclude<MoneyQuest['type'], 'goal_contribution'>
-type UpcomingPayload = Omit<UpcomingExpense, 'id' | 'status' | 'createdAt' | 'paidTransactionId'>
+const sections: Array<{ key: PlanSection; label: string }> = [
+  { key: 'limits', label: 'Limits' },
+  { key: 'bills', label: 'Bills' },
+  { key: 'cooling', label: 'Cool-off' },
+  { key: 'quests', label: 'Quests' },
+]
 
-const nf = (value: number) => Math.round(value).toLocaleString('en-PK')
-
-function formatDue(date: string) {
-  const value = new Date(`${date}T12:00:00`)
-  if (Number.isNaN(value.getTime())) return date
-  return value.toLocaleDateString('en-GB', { day: 'numeric', month: 'long' })
-}
-
-function daysUntil(date: string) {
-  const value = new Date(`${date}T12:00:00`)
-  if (Number.isNaN(value.getTime())) return Infinity
-  const today = new Date()
-  return Math.ceil((new Date(value.getFullYear(), value.getMonth(), value.getDate()).getTime() - new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime()) / 86_400_000)
-}
-
-export function Budgets({ budgets, upcomingExpenses, accounts, categories, transactions, wishlistItems, activeQuest, onNavigateSettings, onAddUpcoming, onUpdateUpcoming, onDeleteUpcoming, onMarkUpcomingPaid, onSaveWishlist, onDeleteWishlist, onBuyWishlist, onSaveQuest, onCancelQuest }: {
-  budgets: Budget[]
-  upcomingExpenses: UpcomingExpense[]
-  accounts: Account[]
-  categories: Category[]
-  transactions: Transaction[]
-  wishlistItems: WishlistItem[]
-  activeQuest?: MoneyQuest
-  onNavigateSettings: () => void
-  onAddUpcoming: (payload: UpcomingPayload) => void
-  onUpdateUpcoming: (id: string, payload: UpcomingPayload) => void
-  onDeleteUpcoming: (id: string) => void
-  onMarkUpcomingPaid: (expense: UpcomingExpense, payload: { accountId: string; paymentDate: string; notes?: string }) => void
-  onSaveWishlist: (item: WishlistItem) => void
-  onDeleteWishlist: (id: string) => void
-  onBuyWishlist: (item: WishlistItem) => void
-  onSaveQuest: (quest: MoneyQuest) => void
-  onCancelQuest: (quest: MoneyQuest) => void
-}) {
-  const [activeChip, setActiveChip] = useState<SectionKey>('limits')
-  // frozen per mount: keeps render pure (react-compiler) — the page remounts on nav
+export function Budgets(props: PlanData & PlanActions) {
+  const {
+    accounts, budgets, budgetHistory, categories, goals, moneyQuests, transactions, upcomingExpenses, wishlistItems,
+    onSaveBudget, onArchiveBudget, onRestoreBudget, onCopyLastMonthBudgets,
+    onAddUpcoming, onUpdateUpcoming, onCancelUpcoming, onMarkUpcomingPaid,
+    onSaveWishlist, onRemoveWishlist, onBuyWishlist, onSaveQuest, onEndQuest,
+  } = props
+  const [activeChip, setActiveChip] = useState<PlanSection>('limits')
+  const [addChooserOpen, setAddChooserOpen] = useState(false)
+  const [detail, setDetail] = useState<DetailTarget | null>(null)
+  const [listSection, setListSection] = useState<PlanSection | null>(null)
+  const [historyOpen, setHistoryOpen] = useState(false)
+  const [historyFilter, setHistoryFilter] = useState<PlanHistoryFilter>('all')
   const [now] = useState(() => Date.now())
+  const [limitEditor, setLimitEditor] = useState<Budget | 'new' | null>(null)
   const [addingBill, setAddingBill] = useState(false)
   const [editingBill, setEditingBill] = useState<UpcomingExpense | null>(null)
   const [payingBill, setPayingBill] = useState<UpcomingExpense | null>(null)
-  const [decidingItem, setDecidingItem] = useState<WishlistItem | null>(null)
   const [addingWish, setAddingWish] = useState(false)
+  const [editingWish, setEditingWish] = useState<WishlistItem | null>(null)
   const [startingQuest, setStartingQuest] = useState(false)
-  const [addChooserOpen, setAddChooserOpen] = useState(false)
-  const sectionRefs = useRef<Record<SectionKey, HTMLElement | null>>({ limits: null, bills: null, cooling: null, quest: null })
-  const scrollingTo = useRef<SectionKey | null>(null)
+  const sectionRefs = useRef<Record<PlanSection, HTMLElement | null>>({ limits: null, bills: null, cooling: null, quests: null })
 
-  const chips: Array<{ key: SectionKey; label: string }> = [
-    { key: 'limits', label: 'Limits' },
-    { key: 'bills', label: 'Bills' },
-    { key: 'cooling', label: 'Cooling off' },
-    { key: 'quest', label: 'Quest' },
-  ]
+  const activeBills = useMemo(() => upcomingExpenses.filter(isBillActive).sort((a, b) => a.dueDate.localeCompare(b.dueDate)), [upcomingExpenses])
+  const coolingItems = useMemo(() => wishlistItems.filter(isWishlistActive).sort((a, b) => a.reconsiderAt.localeCompare(b.reconsiderAt)), [wishlistItems])
+  const activeQuests = useMemo(() => moneyQuests.filter((quest) => quest.status === 'active'), [moneyQuests])
+  const totalLimit = budgets.reduce((sum, budget) => sum + budget.amount, 0)
+  const totalUsed = budgets.reduce((sum, budget) => sum + budget.used, 0)
+  const remaining = Math.max(0, totalLimit - totalUsed)
+  const dueSoon = activeBills.filter((bill) => daysUntil(bill.dueDate) <= 30).length
+  const readyItems = coolingItems.filter((item) => item.status === 'ready' || new Date(item.reconsiderAt).getTime() <= now).length
+  const previousMonthLimits = budgetHistory.filter((budget) => !budget.archived).length
 
-  /* Anchor chips: tapping scrolls, active follows scroll (spec 16a §2). */
   useEffect(() => {
     const observer = new IntersectionObserver((entries) => {
-      const visible = entries.filter((entry) => entry.isIntersecting)
-      if (!visible.length) return
-      const first = visible.sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top)[0]
-      const key = (first.target as HTMLElement).dataset.section as SectionKey | undefined
-      if (!key) return
-      if (scrollingTo.current && scrollingTo.current !== key) return
-      if (scrollingTo.current === key) scrollingTo.current = null
-      setActiveChip(key)
-    }, { rootMargin: '-20% 0px -55% 0px' })
-    for (const node of Object.values(sectionRefs.current)) if (node) observer.observe(node)
+      const visible = entries.filter((entry) => entry.isIntersecting).sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top)[0]
+      const key = (visible?.target as HTMLElement | undefined)?.dataset.section as PlanSection | undefined
+      if (key) setActiveChip(key)
+    }, { rootMargin: '-18% 0px -66% 0px' })
+    Object.values(sectionRefs.current).forEach((node) => { if (node) observer.observe(node) })
     return () => observer.disconnect()
   }, [])
 
-  const goTo = (key: SectionKey) => {
+  const goTo = (key: PlanSection) => {
     setActiveChip(key)
-    scrollingTo.current = key
     sectionRefs.current[key]?.scrollIntoView({ behavior: 'smooth', block: 'start' })
   }
 
-  const totalBudget = budgets.reduce((sum, item) => sum + item.amount, 0)
-  const totalUsed = budgets.reduce((sum, item) => sum + item.used, 0)
-  const leftThisMonth = Math.max(0, totalBudget - totalUsed)
+  const addFor = (kind: PlanSection) => {
+    if (kind === 'limits') setLimitEditor('new')
+    if (kind === 'bills') setAddingBill(true)
+    if (kind === 'cooling') setAddingWish(true)
+    if (kind === 'quests' && activeQuests.length < 3) setStartingQuest(true)
+  }
 
-  const sortedBills = useMemo(
-    () => [...upcomingExpenses].sort((a, b) => a.status === 'paid' ? 1 : b.status === 'paid' ? -1 : a.dueDate.localeCompare(b.dueDate)),
-    [upcomingExpenses],
-  )
-  const coolingItems = wishlistItems.filter((item) => item.status === 'waiting' || item.status === 'ready')
-  const progress = useMemo(() => activeQuest ? questProgress(activeQuest, transactions) : 0, [activeQuest, transactions])
-
-  const eyebrow = `${new Date().toLocaleDateString('en-GB', { month: 'long' })} · Cycle 4`.toUpperCase()
+  const previewFor = (kind: PlanSection) => kind === 'limits' ? budgets : kind === 'bills' ? activeBills : kind === 'cooling' ? coolingItems : activeQuests
+  const countFor = (kind: PlanSection) => previewFor(kind).length
 
   return (
-    <div className="vault-screen">
+    <div className="vault-screen pl-mobile-plan">
       <header className="vault-topbar">
-        <p className="vault-eyebrow">{eyebrow}</p>
-        <div className="vault-topbar-actions">
-          <button aria-label="Add to your plan" className="vault-plan-add-pill" type="button" onClick={() => setAddChooserOpen(true)}>
-            <Plus size={17} strokeWidth={2} /> <span>Add</span>
-          </button>
-        </div>
+        <p className="vault-eyebrow">{new Date().toLocaleDateString('en-GB', { month: 'long' }).toUpperCase()} · YOUR PLAN</p>
+        <button aria-label="Add to your plan" className="vault-plan-add-pill" type="button" onClick={() => setAddChooserOpen(true)}><Plus size={17} /> <span>Add</span></button>
       </header>
-
       <h1 className="vault-title">The <em>plan.</em></h1>
 
-      <div className="vault-chiprow vault-plan-chips sticky top-0 z-10 -mx-[26px] mt-6 bg-[var(--bone)] px-[26px] py-2">
-        {chips.map((chip) => (
-          <button key={chip.key} className={cn('vault-chip', activeChip === chip.key && 'is-active')} type="button" onClick={() => goTo(chip.key)}>
-            {chip.label}
-          </button>
-        ))}
+      <section className="pl-mobile-summary" aria-label="Plan summary">
+        <div><span>Limit money left</span><strong className="vault-digits">Rs {nf(remaining)}</strong></div>
+        <div><span>Bills due in 30 days</span><strong className="vault-digits">{dueSoon}</strong></div>
+        <div><span>Decisions ready</span><strong className="vault-digits">{readyItems}</strong></div>
+        <div><span>Active quests</span><strong className="vault-digits">{activeQuests.length} / 3</strong></div>
+      </section>
+
+      <div className="vault-chiprow pl-plan-chips sticky top-0 z-10 -mx-[26px] bg-[var(--bone)] px-[26px] py-2">
+        {sections.map(({ key, label }) => <button key={key} className={cn('vault-chip', activeChip === key && 'is-active')} type="button" onClick={() => goTo(key)}>{label}</button>)}
       </div>
 
-      {/* ---- Spending limits ---- */}
-      <section ref={(node) => { sectionRefs.current.limits = node }} data-section="limits" aria-label="Spending limits" className="vault-plan-limits mt-6 scroll-mt-16">
-        <div className="flex items-baseline justify-between gap-3">
-          <h2 className="vault-h2">Spending limits</h2>
-          <p className="vault-h2-sub"><span className="vault-digits font-semibold text-[var(--ink)]">Rs {nf(leftThisMonth)}</span> left this month</p>
-        </div>
-        <div className="mt-2">
-          {budgets.length ? budgets.slice(0, 2).map((budget) => {
-            const usage = budgetUsage(budget)
-            const left = Math.max(0, budget.amount - budget.used)
-            const hot = usage >= 70
-            return (
-              <div key={budget.id} className="vault-plan-limit-row border-b border-[var(--rule-soft)] last:border-b-0">
-                <div className="flex items-baseline justify-between gap-3">
-                  <p className="vault-row-title">{budget.category}</p>
-                  <p className="vault-row-amount">
-                    <span className={cn(hot && 'text-[var(--clay)]')}>{nf(left)} left</span>
-                    <span className="font-normal text-[var(--taupe)]"> · {usage}% used</span>
-                  </p>
-                </div>
-                <div className="vault-line mt-2.5">
-                  <div className={cn('vault-line-fill', hot && 'is-clay')} style={{ width: `${Math.min(100, usage)}%` }} />
-                </div>
-              </div>
-            )
-          }) : (
-            <p className="py-5 text-sm leading-6 text-[var(--taupe)]">
-              No limits yet. Add only the category limits that help you decide.{' '}
-              <button className="font-semibold text-[var(--clay)]" type="button" onClick={onNavigateSettings}>Add in Settings</button>
-            </p>
-          )}
-        </div>
-      </section>
-
-      {/* ---- Locked for bills ---- */}
-      <section ref={(node) => { sectionRefs.current.bills = node }} data-section="bills" aria-label="Locked for bills" className="vault-plan-bills mt-9 scroll-mt-16">
-        <div className="flex items-baseline justify-between gap-3">
-          <h2 className="vault-h2">Locked for bills</h2>
-          <p className="vault-h2-sub">paid before you can spend it</p>
-        </div>
-        <div className="mt-1">
-          {sortedBills.some((bill) => bill.status !== 'paid') ? sortedBills.filter((bill) => bill.status !== 'paid').slice(0, 2).map((bill) => {
-            const paid = bill.status === 'paid'
-            const actionable = !paid && daysUntil(bill.dueDate) <= 7
-            return (
-              <div key={bill.id} className={cn('vault-row', paid && 'is-paid')}>
-                <span className={cn('vault-row-dot', paid && 'is-paid')} />
-                <button className="vault-row-main text-left" type="button" onClick={() => { if (!paid) setEditingBill(bill) }}>
-                  <span className="vault-row-title block">{bill.title}</span>
-                  <span className="vault-row-meta block">{paid ? `Paid · ${formatDue(bill.dueDate)}` : `Due ${formatDue(bill.dueDate)}`}</span>
-                </button>
-                {actionable && <button className="vault-pay" type="button" onClick={() => setPayingBill(bill)}>Pay</button>}
-                <span className="vault-row-amount">{nf(bill.amount)}{paid && ' ✓'}</span>
-              </div>
-            )
-          }) : (
-            <p className="py-5 text-sm leading-6 text-[var(--taupe)]">
-              No bills locked yet.{' '}
-              <button className="font-semibold text-[var(--clay)]" type="button" onClick={() => setAddingBill(true)}>Add rent, fees, or a subscription</button>
-            </p>
-          )}
-        </div>
-      </section>
-
-      {/* ---- This week's quest ---- */}
-      <section ref={(node) => { sectionRefs.current.quest = node }} data-section="quest" aria-label="This week's quest" className="vault-plan-quest-section mt-6 scroll-mt-16">
-        {activeQuest ? (
-          <QuestCard quest={activeQuest} progress={progress} onCancel={() => onCancelQuest(activeQuest)} />
-        ) : (
-          <button className="vault-dashed" type="button" onClick={() => setStartingQuest(true)}>
-            + Start this week&rsquo;s quest
-          </button>
-        )}
-      </section>
-
-      <button className="vault-plan-hub mt-6" type="button" onClick={() => setAddChooserOpen(true)}>
-        <span className="vault-plan-hub-plus"><Plus size={18} strokeWidth={2} /></span>
-        <span>
-          <span className="vault-plan-hub-title">Add to your plan</span>
-          <span className="vault-plan-hub-copy">Limit, bill, cooling-off or quest</span>
-        </span>
-      </button>
-
-      {/* Cooling-off decisions remain available below the screenshot-locked
-          Plan overview; the anchor chip scrolls here directly. */}
-      <section ref={(node) => { sectionRefs.current.cooling = node }} data-section="cooling" aria-label="Cooling off" className="mt-9 scroll-mt-16">
-        <div className="flex items-baseline justify-between gap-3">
-          <h2 className="vault-h2">Cooling off</h2>
-          <p className="vault-h2-sub">sleep on it before you buy</p>
-        </div>
-        <div className="vault-espresso mt-4 px-5 py-1">
-          {coolingItems.map((item) => {
-            const ready = item.status === 'ready' || new Date(item.reconsiderAt).getTime() <= now
-            const daysLeft = Math.max(1, Math.ceil((new Date(item.reconsiderAt).getTime() - now) / 86_400_000))
-            const until = new Date(item.reconsiderAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'long' })
-            return (
-              <div key={item.id} className="flex items-center gap-4 border-b border-[var(--rule-dark)] py-4 last:border-b-0">
-                <button className="min-w-0 flex-1 text-left" type="button" onClick={() => setDecidingItem(item)}>
-                  <p className="truncate text-sm font-semibold text-[var(--bone-text)]">{item.name}</p>
-                  <p className="mt-1 truncate text-[11.5px] text-[var(--sand-text)]"><span className="vault-digits">Rs {nf(item.amount)}</span> · {ready ? 'your head is clear now' : `thinking until ${until}`}</p>
-                </button>
-                {ready ? <button className="vault-decide" type="button" onClick={() => setDecidingItem(item)}>Decide</button> : <span className="vault-digits flex-none text-[13px] font-medium text-[var(--sand-text)]">{daysLeft} {daysLeft === 1 ? 'day' : 'days'}</span>}
-              </div>
-            )
-          })}
-          <button className="flex w-full items-center gap-2 py-4 text-[12.5px] font-semibold text-[var(--sand-dim)]" type="button" onClick={() => setAddingWish(true)}><Plus size={14} strokeWidth={2} /> Cool off a purchase</button>
-        </div>
-      </section>
-
-      {/* ---- Sheets & modals ---- */}
-      {addChooserOpen && (
-        <AddToPlanSheet
-          onClose={() => setAddChooserOpen(false)}
-          onPick={(kind) => {
-            setAddChooserOpen(false)
-            if (kind === 'limit') onNavigateSettings()
-            if (kind === 'bill') setAddingBill(true)
-            if (kind === 'cooling') setAddingWish(true)
-            if (kind === 'quest') setStartingQuest(true)
-          }}
-        />
-      )}
-      <AddUpcomingExpenseModal accounts={accounts} key={addingBill ? 'add-bill' : 'closed-add'} open={addingBill} onClose={() => setAddingBill(false)} onSubmit={onAddUpcoming} />
-      <AddUpcomingExpenseModal
-        accounts={accounts}
-        key={editingBill?.id ?? 'closed-edit'}
-        expense={editingBill ?? undefined}
-        open={Boolean(editingBill)}
-        onClose={() => setEditingBill(null)}
-        onSubmit={(payload) => { if (editingBill) onUpdateUpcoming(editingBill.id, payload) }}
-        onDelete={() => { if (editingBill) onDeleteUpcoming(editingBill.id) }}
-      />
-      <RecordUpcomingExpensePaidModal accounts={accounts} expense={payingBill} onClose={() => setPayingBill(null)} onConfirm={(payload) => { if (payingBill) onMarkUpcomingPaid(payingBill, payload) }} />
-
-      {decidingItem && (
-        <DecideSheet
-          item={decidingItem}
-          onClose={() => setDecidingItem(null)}
-          onBuy={() => { onBuyWishlist(decidingItem); setDecidingItem(null) }}
-          onSkip={() => { onSaveWishlist({ ...decidingItem, status: 'skipped' }); setDecidingItem(null) }}
-          onWait={() => { onSaveWishlist({ ...decidingItem, reconsiderAt: new Date(Date.now() + 3 * 86_400_000).toISOString(), status: 'waiting' }); setDecidingItem(null) }}
-          onRemove={() => { onDeleteWishlist(decidingItem.id); setDecidingItem(null) }}
-        />
-      )}
-      <CoolOffSheet open={addingWish} categories={categories} onClose={() => setAddingWish(false)} onSave={onSaveWishlist} />
-      {startingQuest && <StartQuestSheet categories={categories} onClose={() => setStartingQuest(false)} onSave={(quest) => { onSaveQuest(quest); setStartingQuest(false) }} />}
-    </div>
-  )
-}
-
-type PlanAddKind = 'limit' | 'bill' | 'cooling' | 'quest'
-
-const PLAN_ADD_OPTIONS: Array<{
-  kind: PlanAddKind
-  title: string
-  description: string
-  tone: string
-  icon: typeof PieChart
-}> = [
-  { kind: 'limit', title: 'Spending limit', description: 'Cap a category for the month', tone: 'is-clay', icon: PieChart },
-  { kind: 'bill', title: 'Upcoming bill', description: 'Lock money for a due payment', tone: 'is-espresso', icon: CalendarDays },
-  { kind: 'cooling', title: 'Cool off a buy', description: 'Sleep on a purchase before spending', tone: 'is-taupe', icon: Clock3 },
-  { kind: 'quest', title: 'Start a quest', description: 'A weekly savings challenge to beat', tone: 'is-green', icon: Flag },
-]
-
-function AddToPlanSheet({ onClose, onPick }: { onClose: () => void; onPick: (kind: PlanAddKind) => void }) {
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onClose()
-    }
-    document.addEventListener('keydown', onKeyDown)
-    return () => document.removeEventListener('keydown', onKeyDown)
-  }, [onClose])
-
-  return (
-    <div className="vault-plan-sheet-scrim" role="presentation" onClick={onClose}>
-      <section aria-label="Add to your plan" aria-modal="true" className="vault-plan-sheet" role="dialog" onClick={(event) => event.stopPropagation()}>
-        <span aria-hidden className="vault-plan-sheet-handle" />
-        <div className="vault-plan-sheet-head">
-          <div>
-            <h2 className="vault-plan-sheet-title">Add to your <em>plan.</em></h2>
-            <p>One place for every kind of plan item.</p>
+      {sections.map(({ key, label }) => (
+        <section key={key} ref={(node) => { sectionRefs.current[key] = node }} data-section={key} className="pl-mobile-section scroll-mt-16">
+          <header>
+            <div><h2 className="vault-h2">{key === 'cooling' ? 'Cool-off list' : key === 'quests' ? 'Weekly quests' : key === 'bills' ? 'Scheduled bills' : 'Spending limits'}</h2><p>{sectionDescriptions[key]}</p></div>
+            <button type="button" disabled={key === 'quests' && activeQuests.length >= 3} onClick={() => addFor(key)}><Plus size={14} /> Add</button>
+          </header>
+          {key === 'limits' && previousMonthLimits > 0 && budgets.length === 0 && <button className="pl-copy-month" type="button" onClick={onCopyLastMonthBudgets}><Copy size={15} /> Copy last month&rsquo;s limits</button>}
+          <div className="pl-mobile-list">
+            {previewFor(key).slice(0, 3).map((item) => <MobilePlanRow key={item.id} kind={key} item={item as never} transactions={transactions} onOpen={() => setDetail({ kind: key === 'quests' ? 'quests' : key === 'cooling' ? 'cooling' : key === 'bills' ? 'bill' : 'limit', item } as DetailTarget)} />)}
+            {countFor(key) === 0 && <button className="pl-mobile-empty" type="button" onClick={() => addFor(key)}><Plus size={18} /><span><strong>No {label.toLowerCase()} yet</strong><small>Add one when it helps you make a clearer decision.</small></span></button>}
           </div>
-          <button aria-label="Close" className="vault-plan-sheet-close" type="button" onClick={onClose}><X size={20} strokeWidth={2} /></button>
-        </div>
-        <div className="vault-plan-sheet-options">
-          {PLAN_ADD_OPTIONS.map(({ kind, title, description, tone, icon: Icon }) => (
-            <button key={kind} className="vault-plan-sheet-option" type="button" onClick={() => onPick(kind)}>
-              <span className={`vault-plan-sheet-icon ${tone}`}><Icon size={22} strokeWidth={2} /></span>
-              <span className="min-w-0 flex-1 text-left">
-                <span className="vault-plan-sheet-option-title">{title}</span>
-                <span className="vault-plan-sheet-option-copy">{description}</span>
-              </span>
-              <ChevronRight size={19} strokeWidth={2} />
-            </button>
-          ))}
-        </div>
-      </section>
+          {countFor(key) > 3 && <button className="pl-view-all" type="button" onClick={() => setListSection(key)}>View all {countFor(key)} <ChevronRight size={15} /></button>}
+          {key === 'quests' && activeQuests.length >= 3 && <p className="pl-cap-note">Three quests are active. End or complete one before starting another.</p>}
+        </section>
+      ))}
+
+      <button className="pl-history-link" type="button" onClick={() => setHistoryOpen(true)}><span><History size={18} /><span><strong>Plan history</strong><small>Past limits, bills, decisions and quests</small></span></span><ChevronRight size={18} /></button>
+
+      {addChooserOpen && <AddToPlanSheet activeQuestCount={activeQuests.length} onClose={() => setAddChooserOpen(false)} onPick={(kind) => { setAddChooserOpen(false); addFor(kind) }} />}
+      {listSection && <ListSheet title={sections.find((item) => item.key === listSection)?.label ?? 'Plan items'} onClose={() => setListSection(null)}>{previewFor(listSection).map((item) => <MobilePlanRow key={item.id} kind={listSection} item={item as never} transactions={transactions} onOpen={() => { setListSection(null); setDetail({ kind: listSection === 'quests' ? 'quests' : listSection === 'cooling' ? 'cooling' : listSection === 'bills' ? 'bill' : 'limit', item } as DetailTarget) }} />)}</ListSheet>}
+      {historyOpen && <HistorySheet budgets={budgetHistory} bills={upcomingExpenses} wishlist={wishlistItems} quests={moneyQuests} filter={historyFilter} onFilter={setHistoryFilter} onClose={() => setHistoryOpen(false)} onRestoreBudget={onRestoreBudget} onRepeatQuest={(quest) => { setHistoryOpen(false); onSaveQuest(repeatQuest(quest)) }} />}
+      {detail && <DetailSheet target={detail} accounts={accounts} categories={categories} goals={goals} transactions={transactions} onClose={() => setDetail(null)} onEdit={() => { if (detail.kind === 'limit') setLimitEditor(detail.item); if (detail.kind === 'bill') setEditingBill(detail.item); if (detail.kind === 'cooling') setEditingWish(detail.item); setDetail(null) }} onArchiveLimit={(budget) => { onArchiveBudget(budget); setDetail(null) }} onPayBill={(bill) => { setPayingBill(bill); setDetail(null) }} onCancelBill={(bill) => { onCancelUpcoming(bill); setDetail(null) }} onSaveWishlist={(item) => { onSaveWishlist(item); setDetail(null) }} onRemoveWishlist={(item) => { onRemoveWishlist(item); setDetail(null) }} onBuyWishlist={(item) => { onBuyWishlist(item); setDetail(null) }} onEndQuest={(quest) => { onEndQuest(quest); setDetail(null) }} onRepeatQuest={(quest) => { onSaveQuest(repeatQuest(quest)); setDetail(null) }} />}
+      {limitEditor && <LimitSheet budget={limitEditor === 'new' ? undefined : limitEditor} budgets={budgets} categories={categories} onClose={() => setLimitEditor(null)} onSave={(budget) => { onSaveBudget(budget); setLimitEditor(null) }} />}
+      <AddUpcomingExpenseModal accounts={accounts} key={addingBill ? 'add-plan-bill' : 'closed-plan-bill'} open={addingBill} onClose={() => setAddingBill(false)} onSubmit={onAddUpcoming} />
+      <AddUpcomingExpenseModal accounts={accounts} key={editingBill?.id ?? 'closed-edit-plan-bill'} expense={editingBill ?? undefined} open={Boolean(editingBill)} onClose={() => setEditingBill(null)} onSubmit={(payload) => { if (editingBill) onUpdateUpcoming(editingBill.id, payload) }} />
+      <RecordUpcomingExpensePaidModal accounts={accounts} expense={payingBill} onClose={() => setPayingBill(null)} onConfirm={(payload) => { if (payingBill) onMarkUpcomingPaid(payingBill, payload) }} />
+      <CoolOffSheet key={editingWish?.id ?? (addingWish ? 'add-plan-wish' : 'closed-plan-wish')} open={addingWish || Boolean(editingWish)} item={editingWish ?? undefined} categories={categories} onClose={() => { setAddingWish(false); setEditingWish(null) }} onSave={onSaveWishlist} />
+      {startingQuest && <QuestSheet categories={categories} goals={goals} onClose={() => setStartingQuest(false)} onSave={(quest) => { onSaveQuest(quest); setStartingQuest(false) }} />}
     </div>
   )
 }
 
-/* ---------- quest card (clay, segment ticks) ---------- */
-
-function QuestCard({ quest, progress, onCancel }: { quest: MoneyQuest; progress: number; onCancel: () => void }) {
-  const total = Math.min(7, quest.targetCount ?? 3)
-  const done = Math.max(0, Math.min(total, Math.round((progress / 100) * total)))
-  const ends = new Date(`${quest.endsOn}T12:00:00`)
-  const endsLabel = Number.isNaN(ends.getTime()) ? quest.endsOn : ends.toLocaleDateString('en-GB', { weekday: 'long' })
-  return (
-    <article className="vault-clay vault-plan-quest p-5">
-      <div className="flex items-baseline justify-between gap-3">
-        <p className="text-[10px] font-bold uppercase tracking-[2px] text-[var(--clay-ink)]">This week&rsquo;s quest</p>
-        <p className="text-[11.5px] font-semibold text-[var(--espresso)]">ends {endsLabel}</p>
-      </div>
-      <h3 className="mt-2 font-display text-[20px] text-[var(--espresso)]">{quest.title}</h3>
-      <div className="vault-ticks mt-4">
-        {Array.from({ length: total }, (_, index) => <span key={index} className={cn('vault-tick', index < done && 'is-done')} />)}
-      </div>
-      <div className="mt-3 flex items-baseline justify-between gap-3">
-        <p className="text-[12px] font-semibold text-[var(--espresso)]">{done} of {total} done — no streak shame, ever.</p>
-        <button className="text-[11px] font-bold uppercase tracking-[1.2px] text-[var(--clay-ink)]" type="button" onClick={onCancel}>End</button>
-      </div>
-    </article>
-  )
+function MobilePlanRow({ kind, item, transactions, onOpen }: { kind: PlanSection; item: Budget | UpcomingExpense | WishlistItem | MoneyQuest; transactions: PlanData['transactions']; onOpen: () => void }) {
+  const [now] = useState(() => Date.now())
+  if (kind === 'limits') {
+    const budget = item as Budget
+    const used = Math.round((budget.used / Math.max(1, budget.amount)) * 100)
+    return <button className="pl-mobile-row" type="button" onClick={onOpen}><span className="pl-row-icon"><CategoryIcon label={budget.category} type="expense" size={18} /></span><span><strong>{budget.category}</strong><small>Rs {nf(Math.max(0, budget.amount - budget.used))} left · {used}% used</small><i><b className={used >= 80 ? 'is-hot' : ''} style={{ width: `${Math.min(100, used)}%` }} /></i></span><span className="vault-digits">Rs {nf(budget.amount)}</span></button>
+  }
+  if (kind === 'bills') {
+    const bill = item as UpcomingExpense
+    const days = daysUntil(bill.dueDate)
+    return <button className="pl-mobile-row" type="button" onClick={onOpen}><span className="pl-row-icon is-sage"><CalendarDays size={18} /></span><span><strong>{bill.title}</strong><small>{days < 0 ? `${Math.abs(days)} days overdue` : `Due ${formatPlanDate(bill.dueDate)}`} · {bill.isRecurring ? bill.recurringFrequency?.replace('_', ' ') : 'one-time'}</small></span><span className="vault-digits">Rs {nf(bill.amount)}</span></button>
+  }
+  if (kind === 'cooling') {
+    const wish = item as WishlistItem
+    const ready = wish.status === 'ready' || new Date(wish.reconsiderAt).getTime() <= now
+    return <button className="pl-mobile-row" type="button" onClick={onOpen}><span className="pl-row-icon is-taupe"><Clock3 size={18} /></span><span><strong>{wish.name}</strong><small>{ready ? 'Ready to decide' : `Think until ${formatPlanDate(wish.reconsiderAt)}`}{wish.reason ? ` · ${wish.reason}` : ''}</small></span><span className="vault-digits">Rs {nf(wish.amount)}</span></button>
+  }
+  const quest = item as MoneyQuest
+  const progress = Math.min(100, Math.round(questProgress(quest, transactions)))
+  return <button className="pl-mobile-row" type="button" onClick={onOpen}><span className="pl-row-icon is-clay"><Flag size={18} /></span><span><strong>{quest.title}</strong><small>{progress}% complete · ends {formatPlanDate(quest.endsOn)}</small><i><b style={{ width: `${progress}%` }} /></i></span><span className="vault-digits">{progress}%</span></button>
 }
 
-/* ---------- vault sheets ---------- */
-
-function SheetShell({ title, label, onClose, children }: { title: React.ReactNode; label: string; onClose: () => void; children: React.ReactNode }) {
-  return (
-    <div className="fixed inset-0 z-[60] grid items-end bg-[rgba(43,36,29,.45)]" onClick={onClose}>
-      <div className="vault-outline mx-auto w-full max-w-[27rem] rounded-b-none px-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-5" role="dialog" aria-label={label} onClick={(event) => event.stopPropagation()}>
-        <h2 className="vault-h2">{title}</h2>
-        {children}
-      </div>
-    </div>
-  )
-}
-
-function DecideSheet({ item, onClose, onBuy, onSkip, onWait, onRemove }: { item: WishlistItem; onClose: () => void; onBuy: () => void; onSkip: () => void; onWait: () => void; onRemove: () => void }) {
-  const ready = item.status === 'ready' || new Date(item.reconsiderAt) <= new Date()
-  return (
-    <SheetShell title={<>{item.name} — <span className="vault-digits">Rs {nf(item.amount)}</span></>} label={`Decide on ${item.name}`} onClose={onClose}>
-      <p className="mt-1 text-[12px] text-[var(--taupe)]">{ready ? 'The wait is over. Decide with a clear head.' : 'Still cooling off — you can decide early or keep waiting.'}</p>
-      <div className="mt-2">
-        {ready && (
-          <button className="vault-row" type="button" onClick={() => { onBuy(); trackEvent('wishlist_decision', { surface: 'plan', action: 'buy' }) }}>
-            <span className="vault-row-dot is-in" />
-            <span className="vault-row-main"><span className="vault-row-title block">Buy and record it</span><span className="vault-row-meta block">Opens the expense sheet with everything filled in</span></span>
-          </button>
-        )}
-        <button className="vault-row" type="button" onClick={onSkip}>
-          <span className="vault-row-dot" />
-          <span className="vault-row-main"><span className="vault-row-title block">Skip it</span><span className="vault-row-meta block">The money stays unspent — that counts as a win</span></span>
-        </button>
-        <button className="vault-row" type="button" onClick={onWait}>
-          <span className="vault-row-dot is-move" />
-          <span className="vault-row-main"><span className="vault-row-title block">Wait 3 more days</span><span className="vault-row-meta block">No rush. It will resurface when the time is up</span></span>
-        </button>
-        <button className="vault-row" type="button" onClick={onRemove}>
-          <span className="vault-row-dot is-paid" />
-          <span className="vault-row-main"><span className="vault-row-title block">Remove from the list</span></span>
-        </button>
-      </div>
-    </SheetShell>
-  )
-}
-
-function StartQuestSheet({ categories, onClose, onSave }: { categories: Category[]; onClose: () => void; onSave: (quest: MoneyQuest) => void }) {
-  const [type, setType] = useState<QuestDraftType>('no_spend_days')
-  const [target, setTarget] = useState('3')
-  const [categoryId, setCategoryId] = useState(categories.find((item) => item.kind === 'expense')?.id ?? '')
+function LimitSheet({ budget, budgets, categories, onClose, onSave }: { budget?: Budget; budgets: Budget[]; categories: PlanData['categories']; onClose: () => void; onSave: (budget: Budget) => void }) {
+  const available = categories.filter((category) => category.kind === 'expense' && (category.id === budget?.categoryId || !budgets.some((item) => item.categoryId ? item.categoryId === category.id : item.category === category.name)))
+  const [categoryId, setCategoryId] = useState(budget?.categoryId ?? available[0]?.id ?? '')
+  const [amount, setAmount] = useState(budget ? String(budget.amount) : '')
   const submit = (event: FormEvent) => {
     event.preventDefault()
-    const start = new Date()
-    const end = new Date()
-    end.setDate(end.getDate() + 6)
-    const value = Math.max(1, Number(target))
-    const title = type === 'tracking_days' ? `Track money on ${value} days` : type === 'no_spend_days' ? `${value} no-spend days` : `Keep category spending under Rs ${nf(value)}`
-    onSave({ id: crypto.randomUUID(), type, title, categoryId: type === 'category_limit' ? categoryId : undefined, targetCount: type === 'tracking_days' || type === 'no_spend_days' ? value : undefined, targetAmount: type === 'category_limit' ? value : undefined, startsOn: start.toISOString().slice(0, 10), endsOn: end.toISOString().slice(0, 10), status: 'active' })
-    trackEvent('quest_started', { surface: 'plan' })
+    const category = categories.find((item) => item.id === categoryId)
+    const value = Number(amount)
+    if (!category || value <= 0) return
+    onSave({ ...budget, id: budget?.id ?? crypto.randomUUID(), category: category.name, categoryId: category.id, amount: value, used: budget?.used ?? 0, periodMonth: budget?.periodMonth ?? `${localMonthKey()}-01`, archived: false })
   }
-  return (
-    <SheetShell title={<>This week&rsquo;s <em className="italic text-[var(--clay)]">quest.</em></>} label="Start this week's quest" onClose={onClose}>
-      <p className="mt-1 text-[12px] text-[var(--taupe)]">One small challenge at a time. Recovery is always allowed.</p>
-      <form className="mt-4 grid gap-3" onSubmit={submit}>
-        <select className="form-input" value={type} onChange={(event) => setType(event.target.value as QuestDraftType)}>
-          <option value="no_spend_days">No-spend days</option>
-          <option value="tracking_days">Tracking consistency</option>
-          <option value="category_limit">Category spending limit</option>
-        </select>
-        {type === 'category_limit' && <select className="form-input" value={categoryId} onChange={(event) => setCategoryId(event.target.value)}>{categories.filter((item) => item.kind === 'expense').map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select>}
-        <label><span className="form-label">{type === 'category_limit' ? 'PKR amount' : 'Number of days'}</span><input className="form-input" min="1" step="1" type="number" value={target} onChange={(event) => setTarget(event.target.value)} /></label>
-        <button className="btn-primary justify-center">Start quest</button>
-      </form>
-    </SheetShell>
-  )
+  return <VaultSheet open label={budget ? `Edit ${budget.category} limit` : 'Add spending limit'} onClose={onClose}><h2 className="vault-sheet-title">{budget ? 'Edit spending' : 'Add a spending'} <em>limit.</em></h2><p className="mt-2 text-center text-[12px] text-[var(--taupe)]">Your recorded spending stays attached when a limit changes.</p><form className="mt-5 grid gap-3" onSubmit={submit}><label><span className="form-label">Category</span><select className="form-input" disabled={Boolean(budget)} value={categoryId} onChange={(event) => setCategoryId(event.target.value)}>{available.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}</select></label><label><span className="form-label">Monthly limit</span><input className="form-input" min="1" inputMode="numeric" type="number" value={amount} onChange={(event) => setAmount(event.target.value)} placeholder="PKR amount" /></label><button className="vault-commit is-espresso" disabled={!categoryId || Number(amount) <= 0}>Save limit</button></form></VaultSheet>
+}
+
+function QuestSheet({ categories, goals, onClose, onSave }: { categories: PlanData['categories']; goals: PlanData['goals']; onClose: () => void; onSave: (quest: MoneyQuest) => void }) {
+  const [type, setType] = useState<MoneyQuest['type']>('no_spend_days')
+  const [target, setTarget] = useState('3')
+  const [categoryId, setCategoryId] = useState(categories.find((item) => item.kind === 'expense')?.id ?? '')
+  const [goalId, setGoalId] = useState(goals.find((goal) => goal.status !== 'Completed')?.id ?? goals[0]?.id ?? '')
+  const submit = (event: FormEvent) => {
+    event.preventDefault()
+    const value = Math.max(1, Number(target))
+    const category = categories.find((item) => item.id === categoryId)
+    const goal = goals.find((item) => item.id === goalId)
+    const end = new Date(); end.setDate(end.getDate() + 6)
+    const title = type === 'tracking_days' ? `Track money on ${value} days` : type === 'no_spend_days' ? `${value} no-spend days` : type === 'goal_contribution' ? `Add Rs ${nf(value)} to ${goal?.name ?? 'a goal'}` : `Keep ${category?.name ?? 'category'} under Rs ${nf(value)}`
+    onSave({ id: crypto.randomUUID(), type, title, categoryId: type === 'category_limit' ? categoryId : undefined, goalId: type === 'goal_contribution' ? goalId : undefined, targetCount: type === 'tracking_days' || type === 'no_spend_days' ? value : undefined, targetAmount: type === 'category_limit' || type === 'goal_contribution' ? value : undefined, startsOn: localDateKey(), endsOn: localDateKey(end), status: 'active', createdAt: new Date().toISOString() })
+  }
+  return <VaultSheet open label="Start a weekly quest" onClose={onClose}><h2 className="vault-sheet-title">Start a weekly <em>quest.</em></h2><p className="mt-2 text-center text-[12px] text-[var(--taupe)]">Progress is measured automatically from your ledger.</p><form className="mt-5 grid gap-3" onSubmit={submit}><label><span className="form-label">Quest type</span><select className="form-input" value={type} onChange={(event) => setType(event.target.value as MoneyQuest['type'])}><option value="no_spend_days">No-spend days</option><option value="tracking_days">Tracking days</option><option value="category_limit">Category spending limit</option><option value="goal_contribution" disabled={!goals.length}>Goal contribution</option></select></label>{type === 'category_limit' && <label><span className="form-label">Category</span><select className="form-input" value={categoryId} onChange={(event) => setCategoryId(event.target.value)}>{categories.filter((item) => item.kind === 'expense').map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>}{type === 'goal_contribution' && <label><span className="form-label">Goal</span><select className="form-input" value={goalId} onChange={(event) => setGoalId(event.target.value)}>{goals.map((goal) => <option key={goal.id} value={goal.id}>{goal.name}</option>)}</select></label>}<label><span className="form-label">{type === 'tracking_days' || type === 'no_spend_days' ? 'Number of days' : 'PKR target'}</span><input className="form-input" min="1" type="number" value={target} onChange={(event) => setTarget(event.target.value)} /></label><button className="vault-commit is-espresso" disabled={Number(target) <= 0 || (type === 'goal_contribution' && !goalId)}>Start quest</button></form></VaultSheet>
+}
+
+function DetailSheet({ target, accounts, categories, goals, transactions, onClose, onEdit, onArchiveLimit, onPayBill, onCancelBill, onSaveWishlist, onRemoveWishlist, onBuyWishlist, onEndQuest, onRepeatQuest }: { target: DetailTarget; accounts: PlanData['accounts']; categories: PlanData['categories']; goals: PlanData['goals']; transactions: PlanData['transactions']; onClose: () => void; onEdit: () => void; onArchiveLimit: (budget: Budget) => void; onPayBill: (bill: UpcomingExpense) => void; onCancelBill: (bill: UpcomingExpense) => void; onSaveWishlist: (item: WishlistItem) => void; onRemoveWishlist: (item: WishlistItem) => void; onBuyWishlist: (item: WishlistItem) => void; onEndQuest: (quest: MoneyQuest) => void; onRepeatQuest: (quest: MoneyQuest) => void }) {
+  const [goalId, setGoalId] = useState(goals[0]?.id ?? '')
+  const [now] = useState(() => Date.now())
+  if (target.kind === 'limit') {
+    const used = Math.round((target.item.used / Math.max(1, target.item.amount)) * 100)
+    return <PlanDetailShell title={target.item.category} eyebrow="Spending limit" onClose={onClose}><DetailGrid items={[['Limit', `Rs ${nf(target.item.amount)}`], ['Spent', `Rs ${nf(target.item.used)}`], ['Remaining', `Rs ${nf(Math.max(0, target.item.amount - target.item.used))}`], ['Used', `${used}%`]]} /><div className="pl-sheet-actions"><button className="vault-commit is-espresso" type="button" onClick={onEdit}><Pencil size={16} /> Edit limit</button><button className="pl-sheet-secondary" type="button" onClick={() => onArchiveLimit(target.item)}><Archive size={16} /> Archive</button></div></PlanDetailShell>
+  }
+  if (target.kind === 'bill') {
+    const account = accounts.find((item) => item.id === target.item.linkedAccountId)
+    return <PlanDetailShell title={target.item.title} eyebrow="Scheduled bill" onClose={onClose}><DetailGrid items={[['Amount', `Rs ${nf(target.item.amount)}`], ['Due', formatPlanDate(target.item.dueDate, true)], ['Category', target.item.category], ['Account', account?.name ?? 'Choose when paying'], ['Repeats', target.item.isRecurring ? target.item.recurringFrequency?.replace('_', ' ') ?? 'Yes' : 'No'], ['Reminder', target.item.reminderDaysBefore ? `${target.item.reminderDaysBefore} days before` : 'None']]} />{target.item.notes && <p className="pl-detail-note">{target.item.notes}</p>}<div className="pl-sheet-actions"><button className="vault-commit is-espresso" type="button" onClick={() => onPayBill(target.item)}><Check size={16} /> Mark paid</button><button className="pl-sheet-secondary" type="button" onClick={onEdit}><Pencil size={16} /> Edit bill</button><button className="pl-sheet-danger" type="button" onClick={() => onCancelBill(target.item)}><X size={16} /> Cancel bill</button></div></PlanDetailShell>
+  }
+  if (target.kind === 'cooling') {
+    const item = target.item
+    const ready = item.status === 'ready' || new Date(item.reconsiderAt).getTime() <= now
+    const category = categories.find((entry) => entry.id === item.categoryId)
+    return <PlanDetailShell title={item.name} eyebrow="Cool-off decision" onClose={onClose}><DetailGrid items={[['Expected cost', `Rs ${nf(item.amount)}`], ['Category', category?.name ?? 'Not set'], ['Started', formatPlanDate(item.createdAt)], ['Ready', formatPlanDate(item.reconsiderAt, true)], ['Status', ready ? 'Ready to decide' : 'Still cooling off']]} />{item.reason && <p className="pl-detail-note"><strong>Why you paused</strong>{item.reason}</p>}<div className="pl-sheet-actions">{ready && <button className="vault-commit is-espresso" type="button" onClick={() => onBuyWishlist(item)}>Buy and record expense</button>}<button className="pl-sheet-secondary" type="button" onClick={() => onSaveWishlist({ ...item, reconsiderAt: new Date(Date.now() + 3 * 86_400_000).toISOString(), status: 'waiting' })}>Keep waiting 3 days</button><button className="pl-sheet-secondary" type="button" onClick={() => onSaveWishlist({ ...item, status: 'skipped' })}>Skip purchase</button>{goals.length > 0 && <div className="pl-move-goal"><select className="form-input" value={goalId} onChange={(event) => setGoalId(event.target.value)}>{goals.map((goal) => <option key={goal.id} value={goal.id}>{goal.name}</option>)}</select><button type="button" onClick={() => onSaveWishlist({ ...item, goalId, status: 'moved_to_goal' })}>Move to goal</button></div>}<button className="pl-sheet-secondary" type="button" onClick={onEdit}><Pencil size={16} /> Edit</button><button className="pl-sheet-danger" type="button" onClick={() => onRemoveWishlist(item)}><Trash2 size={16} /> Remove</button></div></PlanDetailShell>
+  }
+  const progress = Math.min(100, Math.round(questProgress(target.item, transactions)))
+  return <PlanDetailShell title={target.item.title} eyebrow="Weekly quest" onClose={onClose}><DetailGrid items={[['Progress', `${progress}%`], ['Started', formatPlanDate(target.item.startsOn)], ['Ends', formatPlanDate(target.item.endsOn, true)], ['Days remaining', String(Math.max(0, daysUntil(target.item.endsOn)))], ['Status', target.item.status]]} /><div className="pl-progress"><i style={{ width: `${progress}%` }} /></div><p className="pl-detail-note">The target is locked while this quest is active. Progress is calculated from matching ledger activity.</p><div className="pl-sheet-actions"><button className="pl-sheet-secondary" type="button" onClick={() => onRepeatQuest(target.item)}><RotateCcw size={16} /> Repeat as new</button>{target.item.status === 'active' && <button className="pl-sheet-danger" type="button" onClick={() => onEndQuest(target.item)}><X size={16} /> End quest</button>}</div></PlanDetailShell>
+}
+
+function PlanDetailShell({ title, eyebrow, onClose, children }: { title: string; eyebrow: string; onClose: () => void; children: ReactNode }) {
+  return <VaultSheet open label={`${eyebrow}: ${title}`} onClose={onClose}><div className="pl-sheet-head"><div><p className="vault-eyebrow">{eyebrow}</p><h2 className="vault-sheet-title text-left">{title}</h2></div><button aria-label="Close" type="button" onClick={onClose}><X size={18} /></button></div>{children}</VaultSheet>
+}
+
+function DetailGrid({ items }: { items: Array<[string, string]> }) { return <dl className="pl-detail-grid">{items.map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}</dl> }
+
+function ListSheet({ title, onClose, children }: { title: string; onClose: () => void; children: ReactNode }) { return <VaultSheet open label={`All ${title}`} onClose={onClose}><div className="pl-sheet-head"><div><p className="vault-eyebrow">Your plan</p><h2 className="vault-sheet-title text-left">All {title.toLowerCase()}</h2></div><button aria-label="Close" type="button" onClick={onClose}><X size={18} /></button></div><div className="pl-mobile-list mt-4">{children}</div></VaultSheet> }
+
+function HistorySheet({ budgets, bills, wishlist, quests, filter, onFilter, onClose, onRestoreBudget, onRepeatQuest }: { budgets: Budget[]; bills: UpcomingExpense[]; wishlist: WishlistItem[]; quests: MoneyQuest[]; filter: PlanHistoryFilter; onFilter: (filter: PlanHistoryFilter) => void; onClose: () => void; onRestoreBudget: (budget: Budget) => void; onRepeatQuest: (quest: MoneyQuest) => void }) {
+  const entries: Array<{ kind: PlanSection; id: string; title: string; meta: string; date: string; action?: () => void; actionLabel?: string }> = [
+    ...budgets.map((item) => ({ kind: 'limits' as const, id: `budget-${item.id}`, title: item.category, meta: `${item.archived ? 'Archived' : item.periodMonth?.slice(0, 7) ?? 'Past month'} · Rs ${nf(item.amount)}`, date: item.updatedAt ?? item.periodMonth ?? '', action: item.archived ? () => onRestoreBudget(item) : undefined, actionLabel: item.archived ? 'Restore' : undefined })),
+    ...bills.filter((item) => !isBillActive(item)).map((item) => ({ kind: 'bills' as const, id: `bill-${item.id}`, title: item.title, meta: `${item.status} · Rs ${nf(item.amount)}`, date: item.dueDate })),
+    ...wishlist.filter((item) => !isWishlistActive(item)).map((item) => ({ kind: 'cooling' as const, id: `wish-${item.id}`, title: item.name, meta: `${item.status.replaceAll('_', ' ')} · Rs ${nf(item.amount)}`, date: item.updatedAt ?? item.createdAt ?? '' })),
+    ...quests.filter((item) => item.status !== 'active').map((item) => ({ kind: 'quests' as const, id: `quest-${item.id}`, title: item.title, meta: item.status, date: item.updatedAt ?? item.endsOn, action: () => onRepeatQuest(item), actionLabel: 'Repeat' })),
+  ].filter((item) => filter === 'all' || item.kind === filter).sort((a, b) => b.date.localeCompare(a.date))
+  return <VaultSheet open label="Plan history" onClose={onClose}><div className="pl-sheet-head"><div><p className="vault-eyebrow">Past planning</p><h2 className="vault-sheet-title text-left">Plan history</h2></div><button aria-label="Close" type="button" onClick={onClose}><X size={18} /></button></div><div className="vault-chiprow mt-4 overflow-x-auto">{(['all', 'limits', 'bills', 'cooling', 'quests'] as PlanHistoryFilter[]).map((item) => <button key={item} className={cn('vault-chip', filter === item && 'is-active')} type="button" onClick={() => onFilter(item)}>{item === 'all' ? 'All' : item === 'cooling' ? 'Cool-off' : item[0].toUpperCase() + item.slice(1)}</button>)}</div><div className="pl-history-list">{entries.map((entry) => <div key={entry.id}><span className="pl-row-icon"><History size={16} /></span><p><strong>{entry.title}</strong><small>{entry.meta}</small></p>{entry.action && <button type="button" onClick={entry.action}>{entry.actionLabel}</button>}</div>)}{entries.length === 0 && <p className="pl-empty-copy">Nothing in this part of your history yet.</p>}</div></VaultSheet>
+}
+
+function AddToPlanSheet({ activeQuestCount, onClose, onPick }: { activeQuestCount: number; onClose: () => void; onPick: (kind: PlanSection) => void }) {
+  const options: Array<{ kind: PlanSection; title: string; description: string; icon: typeof PieChart; tone: string }> = [
+    { kind: 'limits', title: 'Spending limit', description: 'Cap a category for this month', icon: PieChart, tone: 'is-clay' },
+    { kind: 'bills', title: 'Scheduled bill', description: 'Keep a known payment visible', icon: CalendarDays, tone: 'is-espresso' },
+    { kind: 'cooling', title: 'Cool off a buy', description: 'Pause before a non-essential purchase', icon: Clock3, tone: 'is-taupe' },
+    { kind: 'quests', title: 'Weekly quest', description: activeQuestCount >= 3 ? 'Three quests are already active' : 'Start a tracked money challenge', icon: Flag, tone: 'is-green' },
+  ]
+  return <VaultSheet open label="Add to your plan" onClose={onClose}><div className="pl-sheet-head"><div><p className="vault-eyebrow">Plan something useful</p><h2 className="vault-sheet-title text-left">Add to your <em>plan.</em></h2></div><button aria-label="Close" type="button" onClick={onClose}><X size={18} /></button></div><div className="vault-plan-sheet-options mt-4">{options.map(({ kind, title, description, icon: Icon, tone }) => <button key={kind} className="vault-plan-sheet-option" disabled={kind === 'quests' && activeQuestCount >= 3} type="button" onClick={() => onPick(kind)}><span className={`vault-plan-sheet-icon ${tone}`}><Icon size={22} /></span><span className="min-w-0 flex-1 text-left"><span className="vault-plan-sheet-option-title">{title}</span><span className="vault-plan-sheet-option-copy">{description}</span></span><ChevronRight size={19} /></button>)}</div></VaultSheet>
+}
+
+function repeatQuest(quest: MoneyQuest): MoneyQuest {
+  const ends = new Date(); ends.setDate(ends.getDate() + 6)
+  return { ...quest, id: crypto.randomUUID(), startsOn: localDateKey(), endsOn: localDateKey(ends), status: 'active', createdAt: new Date().toISOString(), updatedAt: undefined }
 }

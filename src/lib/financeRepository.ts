@@ -11,6 +11,7 @@ export type FinanceData = {
   goals: Goal[]
   debts: Debt[]
   budgets: Budget[]
+  budgetHistory: Budget[]
   upcomingExpenses: UpcomingExpense[]
   categories: Category[]
   profile: Profile
@@ -139,7 +140,7 @@ export async function loadFinanceData(): Promise<FinanceData> {
     client().from('transactions').select('*').order('transaction_date', { ascending: false }).order('created_at', { ascending: false }),
     client().from('goals').select('*').order('created_at', { ascending: false }),
     client().from('debts').select('*').order('created_at', { ascending: false }),
-    client().from('budgets').select('*').eq('archived', false).order('created_at'),
+    client().from('budgets').select('*').order('period_month', { ascending: false }).order('created_at'),
     client().from('upcoming_expenses').select('*').order('due_date'),
     client().from('categories').select('*').eq('archived', false).order('kind').order('sort_order'),
     client().from('user_settings').select('*').maybeSingle(),
@@ -161,15 +162,21 @@ export async function loadFinanceData(): Promise<FinanceData> {
       && (categoryId ? transaction.categoryId === categoryId : transaction.category === category)
         ? sum + transaction.amount : sum
     ), 0)
-    return { id: value(row, 'id'), category, categoryId, amount: Number(row.amount ?? 0), used, periodMonth }
+    return {
+      id: value(row, 'id'), category, categoryId, amount: Number(row.amount ?? 0), used, periodMonth,
+      archived: Boolean(row.archived), createdAt: row.created_at as string | undefined,
+      updatedAt: row.updated_at as string | undefined,
+    }
   })
+  const currentMonth = localMonthKey()
   const settingsRow = settings.data as Row | null
   return {
     accounts: (accounts.data as Row[]).map(accountFromRow),
     transactions: transactionModels,
     goals: (goals.data as Row[]).map(goalFromRow),
     debts: (debts.data as Row[]).map(debtFromRow),
-    budgets: budgetModels,
+    budgets: budgetModels.filter((budget) => !budget.archived && budget.periodMonth?.slice(0, 7) === currentMonth),
+    budgetHistory: budgetModels.filter((budget) => budget.archived || budget.periodMonth?.slice(0, 7) !== currentMonth),
     upcomingExpenses: (upcoming.data as Row[]).map(upcomingFromRow),
     categories: (categories.data as Row[]).map((row) => ({
       id: value(row, 'id'), name: value(row, 'name'), kind: value(row, 'kind'), color: value(row, 'color'),
@@ -204,6 +211,7 @@ export async function loadFinanceData(): Promise<FinanceData> {
       categoryId: row.category_id as string | undefined, goalId: row.goal_id as string | undefined,
       reconsiderAt: value(row, 'reconsider_at'), status: value(row, 'status'),
       transactionId: row.transaction_id as string | undefined,
+      reason: row.reason as string | undefined,
       createdAt: row.created_at as string | undefined, updatedAt: row.updated_at as string | undefined,
     })),
     moneyWins: (wins.data as Row[]).map((row) => ({
@@ -333,13 +341,18 @@ export async function saveBudget(budget: Budget) {
   const userId = await requireUserId()
   const { error } = await client().from('budgets').upsert({
     user_id: userId, id: budget.id, category: budget.category, category_id: budget.categoryId,
-    amount: budget.amount, used: 0, period_month: budget.periodMonth ?? `${localMonthKey()}-01`, archived: false,
+    amount: budget.amount, used: budget.used, period_month: budget.periodMonth ?? `${localMonthKey()}-01`, archived: false,
   })
   if (error) throw error
 }
 
 export async function deleteBudget(id: string) {
   const { error } = await client().from('budgets').update({ archived: true }).eq('id', id)
+  if (error) throw error
+}
+
+export async function restoreBudget(id: string) {
+  const { error } = await client().from('budgets').update({ archived: false }).eq('id', id)
   if (error) throw error
 }
 
@@ -435,7 +448,7 @@ export async function saveWishlistItem(item: WishlistItem) {
   const { error } = await client().from('wishlist_items').upsert({
     user_id: userId, id: item.id, name: item.name, amount: item.amount,
     category_id: item.categoryId, goal_id: item.goalId, reconsider_at: item.reconsiderAt,
-    status: item.status, transaction_id: item.transactionId,
+    status: item.status, transaction_id: item.transactionId, reason: item.reason,
   })
   if (error) throw error
 }
