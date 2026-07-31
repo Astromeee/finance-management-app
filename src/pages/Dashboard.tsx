@@ -85,7 +85,7 @@ export function Dashboard({
   const profile = getProfile()
   const safeSpend = useMemo(() => calculateSafeSpend({ accounts, budgets, categories, upcomingExpenses, settings: journeySettings }), [accounts, budgets, categories, upcomingExpenses, journeySettings])
   const insight = useMemo(() => detectMoneyLeak(transactions), [transactions])
-  const recent = useMemo(() => [...transactions].sort((a, b) => new Date(b.createdAt ?? `${b.date}T23:59:59`).getTime() - new Date(a.createdAt ?? `${a.date}T23:59:59`).getTime()).slice(0, 3), [transactions])
+  const recent = useMemo(() => [...transactions].sort((a, b) => new Date(b.createdAt ?? `${b.date}T23:59:59`).getTime() - new Date(a.createdAt ?? `${a.date}T23:59:59`).getTime()).slice(0, 4), [transactions])
   const needsSetup = safeSpend.state === 'needs_setup'
   const totalBalance = useMemo(() => accounts.reduce((sum, account) => sum + account.balance, 0), [accounts])
 
@@ -266,7 +266,7 @@ export function Dashboard({
 
       <section aria-label="Latest entries" className="mt-8">
         <div className="flex items-baseline justify-between">
-          <h2 className="vault-h2">Today</h2>
+          <h2 className="vault-h2">Recent</h2>
           <button className="vault-link" type="button" onClick={() => onNavigate('transactions')}>Ledger →</button>
         </div>
         <div className="mt-1">

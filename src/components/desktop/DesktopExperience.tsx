@@ -414,7 +414,7 @@ function HomePage({ setActivePage, openModal }: { setActivePage: (page: string) 
         <button type="button" className="d-mini-card" onClick={() => setActivePage('accounts')}><Label>Next income</Label><Money>{safe.cycle ? safe.cycle.daysRemaining : '—'} <small>days</small></Money><span>Open wallet <b>→</b></span></button>
       </div>
       <Card className="d-ledger-card d-fill">
-        <div className="d-card-heading"><h2>Today</h2><button type="button" onClick={() => setActivePage('transactions')}>Full ledger <ArrowRight size={13} /></button></div>
+        <div className="d-card-heading"><h2>Recent</h2><button type="button" onClick={() => setActivePage('transactions')}>Full ledger <ArrowRight size={13} /></button></div>
         {transactions.length ? <TransactionRows compact /> : <DesktopEmptyState icon={List} title="Your ledger is ready" detail="Record your first entry to begin building balances, patterns, and Insights." action="Record an entry" onAction={() => openModal('record')}/>}
       </Card>
     </div>
@@ -430,7 +430,7 @@ function HomePage({ setActivePage, openModal }: { setActivePage: (page: string) 
 function TransactionRows({ compact = false, transactions: suppliedTransactions, openModal }: { compact?: boolean; transactions?: Transaction[]; openModal?: OpenModal }) {
   const { transactions } = useDesktopData()
   const rows = sortedTransactions(suppliedTransactions ?? transactions)
-  const displayedRows = compact ? rows.slice(0, 3) : rows
+  const displayedRows = compact ? rows.slice(0, 7) : rows
   return <div className={`d-transactions ${compact ? 'is-compact' : ''}`}>{displayedRows.map((row) => {
     const canOpen = !compact && Boolean(openModal)
     const openEntry = () => openModal?.('entry', row.id)
