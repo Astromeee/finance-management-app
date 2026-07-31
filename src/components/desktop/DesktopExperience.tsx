@@ -204,7 +204,7 @@ const nav = [
 ] as const
 
 const titles: Record<DesktopPage, { eyebrow: string; first: string; accent: string }> = {
-  dashboard: { eyebrow: 'Wed · 23 July', first: 'Good evening,', accent: 'Moeed.' },
+  dashboard: { eyebrow: 'Wed · 23 July', first: 'Good Morning,', accent: 'Moeed.' },
   transactions: { eyebrow: 'July · Cycle 4', first: 'The', accent: 'ledger.' },
   accounts: { eyebrow: 'July · Cycle 4', first: 'The', accent: 'wallet.' },
   reports: { eyebrow: 'July · Cycle 4', first: 'The', accent: 'insights.' },
@@ -369,7 +369,7 @@ function Topbar({ page, openModal, openPalette, attentionCount, setActivePage, p
   const hasPeriod = page === 'transactions' || page === 'reports'
   const firstName = profile.name.trim().split(/\s+/)[0] || 'there'
   return <header className="d-topbar">
-    <div><Label>{heading.eyebrow}</Label><h1>{heading.first}{page === 'dashboard' && <br />} <em>{page === 'dashboard' ? `${firstName}.` : heading.accent}</em></h1></div>
+    <div><Label>{heading.eyebrow}</Label><h1>{heading.first} <em>{page === 'dashboard' ? `${firstName}.` : heading.accent}</em></h1></div>
     <div className="d-top-actions">
       {!isSettings && <button type="button" className="d-search" onClick={openPalette}><Search size={16} /><span>Search or jump</span><kbd>⌘ K</kbd></button>}
       {!isSettings && <button type="button" className="d-icon-button d-attention-button" aria-label={attentionCount ? `${attentionCount} items need attention` : 'Needs attention'} onClick={() => openModal('notifications')}><Bell size={17} />{attentionCount > 0 && <span>{attentionCount}</span>}</button>}
