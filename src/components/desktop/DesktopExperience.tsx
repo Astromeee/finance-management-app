@@ -425,12 +425,16 @@ function TransactionRows({ compact = false, transactions: suppliedTransactions, 
   const { transactions } = useDesktopData()
   const rows = sortedTransactions(suppliedTransactions ?? transactions)
   const displayedRows = compact ? rows.slice(0, 3) : rows
-  return <div className={`d-transactions ${compact ? 'is-compact' : ''}`}>{displayedRows.map((row) => <div className="d-transaction" key={row.id}>
-    <i className={`is-${transactionTone(row)}`} /><div className="d-entry"><strong>{row.title}</strong><small>{new Date(`${row.date}T12:00:00`).toLocaleDateString('en-PK', { day: 'numeric', month: 'short' })}</small></div>
-    {!compact && <><span className="d-category">■ &nbsp; {transactionCategory(row)}</span><span>{row.account}</span></>}
-    <Money accent={row.type === 'income'}>{transactionSign(row)}{nf(row.amount)}</Money>
-    {!compact && openModal && <button type="button" className="d-row-action" aria-label={`Manage ${row.title}`} onClick={() => openModal('entry', row.id)}><ChevronRight size={15}/></button>}
-  </div>)}</div>
+  return <div className={`d-transactions ${compact ? 'is-compact' : ''}`}>{displayedRows.map((row) => {
+    const canOpen = !compact && Boolean(openModal)
+    const openEntry = () => openModal?.('entry', row.id)
+    return <div className={`d-transaction ${canOpen ? 'is-interactive' : ''}`} key={row.id} role={canOpen ? 'button' : undefined} tabIndex={canOpen ? 0 : undefined} onClick={canOpen ? openEntry : undefined} onKeyDown={canOpen ? (event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); openEntry() } } : undefined}>
+      <i className={`is-${transactionTone(row)}`} /><div className="d-entry"><strong>{row.title}</strong><small>{new Date(`${row.date}T12:00:00`).toLocaleDateString('en-PK', { day: 'numeric', month: 'short' })}</small></div>
+      {!compact && <><span className="d-category">■ &nbsp; {transactionCategory(row)}</span><span>{row.account}</span></>}
+      <Money accent={row.type === 'income'}>{transactionSign(row)}{nf(row.amount)}</Money>
+      {!compact && openModal && <button type="button" className="d-row-action" aria-label={`Manage ${row.title}`} onClick={(event) => { event.stopPropagation(); openEntry() }}><ChevronRight size={15}/></button>}
+    </div>
+  })}</div>
 }
 
 function LedgerPage({ period, setPeriod, openModal }: { period: PeriodKey; setPeriod: (period: PeriodKey) => void; openModal: OpenModal }) {
