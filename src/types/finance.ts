@@ -13,6 +13,7 @@ export type MoneyPriority = 'stretch' | 'save' | 'control_spending' | 'bills_deb
 export type SpendingNature = 'essential' | 'flexible'
 export type JourneyState = 'comfortable' | 'watchful' | 'protect' | 'needs_setup'
 export type AffordabilityState = 'safe' | 'caution' | 'risky' | 'needs_setup'
+export type CategoryIconName = 'home' | 'dining' | 'groceries' | 'coffee' | 'car' | 'transport' | 'fuel' | 'shopping' | 'clothing' | 'health' | 'medicine' | 'education' | 'bills' | 'phone' | 'internet' | 'entertainment' | 'tickets' | 'work' | 'gift' | 'wallet' | 'bank' | 'fitness' | 'travel' | 'grooming'
 
 export interface Account {
   id: string
@@ -30,6 +31,7 @@ export interface Category {
   name: string
   kind: 'income' | 'expense'
   color: string
+  icon?: CategoryIconName
   spendingNature: SpendingNature
 }
 

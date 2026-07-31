@@ -115,6 +115,7 @@ export type Database = {
           color: string
           created_at: string
           id: string
+          icon_name: string | null
           kind: string
           name: string
           sort_order: number
@@ -127,6 +128,7 @@ export type Database = {
           color?: string
           created_at?: string
           id: string
+          icon_name?: string | null
           kind: string
           name: string
           sort_order?: number
@@ -139,6 +141,7 @@ export type Database = {
           color?: string
           created_at?: string
           id?: string
+          icon_name?: string | null
           kind?: string
           name?: string
           sort_order?: number

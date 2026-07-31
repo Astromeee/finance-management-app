@@ -173,7 +173,7 @@ export async function loadFinanceData(): Promise<FinanceData> {
     upcomingExpenses: (upcoming.data as Row[]).map(upcomingFromRow),
     categories: (categories.data as Row[]).map((row) => ({
       id: value(row, 'id'), name: value(row, 'name'), kind: value(row, 'kind'), color: value(row, 'color'),
-      spendingNature: value(row, 'spending_nature'),
+      icon: row.icon_name as Category['icon'], spendingNature: value(row, 'spending_nature'),
     })),
     profile: { name: (settingsRow?.display_name as string | undefined) || 'Pocket Ledger user', avatar: settingsRow?.avatar as string | undefined },
     onboardingCompleted: Boolean(settingsRow?.onboarding_completed),
@@ -308,7 +308,7 @@ export async function saveCategory(category: Category) {
   const userId = await requireUserId()
   const { error } = await client().from('categories').upsert({
     user_id: userId, id: category.id, name: category.name, kind: category.kind,
-    color: category.color, spending_nature: category.spendingNature, sort_order: 100, archived: false,
+    color: category.color, icon_name: category.icon ?? null, spending_nature: category.spendingNature, sort_order: 100, archived: false,
   })
   if (error) throw error
 }
