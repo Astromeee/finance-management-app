@@ -32,6 +32,17 @@
   --track-alt: #DDD4C1;
   --dot-idle: #CFC5AF;
 
+  /* ---- Auth & onboarding package tokens ---- */
+  --cream: #FFFDFA;
+  --sand-input: #FBF8F1;
+  --line: #E6DECD;
+  --line-mobile: #D8CFBD;
+  --clay-deep: #C85A2A;
+  --espresso-panel: linear-gradient(158deg, #2C241C, #241C14 60%, #1F1811);
+  --shadow-clay: 0 16px 30px rgba(226, 112, 58, .35);
+  --shadow-frame: 0 50px 100px rgba(20, 16, 12, .6);
+  --shadow-phone: 0 40px 80px rgba(0, 0, 0, .55);
+
   --font-display: 'Instrument Serif', Georgia, serif;
   --font-ui: 'Schibsted Grotesk', ui-sans-serif, system-ui, sans-serif;
   --font-digits: 'Space Grotesk', ui-sans-serif, system-ui, sans-serif;
