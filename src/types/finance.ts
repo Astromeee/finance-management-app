@@ -184,6 +184,8 @@ export interface Goal {
   linkedAccountId?: string
   notes?: string
   status: Status
+  createdAt?: string
+  updatedAt?: string
 }
 
 export interface Debt {

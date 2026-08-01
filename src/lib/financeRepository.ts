@@ -74,6 +74,8 @@ function goalFromRow(row: Row): Goal {
     saved: Number(row.saved ?? 0), dueDate: row.due_date as string | undefined,
     linkedAccountId: row.linked_account_id as string | undefined,
     notes: row.notes as string | undefined, status: value(row, 'status'),
+    createdAt: row.created_at as string | undefined,
+    updatedAt: row.updated_at as string | undefined,
   }
 }
 
