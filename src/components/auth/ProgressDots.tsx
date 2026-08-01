@@ -14,6 +14,6 @@ export function ProgressDots({ current, total }: { current: number; total: numbe
         return <span className={`ao-dot ${state}`} key={step} />
       })}
     </div>
-    <span className="ao-progress-label">{current} of {total}</span>
+    <span className="ao-progress-label"><i>Step </i>{current} of {total}</span>
   </div>
 }

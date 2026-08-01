@@ -157,7 +157,7 @@ export function Onboarding({ email, initialName, initialSettings, existingAccoun
     <BrandLockup tone="espresso" />
     <div className="mt-12">
       <p className="ao-kicker">{step === 3 ? 'All done' : 'Welcome aboard'}</p>
-      <h2 className="ao-headline">{step === 3 ? 'Your calm money life starts now.' : 'Let us set up your money in four quick steps.'}</h2>
+      <h2 className="ao-headline">{step === 3 ? 'Your calm money life starts now.' : 'Let’s set up your money in four quick steps.'}</h2>
     </div>
     <StepTracker current={step + 1} steps={TRACKER_STEPS} />
     <p className="ao-panel-foot">Takes under a minute. You can change any of this later in Settings.</p>
@@ -321,12 +321,14 @@ function RevealStep({ account, bills, name, settings }: { account: Account; bill
   const cycleDays = safeSpend.cycle?.totalDays ?? 30
   const dailyFlow = Math.max(0, Math.floor((settings.typicalIncome - total) / Math.max(1, cycleDays)))
   const ready = safeSpend.state !== 'needs_setup'
+  // The stored default is a placeholder, not something to greet someone by.
+  const greeting = name.trim() === 'Pocket Ledger user' ? '' : name.trim()
 
   return <div>
     <StepHeading
       kicker="You are all set"
-      lead={name ? 'You are all set,' : 'Here is your first'}
-      accent={name ? `${name}.` : 'safe number.'}
+      lead={greeting ? 'You are all set,' : 'Here is your first'}
+      accent={greeting ? `${greeting}.` : 'safe number.'}
       support="Here is the only number you need for today. It already sets aside every bill you added."
     />
     <div className="ao-ink-card mt-7 text-center">

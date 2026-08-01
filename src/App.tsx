@@ -1143,11 +1143,13 @@ function App() {
   return <Routes>
     <Route path="/privacy" element={<LegalPage kind="privacy" />} />
     <Route path="/terms" element={<LegalPage kind="terms" />} />
-    <Route path="/onboarding" element={<Suspense fallback={<LoadingScreen message="Preparing your journey…" />}><Onboarding email={authEmail} initialName={profile.name} initialSettings={{ ...journeySettings, onboardingStep: 0 }} existingAccount={accounts[0]} onCancel={() => navigate('/app')} onProgress={async (settings) => { await saveJourneySettings(settings, true); setJourneySettings(settings) }} onComplete={async (nextProfile, _account, settings, bills) => {
+    <Route path="/onboarding" element={<Suspense fallback={<LoadingScreen message="Preparing your journey…" />}><Onboarding email={authEmail} initialName={profile.name} initialSettings={{ ...journeySettings, onboardingStep: 0 }} existingAccount={accounts[0]} onCancel={() => navigate('/app')} onProgress={async (settings) => { if (!designPreview) await saveJourneySettings(settings, true); setJourneySettings(settings) }} onComplete={async (nextProfile, _account, settings, bills) => {
       const expenses = billsToUpcomingExpenses(bills)
-      for (const expense of expenses) await saveUpcomingExpense(expense)
-      await saveUserSettings(nextProfile, true)
-      await saveJourneySettings(settings, true)
+      if (!designPreview) {
+        for (const expense of expenses) await saveUpcomingExpense(expense)
+        await saveUserSettings(nextProfile, true)
+        await saveJourneySettings(settings, true)
+      }
       if (expenses.length) setUpcomingExpenses((current) => [...expenses, ...current])
       setProfile(nextProfile)
       setProfileState(nextProfile)

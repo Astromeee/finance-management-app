@@ -75,6 +75,9 @@
   font-variant-numeric: tabular-nums;
 }
 
+/* "Step" prefix reads on the desktop rail only; mobile keeps the terse "3 of 4". */
+.ao-progress-label i { display: none; font-style: normal; }
+
 /* ---- Brand lockup ---- */
 .ao-lockup { display: inline-flex; align-items: center; gap: 12px; }
 
@@ -220,6 +223,7 @@
 }
 
 .ao-input:focus-visible { outline: 2px solid var(--clay); outline-offset: 2px; }
+.ao-input:disabled { color: var(--taupe); background: transparent; border-style: dashed; cursor: not-allowed; }
 .ao-input.is-figure { font-family: var(--font-digits); font-variant-numeric: tabular-nums; font-size: 30px; font-weight: 600; }
 .ao-input::placeholder { color: var(--taupe-faint); }
 
@@ -567,6 +571,11 @@
 
   .ao-surface-progress { margin-bottom: 0; }
   .ao-shell.is-wizard .ao-dots { display: none; }
+  .ao-shell.is-wizard .ao-progress-label i { display: inline; }
+
+  /* The rail already carries the step label, so the in-body kicker would repeat it. */
+  .ao-shell.is-wizard .ao-surface-body .ao-kicker { display: none; }
+  .ao-shell.is-wizard .ao-surface-body .ao-headline { margin-top: 0; }
 
   .ao-headline { font-size: clamp(38px, 3.4vw, 50px); margin-top: 12px; }
   .ao-support { font-size: 16px; }
