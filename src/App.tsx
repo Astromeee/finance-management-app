@@ -8,6 +8,7 @@ import * as vaultPreview from './data/vaultPreviewData'
 import { adjustAccountBalance, archiveAccount, archiveCategory, deleteBudget, deleteDebt, deleteFinanceTransaction, deleteGoal, loadArchivedAccounts, loadFinanceData, markUpcomingExpensePaid, recordFinanceAction, restoreAccount, restoreBudget, saveAccount, saveBudget, saveCategory, saveDebt, saveGoal, saveJourneySettings, saveMoneyQuest, saveMoneyWin, saveUpcomingExpense, saveUserSettings, saveWishlistItem, updateFinanceTransaction } from './lib/financeRepository'
 import { addRecurringDate, localDateKey, localMonthKey } from './lib/date'
 import { applyAccountOrder } from './lib/accountOrder'
+import { billsToUpcomingExpenses } from './lib/onboardingBills'
 import { setAnalyticsConsent, trackEvent } from './lib/analytics'
 import { getProfile, onProfileChange, setProfile, type Profile } from './lib/profile'
 import { isSupabaseConfigured, supabase } from './lib/supabase'
@@ -1118,11 +1119,14 @@ function App() {
 
   if (!onboardingCompleted && !designPreview) {
     return <Routes>
-      <Route path="/onboarding" element={<Suspense fallback={<LoadingScreen message="Preparing your journey…" />}><Onboarding email={authEmail} initialName={authDisplayName} initialSettings={journeySettings} onProgress={async (settings) => { await saveJourneySettings(settings, false); setJourneySettings(settings) }} onComplete={async (nextProfile, account, settings) => {
+      <Route path="/onboarding" element={<Suspense fallback={<LoadingScreen message="Preparing your journey…" />}><Onboarding email={authEmail} initialName={authDisplayName} initialSettings={journeySettings} onProgress={async (settings) => { await saveJourneySettings(settings, false); setJourneySettings(settings) }} onComplete={async (nextProfile, account, settings, bills) => {
         if (account) await saveAccount(account, account.balance)
+        const expenses = billsToUpcomingExpenses(bills)
+        for (const expense of expenses) await saveUpcomingExpense(expense)
         await saveUserSettings(nextProfile, true)
         await saveJourneySettings(settings, true)
         if (account) setAccounts([account])
+        if (expenses.length) setUpcomingExpenses((current) => [...expenses, ...current])
         setJourneySettings(settings)
         setProfile(nextProfile)
         setProfileState(nextProfile)
@@ -1139,7 +1143,17 @@ function App() {
   return <Routes>
     <Route path="/privacy" element={<LegalPage kind="privacy" />} />
     <Route path="/terms" element={<LegalPage kind="terms" />} />
-    <Route path="/onboarding" element={<Suspense fallback={<LoadingScreen message="Preparing your journey…" />}><Onboarding email={authEmail} initialName={profile.name} initialSettings={{ ...journeySettings, onboardingStep: 0 }} existingAccount={accounts[0]} onCancel={() => navigate('/app')} onProgress={async (settings) => { await saveJourneySettings(settings, true); setJourneySettings(settings) }} onComplete={async (nextProfile, _account, settings) => { await saveUserSettings(nextProfile, true); await saveJourneySettings(settings, true); setProfile(nextProfile); setProfileState(nextProfile); setJourneySettings(settings); navigate('/app', { replace: true }) }} /></Suspense>} />
+    <Route path="/onboarding" element={<Suspense fallback={<LoadingScreen message="Preparing your journey…" />}><Onboarding email={authEmail} initialName={profile.name} initialSettings={{ ...journeySettings, onboardingStep: 0 }} existingAccount={accounts[0]} onCancel={() => navigate('/app')} onProgress={async (settings) => { await saveJourneySettings(settings, true); setJourneySettings(settings) }} onComplete={async (nextProfile, _account, settings, bills) => {
+      const expenses = billsToUpcomingExpenses(bills)
+      for (const expense of expenses) await saveUpcomingExpense(expense)
+      await saveUserSettings(nextProfile, true)
+      await saveJourneySettings(settings, true)
+      if (expenses.length) setUpcomingExpenses((current) => [...expenses, ...current])
+      setProfile(nextProfile)
+      setProfileState(nextProfile)
+      setJourneySettings(settings)
+      navigate('/app', { replace: true })
+    }} /></Suspense>} />
     <Route path="/app/*" element={ledger} />
     <Route path="*" element={<Navigate replace to="/app" />} />
   </Routes>
