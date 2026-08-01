@@ -19,11 +19,11 @@ const localStorageMock: Storage = {
 vi.stubGlobal('localStorage', localStorageMock)
 
 const baseSettings: JourneySettings = {
-  typicalIncome: 0, safetyReserve: 0, onboardingVersion: 2, onboardingStep: 0,
+  typicalIncome: 0, safetyReserve: 0, onboardingVersion: 3, onboardingStep: 0,
   tourCompleted: false, analyticsConsent: false,
 }
 
-describe('personalized onboarding', () => {
+describe('four step onboarding', () => {
   let container: HTMLDivElement
   let root: Root
 
@@ -39,37 +39,78 @@ describe('personalized onboarding', () => {
     container.remove()
   })
 
-  it('moves through the trimmed setup and returns a personalized plan', async () => {
+  it('walks source, timing, bills and reveal, then completes', async () => {
     const onProgress = vi.fn(async () => undefined)
     const onComplete = vi.fn(async () => undefined)
     await act(async () => root.render(<Onboarding initialSettings={baseSettings} onProgress={onProgress} onComplete={onComplete} />))
 
-    await click('Set up my journey')
+    expect(container.textContent).toContain('How does money')
     await click('Pocket money')
     await click('Salary')
     await click('Continue')
+
     await change('Typical amount (PKR)', '30000')
+    await change('What you have right now (PKR)', '30000')
     await click('Continue')
-    await change('Amount you have (PKR)', '2000')
-    await click('Continue')
-    await click('Make my money last')
-    await click('Understand where it goes')
-    await click('Start my journey')
 
-    expect(onProgress).toHaveBeenCalledTimes(4)
+    expect(container.textContent).toContain('What must be')
+    await click('Continue')
+
+    expect(container.textContent).toContain('Safe to spend today')
+    await click('Enter Pocket Ledger')
+
+    expect(onProgress).toHaveBeenCalledTimes(3)
     expect(onComplete).toHaveBeenCalledTimes(1)
-    const [, account, settings] = onComplete.mock.calls[0] as unknown as Parameters<ComponentProps<typeof Onboarding>['onComplete']>
-    expect(account?.balance).toBe(2_000)
-    expect(settings).toMatchObject({ incomeSourceType: 'allowance', incomeCadence: 'monthly', typicalIncome: 30_000, primaryPriority: 'stretch', onboardingStep: 5 })
+    const [, account, settings, bills] = onComplete.mock.calls[0] as unknown as Parameters<ComponentProps<typeof Onboarding>['onComplete']>
+    expect(account?.balance).toBe(30_000)
+    expect(settings).toMatchObject({ incomeSourceType: 'allowance', incomeCadence: 'monthly', typicalIncome: 30_000, onboardingStep: 4 })
     expect(settings.incomeSourceTypes).toEqual(['allowance', 'salary'])
-    expect(settings.moneyPriorities).toEqual(['stretch', 'understand'])
+    expect(bills).toEqual([])
   })
 
-  it('resumes from a persisted progress step', async () => {
-    await act(async () => root.render(<Onboarding initialSettings={{ ...baseSettings, onboardingStep: 3 }} onProgress={async () => undefined} onComplete={async () => undefined} />))
-    expect(container.textContent).toContain('What’s in your pocket now?')
-    expect(container.textContent).toContain('Amount you have (PKR)')
+  it('adds a bill and carries it into the summary and completion', async () => {
+    const onComplete = vi.fn(async () => undefined)
+    await act(async () => root.render(<Onboarding initialSettings={{ ...baseSettings, onboardingStep: 2, typicalIncome: 30_000, nextIncomeDate: futureDate(20) }} onProgress={async () => undefined} onComplete={onComplete} />))
+
+    await click('Add another bill')
+    await change('Bill name', 'Rent')
+    await change('Amount (PKR)', '18000')
+    await click('Save bill')
+
+    expect(container.textContent).toContain('Rent')
+    expect(container.textContent).toContain('18,000')
+
+    await click('Continue')
+    await click('Enter Pocket Ledger')
+
+    const [, , , bills] = onComplete.mock.calls[0] as unknown as Parameters<ComponentProps<typeof Onboarding>['onComplete']>
+    expect(bills).toHaveLength(1)
+    expect(bills[0]).toMatchObject({ name: 'Rent', amount: 18_000 })
   })
+
+  it('blocks continue until a source is chosen', async () => {
+    await act(async () => root.render(<Onboarding initialSettings={baseSettings} onProgress={async () => undefined} onComplete={async () => undefined} />))
+    const button = [...container.querySelectorAll('button')].find((item) => item.textContent?.includes('Continue'))
+    expect(button?.hasAttribute('disabled')).toBe(true)
+  })
+
+  it('goes back from timing to source', async () => {
+    await act(async () => root.render(<Onboarding initialSettings={{ ...baseSettings, onboardingStep: 1 }} onProgress={async () => undefined} onComplete={async () => undefined} />))
+    expect(container.textContent).toContain('When is money')
+    await clickLabel('Previous step')
+    expect(container.textContent).toContain('How does money')
+  })
+
+  it('uses no em dashes in visible copy', async () => {
+    await act(async () => root.render(<Onboarding initialSettings={baseSettings} onProgress={async () => undefined} onComplete={async () => undefined} />))
+    expect(container.textContent).not.toContain('—')
+  })
+
+  function futureDate(days: number) {
+    const date = new Date()
+    date.setDate(date.getDate() + days)
+    return date.toISOString().slice(0, 10)
+  }
 
   async function click(label: string) {
     const button = [...container.querySelectorAll('button')].find((item) => item.textContent?.includes(label))
@@ -77,8 +118,15 @@ describe('personalized onboarding', () => {
     await act(async () => { button!.click(); await Promise.resolve() })
   }
 
+  async function clickLabel(label: string) {
+    const button = container.querySelector<HTMLButtonElement>(`[aria-label="${label}"]`)
+    expect(button, `button ${label}`).toBeTruthy()
+    await act(async () => { button!.click(); await Promise.resolve() })
+  }
+
   async function change(label: string, value: string) {
-    const input = container.querySelector(`[aria-label="${label}"]`) ?? [...container.querySelectorAll('label')].find((item) => item.textContent?.includes(label))?.querySelector('input')
+    const input = container.querySelector(`[aria-label="${label}"]`)
+      ?? [...container.querySelectorAll('label')].find((item) => item.textContent?.includes(label))?.querySelector('input')
     expect(input, `field ${label}`).toBeTruthy()
     const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set
     await act(async () => {

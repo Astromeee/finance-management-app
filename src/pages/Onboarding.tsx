@@ -1,9 +1,15 @@
-import { ArrowLeft, ArrowRight, CalendarDays, Check, GraduationCap, Landmark, Sparkles, WalletCards } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Check, CreditCard, GraduationCap, Home, Landmark, Plus, Sparkles, WalletCards, X, Zap } from 'lucide-react'
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
+import { AuthShell } from '../components/auth/AuthShell'
+import { BrandLockup } from '../components/auth/BrandLockup'
+import { ProgressDots } from '../components/auth/ProgressDots'
+import { StepTracker, type TrackerStep } from '../components/auth/StepTracker'
 import { localDateKey } from '../lib/date'
 import { trackEvent } from '../lib/analytics'
 import { parseWholePkr } from '../lib/money'
-import type { Account, AccountType, IncomeSourceType, JourneySettings, MoneyPriority } from '../types/finance'
+import { BILL_CATEGORY_OPTIONS, billsToUpcomingExpenses, billsTotal, type OnboardingBill } from '../lib/onboardingBills'
+import { calculateSafeSpend } from '../utils/journeyCalculations'
+import type { Account, AccountType, IncomeSourceType, JourneySettings } from '../types/finance'
 import { cn } from '../utils/ui'
 
 type Draft = {
@@ -19,26 +25,27 @@ type Props = {
   initialSettings: JourneySettings
   existingAccount?: Account
   onProgress: (settings: JourneySettings) => Promise<void>
-  onComplete: (profile: { name: string }, account: Account | undefined, settings: JourneySettings) => Promise<void>
+  onComplete: (profile: { name: string }, account: Account | undefined, settings: JourneySettings, bills: OnboardingBill[]) => Promise<void>
   onCancel?: () => void
 }
 
-const STORAGE_KEY = 'pocket-ledger-onboarding-draft-v3'
-const TOTAL_STEPS = 5
+const STORAGE_KEY = 'pocket-ledger-onboarding-draft-v4'
+const TOTAL_STEPS = 4
+
+const nf = (value: number) => Math.round(value).toLocaleString('en-PK')
+
+const TRACKER_STEPS: TrackerStep[] = [
+  { title: 'Income source', detail: 'How money reaches you' },
+  { title: 'Income timing', detail: 'When the next one lands' },
+  { title: 'Fixed bills', detail: 'What must be paid' },
+  { title: 'All set', detail: 'Your first safe number' },
+]
 
 const sourceOptions: Array<{ id: IncomeSourceType; title: string; detail: string; icon: typeof Landmark }> = [
   { id: 'salary', title: 'Salary', detail: 'A regular payday', icon: Landmark },
   { id: 'allowance', title: 'Pocket money', detail: 'Allowance or family support', icon: GraduationCap },
-  { id: 'irregular', title: 'Irregular', detail: 'Freelance, shifts, or business', icon: Sparkles },
+  { id: 'irregular', title: 'Irregular', detail: 'Freelance, shifts or business', icon: Sparkles },
   { id: 'mixed', title: 'A mix', detail: 'More than one of these', icon: WalletCards },
-]
-
-const priorityOptions: Array<{ id: MoneyPriority; title: string; detail: string }> = [
-  { id: 'stretch', title: 'Make my money last', detail: 'Stay steady until the next income date' },
-  { id: 'save', title: 'Save for something', detail: 'Protect progress toward a goal' },
-  { id: 'control_spending', title: 'Control small spending', detail: 'Spot little purchases that add up' },
-  { id: 'bills_debt', title: 'Stay ahead of bills or debt', detail: 'Reserve important payments first' },
-  { id: 'understand', title: 'Understand where it goes', detail: 'Build a clearer picture over time' },
 ]
 
 const accountTypes: Array<{ id: AccountType; label: string }> = [
@@ -46,6 +53,8 @@ const accountTypes: Array<{ id: AccountType; label: string }> = [
   { id: 'bank', label: 'Bank' },
   { id: 'wallet', label: 'Wallet' },
 ]
+
+const quickAmounts = [15_000, 30_000, 50_000]
 
 function futureDate(days: number) {
   const date = new Date()
@@ -59,21 +68,21 @@ function loadDraft(existingAccount?: Account): Draft {
     const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '') as Draft
     if (saved.accountId) return saved
   } catch { /* A missing or old draft simply starts fresh. */ }
-  return { accountId: crypto.randomUUID(), accountName: 'Cash', accountType: 'cash', balance: '0' }
+  return { accountId: crypto.randomUUID(), accountName: 'Cash', accountType: 'cash', balance: '' }
 }
 
 export function Onboarding({ email, initialName, initialSettings, existingAccount, onProgress, onComplete, onCancel }: Props) {
   const [step, setStep] = useState(Math.min(initialSettings.onboardingStep, TOTAL_STEPS - 1))
-  const [name, setName] = useState(initialName ?? '')
+  const [name] = useState(initialName ?? '')
   const [settings, setSettings] = useState<JourneySettings>(() => ({
     ...initialSettings,
     incomeSourceTypes: initialSettings.incomeSourceTypes ?? (initialSettings.incomeSourceType ? [initialSettings.incomeSourceType] : []),
-    moneyPriorities: initialSettings.moneyPriorities ?? (initialSettings.primaryPriority ? [initialSettings.primaryPriority] : []),
     incomeCadence: initialSettings.incomeCadence ?? 'monthly',
     nextIncomeDate: initialSettings.nextIncomeDate ?? futureDate(14),
-    onboardingVersion: 3,
+    onboardingVersion: 4,
   }))
   const [draft, setDraft] = useState(() => loadDraft(existingAccount))
+  const [bills, setBills] = useState<OnboardingBill[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
@@ -82,27 +91,30 @@ export function Onboarding({ email, initialName, initialSettings, existingAccoun
   }, [draft, existingAccount])
   useEffect(() => { trackEvent('onboarding_started', { surface: 'onboarding', action: 'open' }) }, [])
 
-  const parsedBalance = useMemo(() => draft.balance === '' || draft.balance === '0' ? 0 : parseWholePkr(draft.balance), [draft.balance])
+  const parsedBalance = useMemo(() => draft.balance === '' ? 0 : parseWholePkr(draft.balance) ?? 0, [draft.balance])
   const parsedIncome = Number.isSafeInteger(settings.typicalIncome) ? settings.typicalIncome : 0
   const sources = settings.incomeSourceTypes ?? []
-  const priorities = settings.moneyPriorities ?? []
 
-  const canContinue = step === 0
-    || (step === 1 && sources.length > 0)
-    || (step === 2 && Boolean(settings.nextIncomeDate) && parsedIncome > 0)
-    || (step === 3 && parsedBalance !== null)
-    || (step === 4 && priorities.length > 0)
+  const account = useMemo<Account>(() => ({
+    id: draft.accountId,
+    name: draft.accountName.trim() || 'Cash',
+    type: draft.accountType,
+    balance: parsedBalance,
+    color: '#E2703A',
+    activity: 'Opening balance',
+    cardLabel: draft.accountType.toUpperCase(),
+    includeInSafeSpend: true,
+  }), [draft, parsedBalance])
+
+  const canContinue = (step === 0 && sources.length > 0)
+    || (step === 1 && Boolean(settings.nextIncomeDate) && parsedIncome > 0)
+    || step === 2
+    || step === 3
 
   const toggleSource = (id: IncomeSourceType) => setSettings((current) => {
     const list = current.incomeSourceTypes ?? []
     const next = list.includes(id) ? list.filter((item) => item !== id) : [...list, id]
     return { ...current, incomeSourceTypes: next, incomeSourceType: next[0] }
-  })
-
-  const togglePriority = (id: MoneyPriority) => setSettings((current) => {
-    const list = current.moneyPriorities ?? []
-    const next = list.includes(id) ? list.filter((item) => item !== id) : [...list, id]
-    return { ...current, moneyPriorities: next, primaryPriority: next[0] }
   })
 
   const setIncome = (value: string) => {
@@ -123,20 +135,11 @@ export function Onboarding({ email, initialName, initialSettings, existingAccoun
         setSettings(nextSettings)
         setStep(nextStep)
       } else {
-        const account = existingAccount ? undefined : {
-          id: draft.accountId,
-          name: draft.accountName.trim() || 'Cash',
-          type: draft.accountType,
-          balance: parsedBalance ?? 0,
-          color: '#E2703A',
-          activity: 'Opening balance',
-          cardLabel: draft.accountType.toUpperCase(),
-          includeInSafeSpend: true,
-        }
         await onComplete(
           { name: name.trim() || email?.split('@')[0] || 'Pocket Ledger user' },
-          account,
+          existingAccount ? undefined : account,
           { ...nextSettings, onboardingStep: TOTAL_STEPS },
+          bills,
         )
         localStorage.removeItem(STORAGE_KEY)
       }
@@ -147,106 +150,194 @@ export function Onboarding({ email, initialName, initialSettings, existingAccoun
     }
   }
 
-  const progressValue = Math.min(step + 1, TOTAL_STEPS)
+  const goBack = () => step > 0 ? setStep((current) => current - 1) : onCancel?.()
+  const showBack = step > 0 || Boolean(onCancel)
 
-  return (
-    <main className="auth-shell min-h-screen px-4 py-5 text-[var(--text)] sm:grid sm:place-items-center sm:p-8">
-      <section className="auth-card relative z-[1] mx-auto flex min-h-[calc(100vh-2.5rem)] w-full max-w-xl flex-col overflow-hidden rounded-[26px] sm:min-h-[680px]">
-        <header className="flex items-center justify-between px-5 py-5 sm:px-7">
-          <button aria-label={step === 0 ? 'Cancel onboarding' : 'Previous step'} className={cn('icon-button grid h-10 w-10 place-items-center rounded-xl', !onCancel && step === 0 && 'invisible')} onClick={() => step > 0 ? setStep((current) => current - 1) : onCancel?.()} type="button"><ArrowLeft size={19} /></button>
-          <div className="text-center">
-            <p className="text-sm font-semibold">Pocket Ledger</p>
-            <p className="mt-0.5 text-xs text-[var(--muted)]">Let’s set up your journey</p>
-          </div>
-          <span className="w-10 text-right text-xs tabular-nums text-[var(--muted)]">{progressValue}/{TOTAL_STEPS}</span>
-        </header>
-        <div aria-label="Onboarding progress" className="mx-5 h-1 overflow-hidden rounded-full bg-[var(--surface-3)] sm:mx-7" role="progressbar" aria-valuemin={1} aria-valuemax={TOTAL_STEPS} aria-valuenow={progressValue}>
-          <div className="h-full rounded-full bg-[var(--accent)] transition-[width] duration-300 motion-reduce:transition-none" style={{ width: `${(progressValue / TOTAL_STEPS) * 100}%` }} />
-        </div>
-
-        <form className="flex flex-1 flex-col px-5 pb-5 pt-7 sm:px-8 sm:pb-8" onSubmit={next}>
-          <div className="flex-1">
-            {step === 0 && <WelcomeStep name={name} setName={setName} />}
-            {step === 1 && <SourceStep selected={sources} onToggle={toggleSource} />}
-            {step === 2 && <IncomeStep settings={settings} setSettings={setSettings} setIncome={setIncome} />}
-            {step === 3 && <PocketStep draft={draft} setDraft={setDraft} existing={Boolean(existingAccount)} />}
-            {step === 4 && <PriorityStep selected={priorities} onToggle={togglePriority} />}
-          </div>
-          {error && <p className="mb-3 rounded-xl border border-[color-mix(in_srgb,var(--negative)_35%,transparent)] bg-[color-mix(in_srgb,var(--negative)_10%,transparent)] px-3 py-2 text-sm text-[var(--negative)]" role="alert">{error}</p>}
-          <button className="btn-primary w-full justify-center py-3.5 disabled:cursor-not-allowed disabled:opacity-45" disabled={!canContinue || loading}>
-            {loading ? 'Saving…' : step === 4 ? 'Start my journey' : step === 0 ? 'Set up my journey' : 'Continue'}
-            {!loading && (step === 4 ? <Check size={18} /> : <ArrowRight size={18} />)}
-          </button>
-          <p className="mt-3 text-center text-xs text-[var(--muted-2)]">Your entries stay private to your account. Pocket Ledger never moves money.</p>
-        </form>
-      </section>
-    </main>
-  )
-}
-
-function WelcomeStep({ name, setName }: { name: string; setName: (value: string) => void }) {
-  return <div>
-    <div className="grid h-14 w-14 place-items-center rounded-2xl bg-[var(--accent)] text-[var(--accent-ink)]"><WalletCards size={27} /></div>
-    <p className="mt-7 text-xs font-bold uppercase tracking-[.18em] text-[var(--accent)]">Less accounting. More clarity.</p>
-    <h1 className="mt-3 max-w-md font-display text-4xl font-bold leading-[1.08]">Know what today can afford.</h1>
-    <p className="mt-4 max-w-md text-base leading-7 text-[var(--muted)]">A few quick questions and your money turns into a simple journey to your next income date — what’s protected, what’s flexible, one useful move at a time. You can change anything later.</p>
-    <label className="mt-8 block"><span className="form-label">What should we call you?</span><input autoComplete="name" className="form-input" value={name} onChange={(event) => setName(event.target.value)} placeholder="Your first name" /></label>
-  </div>
-}
-
-function SourceStep({ selected, onToggle }: { selected: IncomeSourceType[]; onToggle: (value: IncomeSourceType) => void }) {
-  return <div>
-    <StepHeading eyebrow="Make it yours" title="How does money reach you?" detail="Pick everything that applies — it shapes the language and rhythm of your journey." />
-    <div className="mt-7 grid gap-3 sm:grid-cols-2">{sourceOptions.map(({ id, title, detail, icon: Icon }) => {
-      const active = selected.includes(id)
-      return <button aria-pressed={active} className={cn('relative rounded-2xl border p-4 text-left transition-colors', active ? 'border-[var(--accent)] bg-[var(--accent-soft)]' : 'border-[var(--border)] bg-[var(--surface-2)] hover:border-[var(--border-strong)]')} key={id} onClick={() => onToggle(id)} type="button">
-        <span className={cn('absolute right-3 top-3 grid h-5 w-5 place-items-center rounded-md border transition-colors', active ? 'border-[var(--accent)] bg-[var(--accent)] text-[var(--accent-ink)]' : 'border-[var(--border-strong)]')}>{active && <Check size={13} />}</span>
-        <Icon className={active ? 'text-[var(--accent)]' : 'text-[var(--muted)]'} size={21} />
-        <span className="mt-4 block font-semibold">{title}</span>
-        <span className="mt-1 block text-sm leading-5 text-[var(--muted)]">{detail}</span>
-      </button>
-    })}</div>
-  </div>
-}
-
-function IncomeStep({ settings, setSettings, setIncome }: { settings: JourneySettings; setSettings: (updater: (value: JourneySettings) => JourneySettings) => void; setIncome: (value: string) => void }) {
-  return <div>
-    <StepHeading eyebrow="Set the rhythm" title="When is money coming next?" detail="This date is the finish line for your current journey, and the amount is what you’ll have to work with." />
-    <div className="mt-7 grid gap-4">
-      <label><span className="form-label">Next income date</span><div className="relative"><CalendarDays className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[var(--muted)]" size={17} /><input className="form-input pl-10" min={futureDate(1)} type="date" value={settings.nextIncomeDate ?? ''} onChange={(event) => setSettings((current) => ({ ...current, nextIncomeDate: event.target.value }))} /></div></label>
-      <label><span className="form-label">Typical amount (PKR)</span><input className="form-input font-display text-2xl font-semibold tabular-nums" inputMode="numeric" min="1" step="1" type="number" value={settings.typicalIncome || ''} onChange={(event) => setIncome(event.target.value)} placeholder="30,000" /></label>
+  const panel = <>
+    <BrandLockup tone="espresso" />
+    <div className="mt-12">
+      <p className="ao-kicker">{step === 3 ? 'All done' : 'Welcome aboard'}</p>
+      <h2 className="ao-headline">{step === 3 ? 'Your calm money life starts now.' : 'Let us set up your money in four quick steps.'}</h2>
     </div>
-    <p className="mt-4 text-sm leading-6 text-[var(--muted-2)]">Not exact? A rough estimate is fine — you can fine-tune it any time in Settings.</p>
-  </div>
+    <StepTracker current={step + 1} steps={TRACKER_STEPS} />
+    <p className="ao-panel-foot">Takes under a minute. You can change any of this later in Settings.</p>
+  </>
+
+  return <AuthShell variant="wizard" panel={panel} progress={<ProgressDots current={step + 1} total={TOTAL_STEPS} />}>
+    <form className="flex min-h-0 flex-1 flex-col" onSubmit={next}>
+      <div className="flex-1">
+        {step === 0 && <SourceStep selected={sources} onToggle={toggleSource} />}
+        {step === 1 && <TimingStep draft={draft} setDraft={setDraft} existing={Boolean(existingAccount)} settings={settings} setSettings={setSettings} setIncome={setIncome} />}
+        {step === 2 && <BillsStep bills={bills} setBills={setBills} />}
+        {step === 3 && <RevealStep account={account} bills={bills} name={name} settings={settings} />}
+      </div>
+      {error && <p className="ao-message" role="alert">{error}</p>}
+      <div className="ao-actions">
+        {showBack && <button aria-label={step === 0 ? 'Cancel onboarding' : 'Previous step'} className="ao-back" onClick={goBack} type="button"><ArrowLeft size={19} /></button>}
+        <button className={cn('ao-cta', step === 3 && 'is-full')} disabled={!canContinue || loading}>
+          {loading ? 'Saving…' : step === 3 ? 'Enter Pocket Ledger' : 'Continue'}
+          {!loading && <ArrowRight size={18} />}
+        </button>
+      </div>
+    </form>
+  </AuthShell>
 }
 
-function PocketStep({ draft, setDraft, existing }: { draft: Draft; setDraft: (value: Draft) => void; existing: boolean }) {
+function StepHeading({ accent, kicker, lead, support }: { accent: string; kicker: string; lead: string; support: string }) {
+  return <header>
+    <p className="ao-kicker">{kicker}</p>
+    <h1 className="ao-headline">{lead} <em>{accent}</em></h1>
+    <p className="ao-support">{support}</p>
+  </header>
+}
+
+function SourceStep({ onToggle, selected }: { onToggle: (value: IncomeSourceType) => void; selected: IncomeSourceType[] }) {
   return <div>
-    <StepHeading eyebrow="Starting point" title={existing ? 'Your current balance' : 'What’s in your pocket now?'} detail="Count only money you can actually spend. You can add more accounts later." />
-    <label className="mt-7 block"><span className="form-label">Amount you have (PKR)</span><input className="form-input font-display text-3xl font-semibold tabular-nums" disabled={existing} inputMode="numeric" min="0" step="1" type="number" value={draft.balance} onChange={(event) => setDraft({ ...draft, balance: event.target.value })} /></label>
-    {!existing && <div className="mt-5">
-      <span className="form-label">Where is it?</span>
-      <div className="mt-1.5 grid grid-cols-3 gap-2">{accountTypes.map(({ id, label }) => {
-        const active = draft.accountType === id
-        return <button aria-pressed={active} className={cn('rounded-xl border px-3 py-3 text-sm font-semibold transition-colors', active ? 'border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent)]' : 'border-[var(--border)] bg-[var(--surface-2)] text-[var(--muted)]')} key={id} onClick={() => setDraft({ ...draft, accountType: id, accountName: draft.accountName === '' || accountTypes.some((type) => type.label === draft.accountName) ? label : draft.accountName })} type="button">{label}</button>
-      })}</div>
-    </div>}
+    <StepHeading kicker="Make it yours" lead="How does money" accent="reach you?" support="Pick everything that applies. It shapes the rhythm of your budgeting cycle." />
+    <div className="ao-options is-grid">
+      {sourceOptions.map(({ detail, icon: Icon, id, title }) => {
+        const active = selected.includes(id)
+        return <button aria-pressed={active} className={cn('ao-option', active && 'is-selected')} key={id} onClick={() => onToggle(id)} type="button">
+          <span className="ao-option-icon"><Icon size={21} /></span>
+          <span className="ao-option-copy"><strong>{title}</strong><small>{detail}</small></span>
+          <span className="ao-check">{active && <Check size={15} strokeWidth={3} />}</span>
+        </button>
+      })}
+    </div>
   </div>
 }
 
-function PriorityStep({ selected, onToggle }: { selected: MoneyPriority[]; onToggle: (value: MoneyPriority) => void }) {
+function TimingStep({ draft, existing, setDraft, setIncome, setSettings, settings }: {
+  draft: Draft
+  existing: boolean
+  setDraft: (value: Draft) => void
+  setIncome: (value: string) => void
+  setSettings: (updater: (value: JourneySettings) => JourneySettings) => void
+  settings: JourneySettings
+}) {
   return <div>
-    <StepHeading eyebrow="Choose your focus" title="What would feel like a win?" detail="Pick one or more. We’ll keep these front and centre without turning Home into a wall of numbers." />
-    <div className="mt-7 grid gap-2">{priorityOptions.map((option) => {
-      const active = selected.includes(option.id)
-      return <button aria-pressed={active} className={cn('flex items-center gap-3 rounded-2xl border p-4 text-left transition-colors', active ? 'border-[var(--accent)] bg-[var(--accent-soft)]' : 'border-[var(--border)] bg-[var(--surface-2)] hover:border-[var(--border-strong)]')} key={option.id} onClick={() => onToggle(option.id)} type="button">
-        <span className={cn('grid h-6 w-6 shrink-0 place-items-center rounded-md border transition-colors', active ? 'border-[var(--accent)] bg-[var(--accent)] text-[var(--accent-ink)]' : 'border-[var(--border-strong)]')}>{active && <Check size={14} />}</span>
-        <span><span className="block font-semibold">{option.title}</span><span className="mt-0.5 block text-sm text-[var(--muted)]">{option.detail}</span></span>
-      </button>
-    })}</div>
+    <StepHeading kicker="Set the rhythm" lead="When is money" accent="coming next?" support="This date is the finish line for your current cycle, and the amounts tell us what you have to work with." />
+    <div className="mt-7 grid gap-5">
+      <label className="ao-field">
+        <span className="ao-label">Next income date</span>
+        <input className="ao-input" min={futureDate(1)} onChange={(event) => setSettings((current) => ({ ...current, nextIncomeDate: event.target.value }))} type="date" value={settings.nextIncomeDate ?? ''} />
+      </label>
+      <label className="ao-field">
+        <span className="ao-label">Typical amount (PKR)</span>
+        <input className="ao-input is-figure" inputMode="numeric" min="1" onChange={(event) => setIncome(event.target.value)} placeholder="30,000" step="1" type="number" value={settings.typicalIncome || ''} />
+      </label>
+      <div className="ao-pills">
+        {quickAmounts.map((amount) => <button className={cn('ao-pill', settings.typicalIncome === amount && 'is-selected')} key={amount} onClick={() => setIncome(String(amount))} type="button">{nf(amount)}</button>)}
+      </div>
+      <label className="ao-field">
+        <span className="ao-label">What you have right now (PKR)</span>
+        <input className="ao-input is-figure" disabled={existing} inputMode="numeric" min="0" onChange={(event) => setDraft({ ...draft, balance: event.target.value })} placeholder="0" step="1" type="number" value={draft.balance} />
+      </label>
+      {!existing && <div>
+        <span className="ao-label">Where is it?</span>
+        <div className="ao-pills">
+          {accountTypes.map(({ id, label }) => <button
+            className={cn('ao-pill', draft.accountType === id && 'is-selected')}
+            key={id}
+            onClick={() => setDraft({ ...draft, accountType: id, accountName: draft.accountName === '' || accountTypes.some((type) => type.label === draft.accountName) ? label : draft.accountName })}
+            type="button"
+          >{label}</button>)}
+        </div>
+      </div>}
+    </div>
+    <p className="ao-support">A close guess is fine. You can fine-tune any of this later in Settings.</p>
   </div>
 }
 
-function StepHeading({ eyebrow, title, detail }: { eyebrow: string; title: string; detail: string }) {
-  return <><p className="text-xs font-bold uppercase tracking-[.18em] text-[var(--accent)]">{eyebrow}</p><h1 className="mt-3 font-display text-3xl font-bold leading-tight sm:text-4xl">{title}</h1><p className="mt-3 max-w-md text-base leading-7 text-[var(--muted)]">{detail}</p></>
+function BillsStep({ bills, setBills }: { bills: OnboardingBill[]; setBills: (value: OnboardingBill[]) => void }) {
+  const [adding, setAdding] = useState(false)
+  const [billName, setBillName] = useState('')
+  const [amount, setAmount] = useState('')
+  const [category, setCategory] = useState<string>(BILL_CATEGORY_OPTIONS[0])
+  const [dueDay, setDueDay] = useState('1')
+
+  const save = () => {
+    const value = Number(amount)
+    if (!billName.trim() || !Number.isFinite(value) || value <= 0) return
+    setBills([...bills, {
+      id: crypto.randomUUID(),
+      name: billName.trim(),
+      amount: Math.floor(value),
+      category,
+      dueDay: Math.min(31, Math.max(1, Number(dueDay) || 1)),
+      frequency: 'monthly',
+    }])
+    setBillName('')
+    setAmount('')
+    setCategory(BILL_CATEGORY_OPTIONS[0])
+    setDueDay('1')
+    setAdding(false)
+  }
+
+  return <div>
+    <StepHeading kicker="Protect the essentials" lead="What must be" accent="paid each cycle?" support="We set these aside first, so your safe number is only money you can truly spend." />
+    <div className="ao-bill-list">
+      {bills.map((bill) => <div className="ao-bill" key={bill.id}>
+        <span className="ao-option-icon">{bill.category === 'Housing/Rent' ? <Home size={19} /> : bill.category === 'Utilities' ? <Zap size={19} /> : <CreditCard size={19} />}</span>
+        <span className="ao-bill-copy"><strong>{bill.name}</strong><small>Monthly, due {bill.dueDay}</small></span>
+        <span className="ao-bill-amount">Rs {nf(bill.amount)}</span>
+        <button aria-label={`Remove ${bill.name}`} className="ao-bill-remove" onClick={() => setBills(bills.filter((item) => item.id !== bill.id))} type="button"><X size={17} /></button>
+      </div>)}
+
+      {adding ? <div className="ao-bill-form">
+        <label className="ao-field"><span className="ao-label">Bill name</span><input aria-label="Bill name" className="ao-input" onChange={(event) => setBillName(event.target.value)} placeholder="Rent" type="text" value={billName} /></label>
+        <div className="ao-bill-form-row">
+          <label className="ao-field"><span className="ao-label">Amount (PKR)</span><input aria-label="Amount (PKR)" className="ao-input" inputMode="numeric" min="1" onChange={(event) => setAmount(event.target.value)} step="1" type="number" value={amount} /></label>
+          <label className="ao-field"><span className="ao-label">Due day</span><input aria-label="Due day" className="ao-input" max="31" min="1" onChange={(event) => setDueDay(event.target.value)} step="1" type="number" value={dueDay} /></label>
+        </div>
+        <label className="ao-field"><span className="ao-label">Category</span><select aria-label="Category" className="ao-input" onChange={(event) => setCategory(event.target.value)} value={category}>{BILL_CATEGORY_OPTIONS.map((option) => <option key={option} value={option}>{option}</option>)}</select></label>
+        <div className="ao-bill-form-actions">
+          <button className="is-cancel" onClick={() => setAdding(false)} type="button">Cancel</button>
+          <button className="is-save" onClick={save} type="button">Save bill</button>
+        </div>
+      </div> : <button className="ao-bill-add" onClick={() => setAdding(true)} type="button"><Plus size={18} />Add another bill</button>}
+    </div>
+
+    <div className="ao-ink-card ao-bill-summary">
+      <div>
+        <p className="ao-ink-label">Set aside each cycle</p>
+        <p className="ao-hero-note">Protected before you spend</p>
+      </div>
+      <strong>Rs {nf(billsTotal(bills))}</strong>
+    </div>
+  </div>
+}
+
+function RevealStep({ account, bills, name, settings }: { account: Account; bills: OnboardingBill[]; name: string; settings: JourneySettings }) {
+  const safeSpend = useMemo(() => calculateSafeSpend({
+    accounts: [account],
+    budgets: [],
+    categories: [],
+    upcomingExpenses: billsToUpcomingExpenses(bills),
+    settings,
+  }), [account, bills, settings])
+
+  const total = billsTotal(bills)
+  const cycleDays = safeSpend.cycle?.totalDays ?? 30
+  const dailyFlow = Math.max(0, Math.floor((settings.typicalIncome - total) / Math.max(1, cycleDays)))
+  const ready = safeSpend.state !== 'needs_setup'
+
+  return <div>
+    <StepHeading
+      kicker="You are all set"
+      lead={name ? 'You are all set,' : 'Here is your first'}
+      accent={name ? `${name}.` : 'safe number.'}
+      support="Here is the only number you need for today. It already sets aside every bill you added."
+    />
+    <div className="ao-ink-card mt-7 text-center">
+      <p className="ao-ink-label">Safe to spend today</p>
+      <p className="ao-hero-figure"><small>Rs</small>{ready ? nf(safeSpend.safeToSpendToday) : '···'}</p>
+      <p className="ao-hero-note">{ready ? 'Bills, savings and your reserve are already protected.' : 'Add a balance and a future income date and this number appears right away.'}</p>
+    </div>
+    <div className="ao-summary">
+      <div className="ao-summary-row"><span>Income</span><strong>Rs {nf(settings.typicalIncome)}</strong></div>
+      <div className="ao-summary-row"><span>Fixed bills</span><strong>Rs {nf(total)}</strong></div>
+      <div className="ao-summary-row"><span>Daily flow</span><strong>Rs {nf(dailyFlow)}</strong></div>
+    </div>
+  </div>
 }
