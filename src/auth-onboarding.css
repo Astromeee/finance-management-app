@@ -527,13 +527,14 @@
 .ao-login-links { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 
 /* Password strength meter (signup / reset) */
-.ao-pw-meter { display: flex; align-items: center; gap: 10px; margin-top: 2px; }
+.ao-pw-meter { display: flex; align-items: center; gap: 10px; margin-top: 12px; }
 .ao-pw-bars { display: flex; gap: 5px; flex: 1; }
 .ao-pw-bars span { flex: 1; height: 4px; border-radius: 999px; background: #E0D7C6; transition: background .25s ease; }
 .ao-pw-bars.is-weak span:nth-child(-n+1) { background: #D9A98C; }
 .ao-pw-bars.is-good span:nth-child(-n+2) { background: var(--clay); }
 .ao-pw-bars.is-strong span { background: var(--clay); }
 .ao-pw-label { font-size: 11px; font-weight: 700; letter-spacing: 1.4px; text-transform: uppercase; color: var(--taupe); min-width: 52px; text-align: right; }
+.ao-pw-hint { display: block; margin-top: 8px; font-size: 12px; line-height: 1.5; color: var(--taupe); }
 
 /* ---- Showcase (desktop only) ---- */
 .ao-showcase { margin-top: 34px; display: flex; flex-direction: column; gap: 22px; }

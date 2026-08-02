@@ -172,7 +172,7 @@ export function AuthPage({ mode }: { mode: AuthMode }) {
                   <span className={`ao-pw-bars ${strength.tier === 1 ? 'is-weak' : strength.tier === 2 ? 'is-good' : strength.tier === 3 ? 'is-strong' : ''}`}><span /><span /><span /></span>
                   <span className="ao-pw-label">{strength.label}</span>
                 </span>
-                <span className="mt-1 block text-xs leading-5 text-[var(--taupe)]">{passwordRequirements}</span>
+                <span className="ao-pw-hint">{passwordRequirements}</span>
               </>}
             </label>}
             {(mode === 'signup' || mode === 'reset') && <label className="ao-field"><span className="ao-label">Confirm password</span><input autoComplete="new-password" className="ao-input" type="password" value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} required /></label>}
