@@ -1,5 +1,5 @@
 import { ArrowLeft, ArrowRight, Check, CreditCard, GraduationCap, Home, Landmark, Plus, Sparkles, WalletCards, X, Zap } from 'lucide-react'
-import { useEffect, useMemo, useState, type FormEvent } from 'react'
+import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { AuthShell } from '../components/auth/AuthShell'
 import { BrandLockup } from '../components/auth/BrandLockup'
 import { ProgressDots } from '../components/auth/ProgressDots'
@@ -55,6 +55,39 @@ const accountTypes: Array<{ id: AccountType; label: string }> = [
 ]
 
 const quickAmounts = [15_000, 30_000, 50_000]
+
+// One-tap starter bills so an empty step-3 is never a dead end.
+const suggestedBills: Array<{ name: string; amount: number; dueDay: number; category: string }> = [
+  { name: 'Rent', amount: 18_000, dueDay: 1, category: 'Housing/Rent' },
+  { name: 'Electricity', amount: 4_500, dueDay: 12, category: 'Utilities' },
+  { name: 'Internet', amount: 3_500, dueDay: 5, category: 'Utilities' },
+  { name: 'Phone', amount: 1_200, dueDay: 8, category: 'Utilities' },
+]
+
+// Eases a number up to its target once, honouring reduced-motion.
+// Progress is tracked rather than the figure itself, so the effect never
+// sets state synchronously — every update lands inside a rAF callback.
+function useCountUp(target: number, run: boolean) {
+  const [progress, setProgress] = useState(0)
+  const frame = useRef<number | undefined>(undefined)
+  const [animate] = useState(() => !window.matchMedia?.('(prefers-reduced-motion: reduce)').matches)
+
+  useEffect(() => {
+    if (!run || !animate) return
+    const start = performance.now()
+    const duration = 1300
+    const tick = (now: number) => {
+      const elapsed = Math.min(1, (now - start) / duration)
+      setProgress(elapsed)
+      if (elapsed < 1) frame.current = requestAnimationFrame(tick)
+    }
+    frame.current = requestAnimationFrame(tick)
+    return () => { if (frame.current) cancelAnimationFrame(frame.current) }
+  }, [target, run, animate])
+
+  if (!run || !animate) return target
+  return Math.round(target * (1 - Math.pow(1 - progress, 3)))
+}
 
 function futureDate(days: number) {
   const date = new Date()
@@ -256,6 +289,18 @@ function BillsStep({ bills, setBills }: { bills: OnboardingBill[]; setBills: (va
   const [category, setCategory] = useState<string>(BILL_CATEGORY_OPTIONS[0])
   const [dueDay, setDueDay] = useState('1')
 
+  const addSuggestion = (suggestion: (typeof suggestedBills)[number]) => {
+    if (bills.some((item) => item.name.toLowerCase() === suggestion.name.toLowerCase())) return
+    setBills([...bills, {
+      id: crypto.randomUUID(),
+      name: suggestion.name,
+      amount: suggestion.amount,
+      category: suggestion.category,
+      dueDay: suggestion.dueDay,
+      frequency: 'monthly',
+    }])
+  }
+
   const save = () => {
     const value = Number(amount)
     if (!billName.trim() || !Number.isFinite(value) || value <= 0) return
@@ -274,8 +319,15 @@ function BillsStep({ bills, setBills }: { bills: OnboardingBill[]; setBills: (va
     setAdding(false)
   }
 
+  const remaining = suggestedBills.filter((suggestion) => !bills.some((item) => item.name.toLowerCase() === suggestion.name.toLowerCase()))
+
   return <div>
-    <StepHeading kicker="Protect the essentials" lead="What must be" accent="paid each cycle?" support="We set these aside first, so your safe number is only money you can truly spend." />
+    <StepHeading kicker="Protect the essentials" lead="What must be" accent="paid each cycle?" support="Tap to add the ones you cannot skip. We set them aside first, so your safe number is only money you can truly spend." />
+
+    {remaining.length > 0 && <div className="ao-bill-chips">
+      {remaining.map((suggestion) => <button className="ao-bill-chip" key={suggestion.name} onClick={() => addSuggestion(suggestion)} type="button"><Plus size={13} strokeWidth={2.6} />{suggestion.name}</button>)}
+    </div>}
+
     <div className="ao-bill-list">
       {bills.map((bill) => <div className="ao-bill" key={bill.id}>
         <span className="ao-option-icon">{bill.category === 'Housing/Rent' ? <Home size={19} /> : bill.category === 'Utilities' ? <Zap size={19} /> : <CreditCard size={19} />}</span>
@@ -295,7 +347,7 @@ function BillsStep({ bills, setBills }: { bills: OnboardingBill[]; setBills: (va
           <button className="is-cancel" onClick={() => setAdding(false)} type="button">Cancel</button>
           <button className="is-save" onClick={save} type="button">Save bill</button>
         </div>
-      </div> : <button className="ao-bill-add" onClick={() => setAdding(true)} type="button"><Plus size={18} />Add another bill</button>}
+      </div> : <button className="ao-bill-add" onClick={() => setAdding(true)} type="button"><Plus size={18} />Add a custom bill</button>}
     </div>
 
     <div className="ao-ink-card ao-bill-summary">
@@ -323,6 +375,7 @@ function RevealStep({ account, bills, name, settings }: { account: Account; bill
   const ready = safeSpend.state !== 'needs_setup'
   // The stored default is a placeholder, not something to greet someone by.
   const greeting = name.trim() === 'Pocket Ledger user' ? '' : name.trim()
+  const counted = useCountUp(ready ? safeSpend.safeToSpendToday : 0, ready)
 
   return <div>
     <StepHeading
@@ -333,7 +386,7 @@ function RevealStep({ account, bills, name, settings }: { account: Account; bill
     />
     <div className="ao-ink-card mt-7 text-center">
       <p className="ao-ink-label">Safe to spend today</p>
-      <p className="ao-hero-figure"><small>Rs</small>{ready ? nf(safeSpend.safeToSpendToday) : '···'}</p>
+      <p className="ao-hero-figure"><small>Rs</small>{ready ? nf(counted) : '···'}</p>
       <p className="ao-hero-note">{ready ? 'Bills, savings and your reserve are already protected.' : 'Add a balance and a future income date and this number appears right away.'}</p>
     </div>
     <div className="ao-summary">

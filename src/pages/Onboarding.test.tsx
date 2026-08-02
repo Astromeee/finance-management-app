@@ -72,7 +72,7 @@ describe('four step onboarding', () => {
     const onComplete = vi.fn(async () => undefined)
     await act(async () => root.render(<Onboarding initialSettings={{ ...baseSettings, onboardingStep: 2, typicalIncome: 30_000, nextIncomeDate: futureDate(20) }} onProgress={async () => undefined} onComplete={onComplete} />))
 
-    await click('Add another bill')
+    await click('Add a custom bill')
     await change('Bill name', 'Rent')
     await change('Amount (PKR)', '18000')
     await click('Save bill')
@@ -86,6 +86,24 @@ describe('four step onboarding', () => {
     const [, , , bills] = onComplete.mock.calls[0] as unknown as Parameters<ComponentProps<typeof Onboarding>['onComplete']>
     expect(bills).toHaveLength(1)
     expect(bills[0]).toMatchObject({ name: 'Rent', amount: 18_000 })
+  })
+
+  it('adds a bill from a suggestion chip and stops offering it', async () => {
+    const onComplete = vi.fn(async () => undefined)
+    await act(async () => root.render(<Onboarding initialSettings={{ ...baseSettings, onboardingStep: 2, typicalIncome: 30_000, nextIncomeDate: futureDate(20) }} onProgress={async () => undefined} onComplete={onComplete} />))
+
+    expect(container.querySelectorAll('.ao-bill-chip').length).toBe(4)
+    await click('Electricity')
+
+    expect(container.querySelectorAll('.ao-bill-chip').length).toBe(3)
+    expect(container.querySelector('.ao-bill-summary')?.textContent).toContain('4,500')
+
+    await click('Continue')
+    await click('Enter Pocket Ledger')
+
+    const [, , , bills] = onComplete.mock.calls[0] as unknown as Parameters<ComponentProps<typeof Onboarding>['onComplete']>
+    expect(bills).toHaveLength(1)
+    expect(bills[0]).toMatchObject({ name: 'Electricity', amount: 4_500, category: 'Utilities' })
   })
 
   it('blocks continue until a source is chosen', async () => {

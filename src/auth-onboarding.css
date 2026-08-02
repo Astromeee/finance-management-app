@@ -2,6 +2,14 @@
    Auth & onboarding surfaces — "Vault" package language.
    Imported last in main.tsx. Everything here is namespaced
    under .ao-* so it cannot leak into the rest of the app.
+
+   MOBILE REDESIGN (2026-08): the phone-card-inside-a-card is
+   gone; auth screens gain a full-bleed dark hero band that the
+   form-sheet overlaps, fields use tucked-in labels, the wizard
+   gets a segmented progress rail + sticky action bar, and the
+   reveal figure counts up. All redesign rules live in the
+   `@media (max-width: 899px)` block or are display:contents by
+   default, so the ≥900px desktop split is byte-for-byte unchanged.
    ============================================================ */
 
 .ao-page {
@@ -44,6 +52,10 @@
   min-height: 0;
 }
 
+/* Redesign wrappers — invisible to layout unless the mobile block
+   opts them in, so desktop keeps the original single-column flow. */
+.ao-hero, .ao-sheet, .ao-hero-copy { display: contents; }
+
 /* ---- Progress row ---- */
 .ao-surface-progress {
   display: flex;
@@ -75,23 +87,30 @@
   font-variant-numeric: tabular-nums;
 }
 
-/* "Step" prefix reads on the desktop rail only; mobile keeps the terse "3 of 4". */
 .ao-progress-label i { display: none; font-style: normal; }
 
 /* ---- Brand lockup ---- */
 .ao-lockup { display: inline-flex; align-items: center; gap: 12px; }
 
+/* The mark carries its own tile and corner radius, so the wrapper only
+   sizes it. Fills are themed below rather than baked in. */
 .ao-mark {
   width: 42px;
   height: 42px;
-  border-radius: 12px;
-  display: grid;
-  place-items: center;
-  background: var(--espresso);
-  color: var(--clay);
+  display: block;
+  flex: 0 0 42px;
 }
 
-.ao-lockup.is-espresso .ao-mark { background: var(--bone); }
+.ao-mark img, .ao-mark svg { display: block; width: 100%; height: 100%; }
+
+.ao-mark-tile { fill: var(--espresso); }
+.ao-mark-bars { fill: var(--bone-text); }
+.ao-mark-cursor { fill: var(--clay); }
+
+/* On espresso surfaces the tile would vanish, so tile and bars swap.
+   The clay cursor stays clay in every context. */
+.ao-lockup.is-espresso .ao-mark-tile { fill: var(--bone); }
+.ao-lockup.is-espresso .ao-mark-bars { fill: var(--espresso); }
 
 .ao-wordmark {
   font-family: var(--font-display);
@@ -173,6 +192,17 @@
 }
 
 .ao-cta.is-outline:hover:not(:disabled) { background: var(--sand-input); }
+
+/* A quiet, borderless tertiary button (welcome "I already have an account") */
+.ao-cta.is-ghost {
+  background: transparent;
+  color: var(--taupe);
+  box-shadow: none;
+  font-weight: 600;
+  min-height: 50px;
+}
+
+.ao-cta.is-ghost:hover:not(:disabled) { background: transparent; color: var(--ink); }
 
 .ao-back {
   width: 58px;
@@ -385,6 +415,29 @@
 
 .ao-bill-remove:hover { background: rgba(43, 36, 29, .07); color: var(--ink); }
 
+/* Quick-add suggestion chips */
+.ao-bill-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 20px; }
+
+.ao-bill-chip {
+  min-height: 38px;
+  padding: 0 14px;
+  border-radius: 999px;
+  border: 1px dashed var(--line-mobile);
+  background: transparent;
+  color: var(--ink-soft);
+  font-family: var(--font-ui);
+  font-size: 13px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  transition: background .16s ease, border-color .16s ease;
+}
+
+.ao-bill-chip:hover { background: var(--sand-input); border-color: var(--clay); }
+.ao-bill-chip svg { color: var(--clay); }
+
 .ao-bill-add {
   width: 100%;
   min-height: 58px;
@@ -473,6 +526,15 @@
 
 .ao-login-links { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 
+/* Password strength meter (signup / reset) */
+.ao-pw-meter { display: flex; align-items: center; gap: 10px; margin-top: 2px; }
+.ao-pw-bars { display: flex; gap: 5px; flex: 1; }
+.ao-pw-bars span { flex: 1; height: 4px; border-radius: 999px; background: #E0D7C6; transition: background .25s ease; }
+.ao-pw-bars.is-weak span:nth-child(-n+1) { background: #D9A98C; }
+.ao-pw-bars.is-good span:nth-child(-n+2) { background: var(--clay); }
+.ao-pw-bars.is-strong span { background: var(--clay); }
+.ao-pw-label { font-size: 11px; font-weight: 700; letter-spacing: 1.4px; text-transform: uppercase; color: var(--taupe); min-width: 52px; text-align: right; }
+
 /* ---- Showcase (desktop only) ---- */
 .ao-showcase { margin-top: 34px; display: flex; flex-direction: column; gap: 22px; }
 .ao-showcase-stage { position: relative; height: 540px; }
@@ -526,6 +588,153 @@
 
 .ao-showcase-dot.is-active { width: 26px; background: var(--clay); }
 
+/* ============================================================
+   MOBILE REDESIGN  (< 900px)
+   ============================================================ */
+@media (max-width: 899px) {
+  /* Kill the card-in-a-card: the surface IS the screen. */
+  .ao-page { padding: 0; background: var(--noise-04), var(--bone); place-items: stretch; }
+
+  .ao-shell {
+    max-width: none;
+    width: 100%;
+    min-height: 100dvh;
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  .ao-surface { padding: 0; }
+
+  /* Hero band carries the headline out of the dead top space. */
+  .ao-hero {
+    display: block;
+    position: relative;
+    overflow: hidden;
+    background: var(--noise-06), var(--espresso-panel);
+    padding: calc(env(safe-area-inset-top, 0px) + 26px) 28px 52px;
+  }
+
+  .ao-hero::after {
+    content: '';
+    position: absolute;
+    top: -150px;
+    right: -120px;
+    width: 380px;
+    height: 380px;
+    border-radius: 999px;
+    background: radial-gradient(circle, rgba(226, 112, 58, .34), transparent 62%);
+    pointer-events: none;
+  }
+
+  .ao-hero > * { position: relative; z-index: 1; }
+  .ao-hero .ao-lockup { margin-bottom: 22px; }
+  .ao-hero .ao-mark-tile { fill: var(--bone); }
+  .ao-hero .ao-mark-bars { fill: var(--espresso); }
+  .ao-hero .ao-wordmark { color: var(--bone-text); }
+  .ao-hero .ao-kicker { color: var(--clay); }
+  .ao-hero .ao-headline { color: var(--bone-bright); font-size: clamp(38px, 11vw, 46px); margin-top: 12px; }
+  .ao-hero .ao-support { color: var(--sand-text); }
+
+  /* A back chip that lives inside the dark hero. */
+  .ao-hero-back {
+    width: 40px;
+    height: 40px;
+    border-radius: 999px;
+    border: 1px solid rgba(243, 238, 228, .22);
+    background: transparent;
+    color: var(--bone-text);
+    display: grid;
+    place-items: center;
+    cursor: pointer;
+    margin-bottom: 18px;
+  }
+  .ao-hero-back:hover { background: rgba(243, 238, 228, .1); }
+
+  /* Form sheet overlaps the hero and owns the scroll. It grows to the
+     bottom of the screen so its fill never seams against the page. */
+  .ao-sheet {
+    display: block;
+    flex: 1;
+    position: relative;
+    z-index: 2;
+    margin-top: -30px;
+    border-radius: 34px 34px 0 0;
+    background: var(--noise-04), var(--bone);
+    box-shadow: 0 -18px 40px rgba(31, 24, 17, .22);
+    padding: 26px 24px calc(env(safe-area-inset-bottom, 0px) + 26px);
+  }
+
+  /* Tucked-in field labels (auth sheet only). */
+  .ao-sheet .ao-field { position: relative; }
+  .ao-sheet .ao-field .ao-label {
+    position: absolute;
+    top: 12px;
+    left: 17px;
+    margin: 0;
+    font-size: 9.5px;
+    letter-spacing: 1.7px;
+    pointer-events: none;
+    z-index: 1;
+  }
+  .ao-sheet .ao-input {
+    height: 68px;
+    min-height: 68px;
+    border-radius: 20px;
+    border: 1px solid #E0D7C6;
+    padding: 26px 16px 0;
+    font-size: 16px;
+    font-weight: 600;
+  }
+  .ao-sheet .ao-password-wrap .ao-input { padding-right: 54px; }
+  .ao-sheet .ao-input:focus-visible {
+    outline: none;
+    border-color: var(--clay);
+    box-shadow: 0 0 0 3px rgba(226, 112, 58, .16);
+  }
+  .ao-sheet .ao-password-toggle { top: 22px; bottom: auto; height: 44px; }
+
+  /* Provider button reads as a quiet outline on the sheet. */
+  .ao-sheet .ao-cta.is-ink {
+    background: var(--cream);
+    color: var(--ink);
+    border: 1px solid var(--line-mobile);
+    min-height: 56px;
+  }
+  .ao-sheet .ao-cta.is-ink:hover:not(:disabled) { background: #F7F2E8; }
+
+  /* --- Wizard: segmented progress rail from the dot markup --- */
+  .ao-shell.is-wizard .ao-surface-progress {
+    padding: calc(env(safe-area-inset-top, 0px) + 16px) 24px 16px;
+    margin-bottom: 8px;
+    gap: 14px;
+  }
+  .ao-shell.is-wizard .ao-dots { flex: 1; gap: 5px; }
+  .ao-shell.is-wizard .ao-dot {
+    flex: 1;
+    width: auto !important;
+    height: 4px;
+    background: #DED5C4;
+    border-radius: 999px;
+  }
+  .ao-shell.is-wizard .ao-dot.is-done { background: var(--clay); }
+  .ao-shell.is-wizard .ao-dot.is-current { background: var(--clay); }
+  .ao-shell.is-wizard .ao-progress-label { font-family: var(--font-digits); font-size: 12px; letter-spacing: 1px; }
+
+  .ao-shell.is-wizard .ao-surface-body { padding: 0 24px; }
+
+  /* Sticky action bar with a fade so content scrolls under it. */
+  .ao-actions {
+    position: sticky;
+    bottom: 0;
+    margin: auto -24px 0;
+    padding: 16px 24px calc(env(safe-area-inset-bottom, 0px) + 16px);
+    background: linear-gradient(180deg, rgba(243, 238, 228, 0), var(--bone) 34%);
+  }
+
+  /* Reveal: bigger, calmer payoff figure. */
+  .ao-hero-figure { font-size: clamp(60px, 20vw, 80px); letter-spacing: -2px; }
+}
+
 /* ---- Desktop split (≥ 900px) ---- */
 @media (min-width: 900px) {
   .ao-page { padding: 30px; }
@@ -566,14 +775,22 @@
   .ao-shell.is-login .ao-panel { flex: 0 0 70%; }
   .ao-shell.is-login .ao-surface { flex: 1; justify-content: center; padding: 54px 46px; background: var(--cream); }
 
+  /* The hero/sheet wrappers collapse (display:contents) on desktop, so the
+     surface renders the original single-column flow. These restore the two
+     vertical gaps the old single .ao-stack used to provide. */
+  .ao-shell.is-login .ao-hero-copy { margin: 0; }
+  .ao-shell.is-login .ao-sheet .ao-stack { margin-top: 22px; }
+
   .ao-shell.is-wizard .ao-panel { flex: 0 0 496px; }
   .ao-shell.is-wizard .ao-surface { flex: 1; padding: 68px 72px 54px; background: var(--cream); }
+
+  /* The hero-back chip is a mobile-only affordance. */
+  .ao-hero-back { display: none; }
 
   .ao-surface-progress { margin-bottom: 0; }
   .ao-shell.is-wizard .ao-dots { display: none; }
   .ao-shell.is-wizard .ao-progress-label i { display: inline; }
 
-  /* The rail already carries the step label, so the in-body kicker would repeat it. */
   .ao-shell.is-wizard .ao-surface-body .ao-kicker { display: none; }
   .ao-shell.is-wizard .ao-surface-body .ao-headline { margin-top: 0; }
 
