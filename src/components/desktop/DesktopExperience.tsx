@@ -39,6 +39,7 @@ import { CategoryAppearancePicker } from '../categories/CategoryAppearancePicker
 import { CategoryIcon } from '../icons/CategoryIcon'
 import { PlanDesktop } from '../plan/PlanDesktop'
 import { GoalsDesktop } from '../goals/GoalsDesktop'
+import { requestPwaInstall } from '../../lib/pwaInstall'
 
 type DesktopPage = 'dashboard' | 'transactions' | 'accounts' | 'reports' | 'goals' | 'budgets' | 'settings' | 'categories'
 type ModalKind = 'record' | 'entry' | 'move' | 'account' | 'accountManage' | 'archivedAccounts' | 'category' | 'cooloff' | 'wishlist' | 'funds' | 'path' | 'goal' | 'goalManage' | 'debt' | 'debtManage' | 'debtPayment' | 'plan' | 'billManage' | 'billPayment' | 'quest' | 'profile' | 'search' | 'notifications'
@@ -286,9 +287,8 @@ function CategoryBars({ includeBills = false }: { includeBills?: boolean }) {
 }
 
 function Rail({ activePage, setActivePage }: Pick<DesktopExperienceProps, 'activePage' | 'setActivePage'>) {
-  const { accounts, budgets, categories, journeySettings, profile, transactions, upcomingExpenses } = useDesktopData()
+  const { profile } = useDesktopData()
   const isSettings = activePage === 'settings' || activePage === 'categories'
-  const safe = calculateSafeSpend({ accounts, budgets, categories, upcomingExpenses, settings: journeySettings })
   const initial = profile.name.trim().charAt(0).toUpperCase() || 'P'
   return <aside className={`d-rail ${isSettings ? 'is-settings' : ''}`}>
     <div className="d-brand">
@@ -303,10 +303,6 @@ function Rail({ activePage, setActivePage }: Pick<DesktopExperienceProps, 'activ
         onClick={() => setActivePage(id)}
       ><Icon size={18} /><span>{label}</span>{activePage === id && <i />}</button>)}
     </nav>
-    <div className="d-context">
-      <Label>{isSettings ? 'Version' : activePage === 'accounts' ? 'Linked' : activePage === 'transactions' ? 'This cycle' : cycleDateLabel(safe.cycle)}</Label>
-      <p>{isSettings ? <>Pocket Ledger <strong>2.4.0</strong> · up to date.</> : activePage === 'accounts' ? <><strong>{accounts.length}</strong> accounts linked.</> : activePage === 'transactions' ? <><strong>{transactions.length}</strong> entries in your ledger.</> : safe.cycle ? <>Safe to spend today: <strong>Rs {nf(safe.safeToSpendToday)}</strong>.</> : <>Finish your income-cycle setup to see your safe-to-spend amount.</>}</p>
-    </div>
     <button type="button" className={`d-profile ${isSettings ? 'is-active' : ''}`} onClick={() => setActivePage('settings')}>
       <span>{profile.avatar ? <img src={profile.avatar} alt="" /> : initial}</span><div><strong>{profile.name}</strong><small>{isSettings ? 'Settings open' : 'Settings'}</small></div>{isSettings ? <i /> : <ChevronRight size={16} />}
     </button>
@@ -570,7 +566,7 @@ function SettingsPage({ setActivePage, onSignOut, openModal, onRestartJourney }:
     <div className="d-work">
       <Card className="d-profile-card"><span>{profile.avatar ? <img src={profile.avatar} alt="" /> : initial}</span><div><h2>{profile.name}</h2><p>{authEmail ?? 'Signed-in Pocket Ledger account'}</p></div><Button kind="secondary" onClick={() => openModal('profile')}><Pencil size={16}/>Edit profile</Button></Card>
       <Card className="d-settings-card"><Label>Cycle & money</Label><div><span className="d-account-icon is-clay"><CalendarDays size={18}/></span><p><strong>Income cycle</strong><small>{journeySettings.nextIncomeDate ? `Next income ${journeySettings.nextIncomeDate}` : 'Add your next income date in journey setup'}</small></p><strong>{journeySettings.incomeCadence ? journeySettings.incomeCadence.replace('_', ' ') : 'Not set'}</strong></div><div><span className="d-account-icon is-sage"><CircleDollarSign size={18}/></span><p><strong>Currency</strong><small>Shown across the app</small></p><strong>PKR · Rs</strong></div><div><span className="d-account-icon is-blue"><Sparkles size={18}/></span><p><strong>Accounts included</strong><small>Balances used across your plan</small></p><strong>{accounts.length}</strong></div></Card>
-      <Card className="d-settings-card d-fill"><Label>Preferences</Label><div><p><strong>Notifications</strong><small>Bill reminders and money signals</small></p><Toggle on={notificationsEnabled} onClick={() => setNotificationsEnabled((value) => { const next = !value; localStorage.setItem('pocket-ledger-notifications', next ? 'on' : 'off'); return next })}/></div><div><p><strong>Private usage analytics</strong><small>{journeySettings.analyticsConsent ? 'On · No email or financial content' : 'Not enabled for this account'}</small></p><strong>{journeySettings.analyticsConsent ? 'On' : 'Off'}</strong></div><div><p><strong>Journey setup</strong><small>{journeySettings.nextIncomeDate ? `Next income ${journeySettings.nextIncomeDate}` : 'Income cycle not configured'}</small></p><button type="button" onClick={onRestartJourney}>Update cycle</button></div><div><p><strong>Safety reserve</strong><small>Protected from safe-to-spend</small></p><Money>Rs {nf(journeySettings.safetyReserve)}</Money></div></Card>
+      <Card className="d-settings-card d-fill"><Label>Preferences</Label><div><p><strong>Notifications</strong><small>Bill reminders and money signals</small></p><Toggle on={notificationsEnabled} onClick={() => setNotificationsEnabled((value) => { const next = !value; localStorage.setItem('pocket-ledger-notifications', next ? 'on' : 'off'); return next })}/></div><div><p><strong>Install Pocket Ledger</strong><small>Add the app to this device</small></p><button type="button" onClick={requestPwaInstall}>Install</button></div><div><p><strong>Private usage analytics</strong><small>{journeySettings.analyticsConsent ? 'On · No email or financial content' : 'Not enabled for this account'}</small></p><strong>{journeySettings.analyticsConsent ? 'On' : 'Off'}</strong></div><div><p><strong>Journey setup</strong><small>{journeySettings.nextIncomeDate ? `Next income ${journeySettings.nextIncomeDate}` : 'Income cycle not configured'}</small></p><button type="button" onClick={onRestartJourney}>Update cycle</button></div><div><p><strong>Safety reserve</strong><small>Protected from safe-to-spend</small></p><Money>Rs {nf(journeySettings.safetyReserve)}</Money></div></Card>
     </div>
     <aside className="d-attention">
       <Card className="d-settings-card d-fill"><Label>Data & security</Label><button className="d-setting-link" onClick={() => setActivePage('categories')}><span className="d-account-icon is-sage"><WalletCards size={18}/></span><strong>Manage categories</strong><ChevronRight size={15}/></button><button className="d-setting-link" onClick={() => setActivePage('accounts')}><span className="d-account-icon is-blue"><CreditCard size={18}/></span><strong>Linked accounts</strong><small>{accounts.length}</small><ChevronRight size={15}/></button><button className="d-setting-link" onClick={() => exportTransactionsCsv(transactions)}><span className="d-account-icon is-sand"><Download size={18}/></span><strong>Export data</strong><small>CSV</small><ChevronRight size={15}/></button></Card>

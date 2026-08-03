@@ -2214,3 +2214,12 @@ article.rounded-2xl {
 .pl-history-list { margin-top: 14px; }.pl-history-list > div { min-height: 64px; border-bottom: 1px solid var(--rule-soft); display: flex; align-items: center; gap: 11px; }.pl-history-list p { min-width: 0; flex: 1; margin: 0; }.pl-history-list strong,.pl-history-list small { display: block; }.pl-history-list strong { font-size: 12.5px; }.pl-history-list small { margin-top: 3px; color: var(--taupe); font-size: 10.5px; text-transform: capitalize; }.pl-history-list button { min-height: 38px; padding: 0 12px; border: 1px solid var(--rule); border-radius: 999px; background: var(--vault-surface); color: var(--clay-deep); font-size: 10.5px; font-weight: 750; }
 .vault-plan-sheet-option:disabled { opacity: .45; cursor: not-allowed; }
 @media (min-width: 640px) and (max-width: 1279px) { .pl-mobile-plan { max-width: 40rem; margin-inline: auto; }.pl-mobile-summary { grid-template-columns: repeat(4,minmax(0,1fr)); } }
+
+/* First-visit PWA install prompt, shared by login and the signed-in app. */
+.pwa-install-prompt { position: fixed; top: calc(env(safe-area-inset-top, 0px) + 14px); left: 50%; z-index: 100; display: flex; width: min(31rem, calc(100vw - 2rem)); transform: translateX(-50%); align-items: center; gap: .7rem; border: 1px solid var(--rule); border-radius: 1rem; background: var(--vault-surface); padding: .7rem .75rem .7rem .9rem; color: var(--ink); box-shadow: 0 14px 35px rgba(48,35,23,.18); }
+.pwa-install-prompt > svg { flex: 0 0 auto; color: var(--clay); }
+.pwa-install-prompt p { display: grid; flex: 1; gap: .1rem; margin: 0; }
+.pwa-install-prompt strong { font-size: .82rem; }.pwa-install-prompt span { color: var(--ink-soft); font-size: .73rem; line-height: 1.25; }
+.pwa-install-action { border-radius: .65rem; background: var(--clay); color: #fff; padding: .45rem .7rem; font-size: .78rem; font-weight: 700; }
+.pwa-install-dismiss { display: grid; flex: 0 0 auto; place-items: center; color: var(--ink-soft); padding: .25rem; }
+@media (max-width: 520px) { .pwa-install-prompt { align-items: flex-start; }.pwa-install-prompt span { font-size: .7rem; } }

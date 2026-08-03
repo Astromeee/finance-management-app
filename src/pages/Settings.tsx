@@ -2,6 +2,7 @@ import { BarChart3, Bell, Calendar, ChevronLeft, ChevronRight, CreditCard, Dolla
 import { useState, type ReactNode } from 'react'
 import { exportTransactionsCsv } from '../lib/exports'
 import { supabase } from '../lib/supabase'
+import { requestPwaInstall } from '../lib/pwaInstall'
 import { initialsOf } from '../lib/profile'
 import type { Profile } from '../lib/profile'
 import type { Account, Budget, Category, Debt, Goal, JourneySettings, Transaction, UpcomingExpense } from '../types/finance'
@@ -104,6 +105,7 @@ export function Settings(props: Props) {
         <p className="vault-settings-group-label">Data &amp; support</p>
         <div className="vault-settings-group">
           <Row icon={<Download size={18} strokeWidth={1.9} />} title="Export data" value="CSV · PDF" onPress={() => exportTransactionsCsv(props.transactions)} />
+          <Row icon={<Download size={18} strokeWidth={1.9} />} title="Install Pocket Ledger" subtitle="Add the app to this device" onPress={requestPwaInstall} />
           <Row icon={<BarChart3 size={18} strokeWidth={1.9} />} title="Private usage analytics" subtitle="No email or financial content" value={props.analyticsConsent ? 'On' : 'Off'} />
           <Row icon={<HelpCircle size={18} strokeWidth={1.9} />} title="Help &amp; feedback" onPress={() => props.onNavigate('profile')} />
         </div>

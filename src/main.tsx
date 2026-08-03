@@ -23,6 +23,7 @@ import { ErrorBoundary } from './components/ErrorBoundary'
 import { OfflineBanner } from './components/OfflineBanner'
 import { installClientErrorMonitoring } from './lib/errorMonitoring'
 import { SplashScreen } from './components/SplashScreen'
+import { PwaInstallPrompt } from './components/pwa/PwaInstallPrompt'
 import { initTheme } from './lib/theme'
 
 initTheme() // apply saved dark/light theme before first paint
@@ -33,6 +34,7 @@ createRoot(document.getElementById('root')!).render(
       <BrowserRouter>
         <SplashScreen duration={900} />
         <OfflineBanner />
+        <PwaInstallPrompt />
         <App />
       </BrowserRouter>
     </ErrorBoundary>
