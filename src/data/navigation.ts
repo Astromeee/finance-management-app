@@ -6,7 +6,7 @@ export const navItems: NavItem[] = [
   { id: 'transactions', label: 'Ledger', icon: List },
   { id: 'accounts', label: 'Wallet', icon: CreditCard },
   { id: 'budgets', label: 'Plan', icon: Wallet },
-  { id: 'goals', label: 'Goals', icon: Target },
+  { id: 'goals', label: 'Paths', icon: Target },
   { id: 'reports', label: 'Insights', icon: PieChart },
   { id: 'settings', label: 'Settings', icon: Settings },
 ]

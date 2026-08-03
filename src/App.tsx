@@ -528,7 +528,7 @@ function App() {
       component: <Accounts accounts={accounts} archivedAccounts={archivedAccounts} transactions={transactions} setAccounts={setAccounts} setTransactions={setTransactions} onTransfer={() => setActiveModal('transfer')} onOpenTransactions={() => setActivePage('transactions')} onSaveAccount={designPreview ? undefined : saveAccount} onAdjustBalance={designPreview ? undefined : async (account, transaction) => { await adjustAccountBalance(account, transaction) }} onArchiveAccount={handleArchiveAccount} onRestoreAccount={handleRestoreAccount} />,
     },
     goals: {
-      title: 'Goals & Debts',
+      title: 'Paths',
       subtitle: 'Savings and payment progress',
       component: (
         <GoalsDebts

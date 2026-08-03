@@ -200,7 +200,7 @@ export function Dashboard({
               <button aria-label="Close profile menu" className="fixed inset-0 z-40" onClick={() => setMenuOpen(false)} />
               <div className="vault-outline absolute right-0 top-12 z-50 w-56 p-2 shadow-xl" role="menu">
                 <MenuButton icon={ClipboardList} label="The plan" onClick={() => onNavigate('budgets')} />
-                <MenuButton icon={Target} label="Your paths (goals)" onClick={() => onNavigate('goals')} />
+                <MenuButton icon={Target} label="Your paths" onClick={() => onNavigate('goals')} />
                 <div aria-hidden className="mx-3 my-1 border-t border-[var(--rule-soft)]" />
                 <MenuButton icon={UserRound} label="Edit profile" onClick={() => onNavigate('profile')} />
                 <MenuButton icon={Settings} label="Settings" onClick={() => onNavigate('settings')} />

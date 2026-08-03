@@ -212,7 +212,7 @@ const nav = [
   { id: 'transactions', label: 'Ledger', icon: List },
   { id: 'accounts', label: 'Wallet', icon: CreditCard },
   { id: 'reports', label: 'Insights', icon: PieChart },
-  { id: 'goals', label: 'Goals', icon: Target },
+  { id: 'goals', label: 'Paths', icon: Target },
   { id: 'budgets', label: 'Plan', icon: Check },
 ] as const
 
@@ -221,7 +221,7 @@ const titles: Record<DesktopPage, { eyebrow: string; first: string; accent: stri
   transactions: { eyebrow: 'July · Cycle 4', first: 'The', accent: 'ledger.' },
   accounts: { eyebrow: 'July · Cycle 4', first: 'The', accent: 'wallet.' },
   reports: { eyebrow: 'July · Cycle 4', first: 'The', accent: 'insights.' },
-  goals: { eyebrow: 'July · Cycle 4', first: 'The', accent: 'paths.' },
+  goals: { eyebrow: 'July · Cycle 4', first: 'Your', accent: 'paths.' },
   budgets: { eyebrow: 'July · Cycle 4', first: 'The', accent: 'plan.' },
   settings: { eyebrow: 'Account', first: 'Your', accent: 'settings.' },
   categories: { eyebrow: 'Settings · Categories', first: 'Your', accent: 'categories.' },
