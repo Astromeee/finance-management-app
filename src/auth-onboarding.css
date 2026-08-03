@@ -35,7 +35,9 @@
   overflow: hidden;
 }
 
-.ao-panel { display: none; }
+/* Desktop-only chrome: the panel, the dark-room top bar and the feature
+   ribbon are all suppressed on the mobile phone-frame layout. */
+.ao-panel, .ao-topbar, .ao-ribbon { display: none; }
 
 .ao-surface {
   flex: 1;
@@ -553,58 +555,7 @@
 .ao-pw-label { font-size: 11px; font-weight: 700; letter-spacing: 1.4px; text-transform: uppercase; color: var(--taupe); min-width: 52px; text-align: right; }
 .ao-pw-hint { display: block; margin-top: 8px; font-size: 12px; line-height: 1.5; color: var(--taupe); }
 
-/* ---- Showcase (desktop only) ---- */
-.ao-showcase { margin-top: 34px; display: flex; flex-direction: column; gap: 22px; }
-.ao-showcase-stage { position: relative; height: 540px; }
 
-.ao-slide {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  align-items: flex-start;
-  gap: 46px;
-  opacity: 0;
-  transition: opacity .8s ease;
-  pointer-events: none;
-}
-
-.ao-slide.is-active { opacity: 1; pointer-events: auto; }
-
-.ao-slide img {
-  width: 246px;
-  border-radius: 26px;
-  box-shadow: 0 30px 60px rgba(0, 0, 0, .45);
-  display: block;
-}
-
-.ao-slide-copy { max-width: 34ch; padding-top: 190px; }
-.ao-slide-copy .ao-kicker { color: var(--clay); }
-
-.ao-slide-copy h3 {
-  font-family: var(--font-display);
-  font-weight: 400;
-  font-size: 27px;
-  line-height: 1.15;
-  color: var(--bone-bright);
-  margin: 12px 0 0;
-}
-
-.ao-slide-copy p { font-size: 14.5px; line-height: 1.6; color: var(--sand-text); margin: 12px 0 0; }
-
-.ao-showcase-dots { display: flex; gap: 7px; }
-
-.ao-showcase-dot {
-  width: 6px;
-  height: 6px;
-  padding: 0;
-  border: none;
-  border-radius: 999px;
-  background: rgba(243, 238, 228, .28);
-  cursor: pointer;
-  transition: width .3s ease, background .3s ease;
-}
-
-.ao-showcase-dot.is-active { width: 26px; background: var(--clay); }
 
 /* ============================================================
    MOBILE REDESIGN  (< 900px)
@@ -767,6 +718,229 @@
     box-shadow: var(--shadow-frame);
   }
 
+  /* ============================================================
+     Desktop auth — "Dark Room" (direction 1b).
+     One full-bleed espresso plane, no outer card, no showcase:
+     top bar, centred 404px form column, feature ribbon on the
+     bottom edge. Everything fits 1440x800 with no scroll.
+     Scoped to .is-login so the onboarding wizard is untouched.
+     ============================================================ */
+  .ao-page.is-login {
+    padding: 0;
+    place-items: stretch;
+    background: none;
+  }
+
+  .ao-shell.is-login {
+    max-width: none;
+    width: 100%;
+    /* A fixed height (not min-height) is what forces the centre column to
+       shrink and scroll internally, so the ribbon stays on the bottom edge
+       and the page itself never scrolls, even in the tallest mode. */
+    height: 100dvh;
+    min-height: 100dvh;
+    flex-direction: column;
+    border-radius: 0;
+    box-shadow: none;
+    overflow: hidden;
+    position: relative;
+    color: var(--bone-text);
+    background-image: var(--noise-06), linear-gradient(158deg, #2C241C, #241C14 60%, #1F1811);
+  }
+
+  /* One clay bloom falling from the top centre, behind everything. */
+  .ao-shell.is-login::before {
+    content: '';
+    position: absolute;
+    top: -320px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 1100px;
+    height: 760px;
+    border-radius: 999px;
+    background: radial-gradient(ellipse, rgba(226, 112, 58, .20), transparent 62%);
+    pointer-events: none;
+  }
+
+  .ao-shell.is-login > * { position: relative; z-index: 1; }
+
+  .ao-topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 24px;
+    padding: 34px 56px;
+    animation: aoFade .6s ease both;
+  }
+
+  .ao-topbar .ao-wordmark { font-size: 19px; }
+  .ao-topbar .ao-mark { width: 34px; height: 34px; }
+  .ao-topswitch { font-size: 13px; color: var(--sand-dim); }
+  .ao-topswitch .ao-inline-link { font-size: 13px; margin-left: 6px; }
+
+  /* Centre column ------------------------------------------------ */
+  .ao-shell.is-login .ao-surface {
+    flex: 1;
+    min-height: 0;
+    align-items: center;
+    /* flex-start + auto margins on the body centres the column when there is
+       room but collapses gracefully when a tall mode overflows, where plain
+       `center` would clip the top out of reach. */
+    justify-content: flex-start;
+    padding: 10px 0;
+    box-sizing: border-box;
+    overflow: auto;
+    background: none;
+  }
+
+  .ao-shell.is-login .ao-surface-body {
+    width: 404px;
+    flex: none;
+    margin: auto 0;
+    text-align: center;
+  }
+
+  /* The mobile hero band carries its own lockup; on desktop the top bar
+     owns it, so the duplicate is hidden rather than rendered twice. */
+  .ao-shell.is-login .ao-hero .ao-lockup { display: none; }
+
+  .ao-shell.is-login .ao-kicker { color: var(--clay); letter-spacing: 2.4px; }
+
+  .ao-shell.is-login .ao-headline {
+    margin: 10px 0 0;
+    font-size: 42px;
+    line-height: 1.08;
+    letter-spacing: -.3px;
+    color: var(--bone-bright);
+  }
+
+  .ao-shell.is-login .ao-support {
+    margin: 14px auto 0;
+    max-width: 34ch;
+    font-size: 14.5px;
+    line-height: 1.55;
+    color: var(--sand-dim);
+  }
+
+  /* Login and signup lead with the form, so their support line is dropped. */
+  .ao-shell.is-login .ao-support.is-mobile-only { display: none; }
+
+  /* The inner <form> also carries .ao-stack, so the top offset is scoped to
+     the outer one to avoid stacking twice. */
+  .ao-shell.is-login .ao-stack { gap: 9px; }
+  .ao-shell.is-login .ao-sheet > .ao-stack { margin-top: 20px; }
+
+  /* Fields on the dark plane: placeholder is the label. */
+  .ao-shell.is-login .ao-label { display: none; }
+
+  .ao-shell.is-login .ao-input {
+    min-height: 54px;
+    border-radius: 15px;
+    border: 1px solid rgba(243, 238, 228, .16);
+    background: rgba(243, 238, 228, .05);
+    color: var(--bone-text);
+    font-size: 15px;
+    font-weight: 500;
+    text-align: left;
+    transition: border-color .16s ease, background .16s ease;
+  }
+
+  .ao-shell.is-login .ao-input::placeholder { color: var(--sand-dim); }
+
+  .ao-shell.is-login .ao-input:focus-visible {
+    outline: none;
+    border-color: var(--clay);
+    background: rgba(243, 238, 228, .08);
+  }
+
+  .ao-shell.is-login .ao-password-wrap .ao-input { padding-right: 52px; }
+  .ao-shell.is-login .ao-password-toggle { color: var(--sand-dim); }
+  .ao-shell.is-login .ao-password-toggle:hover { color: var(--bone-text); }
+
+  /* Google button: bone pill on the dark plane. */
+  .ao-shell.is-login .ao-cta.is-ink {
+    min-height: 54px;
+    background: var(--bone);
+    color: var(--ink);
+    border: 0;
+  }
+  .ao-shell.is-login .ao-cta.is-ink:hover:not(:disabled) { background: var(--cream); }
+
+  .ao-shell.is-login .ao-cta {
+    min-height: 56px;
+    font-size: 16px;
+    font-weight: 800;
+    box-shadow: 0 16px 34px rgba(226, 112, 58, .30);
+  }
+  .ao-shell.is-login .ao-cta:hover:not(:disabled) { background: #CE6231; box-shadow: 0 18px 40px rgba(226, 112, 58, .38); }
+  .ao-shell.is-login .ao-cta:active:not(:disabled) { transform: translateY(1px); }
+
+  /* 9px stack gap + 9px of its own on each side reads as the reference's
+     breathing room around the rule. */
+  .ao-shell.is-login .ao-divider { color: var(--sand-dim); margin: 9px 0; }
+  .ao-shell.is-login .ao-divider::before,
+  .ao-shell.is-login .ao-divider::after { background: rgba(243, 238, 228, .13); }
+
+  .ao-shell.is-login .ao-inline-link { color: var(--sand-text); font-size: 13px; }
+  .ao-shell.is-login .ao-inline-link:hover { color: var(--clay); }
+  .ao-shell.is-login .ao-login-links { justify-content: center; margin-top: 2px; }
+  /* The reference states the link as plain text; the arrow is a mobile cue. */
+  .ao-shell.is-login .ao-back-link { justify-self: center; }
+  .ao-shell.is-login .ao-back-link svg { display: none; }
+
+  /* The mode switch lives in the top bar on desktop, and the beta fine
+     print is not part of this composition. */
+  .ao-shell.is-login .ao-switch-inline,
+  .ao-shell.is-login .ao-fineprint { display: none; }
+
+  .ao-shell.is-login .ao-pw-bars span { background: rgba(243, 238, 228, .16); }
+  .ao-shell.is-login .ao-pw-label { color: var(--sand-dim); }
+  .ao-shell.is-login .ao-pw-hint { display: none; }
+
+  .ao-shell.is-login .ao-message {
+    border-color: rgba(226, 112, 58, .32);
+    background: rgba(226, 112, 58, .14);
+    color: #F1B79A;
+    text-align: left;
+  }
+
+  /* Feature ribbon ----------------------------------------------- */
+  .ao-ribbon {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    border-top: 1px solid rgba(243, 238, 228, .13);
+    animation: aoFade .8s ease .2s both;
+  }
+
+  .ao-ribbon-cell { padding: 22px 40px 24px; }
+  .ao-ribbon-cell + .ao-ribbon-cell { border-left: 1px solid rgba(243, 238, 228, .13); }
+  .ao-ribbon-cell:first-child { padding-left: 56px; }
+  .ao-ribbon-cell:last-child { padding-right: 56px; }
+
+  .ao-ribbon-value {
+    margin: 0;
+    font-family: var(--font-digits);
+    font-variant-numeric: tabular-nums;
+    font-size: 26px;
+    font-weight: 700;
+    letter-spacing: -.5px;
+    color: var(--bone-bright);
+  }
+  .ao-ribbon-value small { font-size: .55em; font-weight: 700; color: var(--sand-dim); margin-right: 4px; }
+
+  .ao-ribbon-kicker {
+    margin: 6px 0 0;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--clay);
+  }
+
+  .ao-ribbon-line { margin: 8px 0 0; font-size: 13px; line-height: 1.5; color: var(--sand-dim); }
+
+  .ao-shell.is-login .ao-surface-body { animation: aoRise .7s ease .08s both; }
+
   .ao-panel {
     display: flex;
     flex-direction: column;
@@ -789,15 +963,6 @@
   }
 
   .ao-panel > * { position: relative; z-index: 1; }
-
-  .ao-shell.is-login .ao-panel { flex: 0 0 70%; }
-  .ao-shell.is-login .ao-surface { flex: 1; justify-content: center; padding: 54px 46px; background: var(--cream); }
-
-  /* The hero/sheet wrappers collapse (display:contents) on desktop, so the
-     surface renders the original single-column flow. These restore the two
-     vertical gaps the old single .ao-stack used to provide. */
-  .ao-shell.is-login .ao-hero-copy { margin: 0; }
-  .ao-shell.is-login .ao-sheet .ao-stack { margin-top: 22px; }
 
   .ao-shell.is-wizard .ao-panel { flex: 0 0 496px; }
   .ao-shell.is-wizard .ao-surface { flex: 1; padding: 68px 72px 54px; background: var(--cream); }
@@ -883,9 +1048,16 @@
 }
 
 @media (max-width: 899px) {
-  .ao-showcase, .ao-tracker { display: none; }
+  .ao-tracker { display: none; }
+  /* The tucked-in label already names the field, so the placeholder that
+     the dark desktop variant relies on would just repeat it. */
+  .ao-sheet .ao-input::placeholder { color: transparent; }
 }
 
+@keyframes aoRise { from { opacity: 0; transform: translateY(14px) } to { opacity: 1; transform: none } }
+@keyframes aoFade { from { opacity: 0 } to { opacity: 1 } }
+
 @media (prefers-reduced-motion: reduce) {
-  .ao-slide, .ao-dot, .ao-showcase-dot, .ao-cta, .ao-option { transition: none; }
+  .ao-dot, .ao-cta, .ao-option { transition: none; }
+  .ao-topbar, .ao-ribbon, .ao-shell.is-login .ao-surface-body { animation: none !important; }
 }

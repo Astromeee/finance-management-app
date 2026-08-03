@@ -4,19 +4,9 @@ import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { AuthShell } from '../components/auth/AuthShell'
 import { BrandLockup } from '../components/auth/BrandLockup'
-import { LoginShowcase } from '../components/auth/LoginShowcase'
 import { passwordRequirements, passwordValidationMessage } from '../lib/password'
 import { supabase } from '../lib/supabase'
 import { clearQueuedAuthEvent, queueAuthEvent } from '../lib/analytics'
-
-function LoginPanel() {
-  return <>
-    <p className="ao-kicker">A look inside</p>
-    <h2 className="ao-headline">See where your money <em>goes.</em></h2>
-    <p className="ao-support">Five real screens from the app. Here is how each one quietly makes managing money easier.</p>
-    <LoginShowcase />
-  </>
-}
 
 type AuthMode = 'login' | 'signup' | 'forgot' | 'reset'
 
@@ -125,9 +115,17 @@ export function AuthPage({ mode }: { mode: AuthMode }) {
   const showProviders = googleEnabled && (mode === 'login' || mode === 'signup')
   const strength = useMemo(() => passwordStrength(password), [password])
 
+  /* The mode switch lives in the desktop top bar and is hidden below 900px,
+     where the inline prompt under the form takes over. */
+  const topSwitch = mode === 'login' && signupEnabled
+    ? <>New to Pocket Ledger? <Link className="ao-inline-link" to="/signup">Create an account</Link></>
+    : mode === 'signup'
+      ? <>Already have an account? <Link className="ao-inline-link" to="/login">Log in</Link></>
+      : undefined
+
   if (mode === 'signup' && !signupEnabled) {
     return (
-      <AuthShell variant="login" panel={<LoginPanel />}>
+      <AuthShell variant="login">
         <div className="ao-hero">
           <BrandLockup />
           <div className="ao-hero-copy">
@@ -146,7 +144,7 @@ export function AuthPage({ mode }: { mode: AuthMode }) {
   const showBackChip = mode !== 'login'
 
   return (
-    <AuthShell variant="login" panel={<LoginPanel />}>
+    <AuthShell variant="login" topRight={topSwitch}>
       <div className="ao-hero">
         {showBackChip
           ? <button aria-label="Back to login" className="ao-hero-back" onClick={() => navigate('/login')} type="button"><ArrowLeft size={18} /></button>
@@ -154,7 +152,9 @@ export function AuthPage({ mode }: { mode: AuthMode }) {
         <div className="ao-hero-copy">
           <p className="ao-kicker">{copy.kicker}</p>
           <h1 className="ao-headline">{copy.lead} <em>{copy.accent}</em></h1>
-          <p className="ao-support">{copy.support}</p>
+          {/* Login and signup lead straight into the form on desktop; the
+              support line stays for the mobile hero band. */}
+          <p className={`ao-support${mode === 'login' || mode === 'signup' ? ' is-mobile-only' : ''}`}>{copy.support}</p>
         </div>
       </div>
 
@@ -164,12 +164,12 @@ export function AuthPage({ mode }: { mode: AuthMode }) {
           {showProviders && <p className="ao-divider">or use email</p>}
 
           <form className="ao-stack" onSubmit={submit}>
-            {mode === 'signup' && <label className="ao-field"><span className="ao-label">Your name</span><input autoComplete="name" className="ao-input" maxLength={80} minLength={2} type="text" value={name} onChange={(event) => setName(event.target.value)} placeholder="How should we greet you?" required /></label>}
-            {mode !== 'reset' && <label className="ao-field"><span className="ao-label">Email address</span><input autoComplete="email" className="ao-input" type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="you@example.com" required /></label>}
+            {mode === 'signup' && <label className="ao-field"><span className="ao-label">Your name</span><input autoComplete="name" className="ao-input" maxLength={80} minLength={2} type="text" value={name} onChange={(event) => setName(event.target.value)} placeholder="Your name" required /></label>}
+            {mode !== 'reset' && <label className="ao-field"><span className="ao-label">Email address</span><input autoComplete="email" className="ao-input" type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="Email address" required /></label>}
             {(mode === 'login' || mode === 'signup' || mode === 'reset') && <label className="ao-field">
               <span className="ao-label">Password</span>
               <span className="ao-password-wrap">
-                <input autoComplete={mode === 'login' ? 'current-password' : 'new-password'} className="ao-input" minLength={mode === 'login' ? undefined : 6} type={showPassword ? 'text' : 'password'} value={password} onChange={(event) => setPassword(event.target.value)} required />
+                <input autoComplete={mode === 'login' ? 'current-password' : 'new-password'} className="ao-input" minLength={mode === 'login' ? undefined : 6} placeholder="Password" type={showPassword ? 'text' : 'password'} value={password} onChange={(event) => setPassword(event.target.value)} required />
                 <button aria-label={showPassword ? 'Hide password' : 'Show password'} className="ao-password-toggle" type="button" onClick={() => setShowPassword((current) => !current)}>{showPassword ? <EyeOff size={17} /> : <Eye size={17} />}</button>
               </span>
               {(mode === 'signup' || mode === 'reset') && <>
@@ -180,8 +180,7 @@ export function AuthPage({ mode }: { mode: AuthMode }) {
                 <span className="ao-pw-hint">{passwordRequirements}</span>
               </>}
             </label>}
-            {(mode === 'signup' || mode === 'reset') && <label className="ao-field"><span className="ao-label">Confirm password</span><input autoComplete="new-password" className="ao-input" type="password" value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} required /></label>}
-            {mode === 'login' && <div className="ao-login-links" style={{ justifyContent: 'flex-end' }}><Link className="ao-inline-link" to="/forgot-password">Forgot password?</Link></div>}
+            {(mode === 'signup' || mode === 'reset') && <label className="ao-field"><span className="ao-label">Confirm password</span><input autoComplete="new-password" className="ao-input" placeholder="Confirm password" type="password" value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} required /></label>}
             {turnstileSiteKey && mode !== 'reset' && !captchaToken && (
               <div className="w-full overflow-hidden rounded-2xl">
                 <Turnstile
@@ -193,12 +192,13 @@ export function AuthPage({ mode }: { mode: AuthMode }) {
               </div>
             )}
             <button className="ao-cta" disabled={loading || Boolean(turnstileSiteKey && mode !== 'reset' && !captchaToken)}>{loading ? 'Please wait…' : copy.cta}{!loading && <ArrowRight size={18} />}</button>
+            {mode === 'login' && <div className="ao-login-links"><Link className="ao-inline-link" to="/forgot-password">Forgot password?</Link></div>}
             {message && <p className="ao-message" role="status">{success && <CheckCircle2 className="mr-2 inline" size={16} />}{message}</p>}
           </form>
 
-          {mode === 'login' && signupEnabled && <p className="text-center text-sm text-[var(--taupe)]">New here? <Link className="ao-inline-link" to="/signup">Create an account</Link></p>}
-          {mode === 'signup' && <p className="text-center text-sm text-[var(--taupe)]">Already have an account? <Link className="ao-inline-link" to="/login">Log in</Link></p>}
-          {(mode === 'forgot' || mode === 'reset') && <Link className="ao-inline-link" style={{ justifySelf: 'center' }} to="/login"><ArrowLeft className="mr-1 inline" size={15} />Back to login</Link>}
+          {mode === 'login' && signupEnabled && <p className="ao-switch-inline">New here? <Link className="ao-inline-link" to="/signup">Create an account</Link></p>}
+          {mode === 'signup' && <p className="ao-switch-inline">Already have an account? <Link className="ao-inline-link" to="/login">Log in</Link></p>}
+          {(mode === 'forgot' || mode === 'reset') && <Link className="ao-inline-link ao-back-link" to="/login"><ArrowLeft className="mr-1 inline" size={15} />Back to login</Link>}
           <p className="ao-fineprint">Free while in beta, your data stays yours. <Link to="/terms">Terms</Link> · <Link to="/privacy">Privacy</Link></p>
         </div>
       </div>
@@ -246,7 +246,7 @@ export function AuthCallback() {
   }, [effectiveError, navigate])
 
   return (
-    <AuthShell variant="login" panel={<LoginPanel />}>
+    <AuthShell variant="login">
       <div className="ao-hero">
         <BrandLockup />
         <div className="ao-hero-copy">

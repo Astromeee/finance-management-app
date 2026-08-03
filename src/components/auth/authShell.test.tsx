@@ -31,6 +31,34 @@ describe('auth shell primitives', () => {
     expect(container.querySelector('.ao-surface')?.textContent).toContain('Sign in side')
   })
 
+  it('gives the login variant a top bar and the feature ribbon', async () => {
+    await act(async () => root.render(
+      <AuthShell variant="login" topRight={<span>Create an account</span>}><p>Form</p></AuthShell>,
+    ))
+    const topbar = container.querySelector('.ao-topbar')
+    expect(topbar).toBeTruthy()
+    expect(topbar?.querySelector('.ao-lockup.is-espresso')).toBeTruthy()
+    expect(container.querySelector('.ao-topswitch')?.textContent).toContain('Create an account')
+    expect(container.querySelectorAll('.ao-ribbon-cell').length).toBe(4)
+    expect(container.querySelector('.ao-ribbon')?.textContent).toContain('Safe to spend')
+  })
+
+  it('omits the switch prompt when no mode swap applies', async () => {
+    await act(async () => root.render(<AuthShell variant="login"><p>Form</p></AuthShell>))
+    expect(container.querySelector('.ao-topbar')).toBeTruthy()
+    expect(container.querySelector('.ao-topswitch')).toBeFalsy()
+  })
+
+  it('keeps the wizard free of the dark-room chrome', async () => {
+    await act(async () => root.render(
+      <AuthShell variant="wizard" panel={<p>Rail</p>}><p>Step</p></AuthShell>,
+    ))
+    expect(container.querySelector('.ao-shell.is-wizard')).toBeTruthy()
+    expect(container.querySelector('.ao-topbar')).toBeFalsy()
+    expect(container.querySelector('.ao-ribbon')).toBeFalsy()
+    expect(container.querySelector('.ao-panel')?.textContent).toContain('Rail')
+  })
+
   it('marks the current progress segment and reports the step count', async () => {
     await act(async () => root.render(<ProgressDots current={3} total={4} />))
     expect(container.textContent).toContain('3 of 4')
