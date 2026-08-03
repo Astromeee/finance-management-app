@@ -1,5 +1,9 @@
 # React + TypeScript + Vite
 
+## Product analytics
+
+Production setup, exact DAU/WAU/MAU queries, and GA4 dashboard instructions are documented in [`docs/analytics-operations.md`](docs/analytics-operations.md).
+
 This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
 
 Currently, two official plugins are available:

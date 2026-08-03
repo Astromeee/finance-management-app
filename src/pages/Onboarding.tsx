@@ -1,4 +1,4 @@
-import { ArrowLeft, ArrowRight, Check, CreditCard, GraduationCap, Home, Landmark, Plus, Sparkles, WalletCards, X, Zap } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Check, CreditCard, GraduationCap, Home, Landmark, Plus, ShieldCheck, Sparkles, WalletCards, X, Zap } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { AuthShell } from '../components/auth/AuthShell'
 import { BrandLockup } from '../components/auth/BrandLockup'
@@ -161,7 +161,13 @@ export function Onboarding({ email, initialName, initialSettings, existingAccoun
     setLoading(true)
     setError('')
     const nextStep = Math.min(TOTAL_STEPS, step + 1)
-    const nextSettings: JourneySettings = { ...settings, onboardingStep: nextStep }
+    const nextSettings: JourneySettings = {
+      ...settings,
+      onboardingStep: nextStep,
+      // The final onboarding screen discloses the privacy-minimized analytics
+      // that starts when a new user enters the ledger.
+      ...(nextStep === TOTAL_STEPS ? { analyticsConsent: true } : {}),
+    }
     try {
       if (nextStep < TOTAL_STEPS) {
         await onProgress(nextSettings)
@@ -393,6 +399,10 @@ function RevealStep({ account, bills, name, settings }: { account: Account; bill
       <div className="ao-summary-row"><span>Income</span><strong>Rs {nf(settings.typicalIncome)}</strong></div>
       <div className="ao-summary-row"><span>Fixed bills</span><strong>Rs {nf(total)}</strong></div>
       <div className="ao-summary-row"><span>Daily flow</span><strong>Rs {nf(dailyFlow)}</strong></div>
+    </div>
+    <div className="ao-analytics-notice" role="note">
+      <ShieldCheck aria-hidden="true" size={19} />
+      <p><strong>Private usage analytics</strong><span>When you enter, Pocket Ledger starts analytics to count new and active users and understand feature use. We send a pseudonymous account ID and fixed event names, never your email, balances, amounts, transaction names, or notes. <a href="/privacy" rel="noreferrer" target="_blank">Privacy details</a></span></p>
     </div>
   </div>
 }

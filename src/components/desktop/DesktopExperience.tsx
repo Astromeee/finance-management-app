@@ -29,7 +29,7 @@ import {
 } from 'lucide-react'
 import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { Area, AreaChart, Bar, BarChart, CartesianGrid, Cell, ComposedChart, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
-import type { Account, AccountType, Budget, Category, CategoryIconName, Debt, Goal, JourneySettings, MoneyQuest, Transaction, UpcomingExpense, WishlistItem } from '../../types/finance'
+import type { Account, AccountType, Budget, Category, CategoryIconName, Debt, Goal, IncomeCycle, JourneySettings, MoneyQuest, Transaction, UpcomingExpense, WishlistItem } from '../../types/finance'
 import type { Profile } from '../../lib/profile'
 import { exportTransactionsCsv } from '../../lib/exports'
 import { calculateSafeSpend, detectMoneyLeak } from '../../utils/journeyCalculations'
@@ -126,6 +126,25 @@ const debtTitle = (debt: Debt) => debt.title || debt.name || 'Debt'
 const debtTotal = (debt: Debt) => debt.totalAmount ?? debt.total ?? 0
 const debtPaid = (debt: Debt) => debt.paidAmount ?? debt.paid ?? 0
 
+function formatDesktopDate(date: Date | string, options: Intl.DateTimeFormatOptions) {
+  const value = typeof date === 'string' ? new Date(`${date}T12:00:00`) : date
+  return value.toLocaleDateString('en-PK', options)
+}
+
+function currentDateLabel() {
+  return formatDesktopDate(new Date(), { weekday: 'short', day: 'numeric', month: 'long' })
+}
+
+function cycleDateLabel(cycle: IncomeCycle | null) {
+  if (!cycle) return 'Plan setup needed'
+  const start = new Date(`${cycle.startDate}T12:00:00`)
+  const end = new Date(`${cycle.endDate}T12:00:00`)
+  if (start.getFullYear() === end.getFullYear() && start.getMonth() === end.getMonth()) {
+    return `${start.getDate()}–${formatDesktopDate(end, { day: 'numeric', month: 'long' })}`
+  }
+  return `${formatDesktopDate(start, { day: 'numeric', month: 'short' })} – ${formatDesktopDate(end, { day: 'numeric', month: 'short' })}`
+}
+
 function categoryTotals(transactions: Transaction[]) {
   const totals = new Map<string, number>()
   for (const item of transactions.filter((transaction) => transaction.type === 'expense')) {
@@ -216,15 +235,15 @@ const nav = [
   { id: 'budgets', label: 'Plan', icon: Check },
 ] as const
 
-const titles: Record<DesktopPage, { eyebrow: string; first: string; accent: string }> = {
-  dashboard: { eyebrow: 'Wed · 23 July', first: 'Good Morning,', accent: 'Moeed.' },
-  transactions: { eyebrow: 'July · Cycle 4', first: 'The', accent: 'ledger.' },
-  accounts: { eyebrow: 'July · Cycle 4', first: 'The', accent: 'wallet.' },
-  reports: { eyebrow: 'July · Cycle 4', first: 'The', accent: 'insights.' },
-  goals: { eyebrow: 'July · Cycle 4', first: 'Your', accent: 'paths.' },
-  budgets: { eyebrow: 'July · Cycle 4', first: 'The', accent: 'plan.' },
-  settings: { eyebrow: 'Account', first: 'Your', accent: 'settings.' },
-  categories: { eyebrow: 'Settings · Categories', first: 'Your', accent: 'categories.' },
+const titles: Record<DesktopPage, { first: string; accent: string }> = {
+  dashboard: { first: 'Good Morning,', accent: 'Moeed.' },
+  transactions: { first: 'The', accent: 'ledger.' },
+  accounts: { first: 'The', accent: 'wallet.' },
+  reports: { first: 'The', accent: 'insights.' },
+  goals: { first: 'Your', accent: 'paths.' },
+  budgets: { first: 'The', accent: 'plan.' },
+  settings: { first: 'Your', accent: 'settings.' },
+  categories: { first: 'Your', accent: 'categories.' },
 }
 
 function Money({ children, accent = false }: { children: ReactNode; accent?: boolean }) {
@@ -267,11 +286,9 @@ function CategoryBars({ includeBills = false }: { includeBills?: boolean }) {
 }
 
 function Rail({ activePage, setActivePage }: Pick<DesktopExperienceProps, 'activePage' | 'setActivePage'>) {
-  const { accounts, budgets, profile, transactions } = useDesktopData()
+  const { accounts, budgets, categories, journeySettings, profile, transactions, upcomingExpenses } = useDesktopData()
   const isSettings = activePage === 'settings' || activePage === 'categories'
-  const totalBudget = budgets.reduce((sum, budget) => sum + budget.amount, 0)
-  const totalUsed = budgets.reduce((sum, budget) => sum + budget.used, 0)
-  const underBudget = Math.max(0, totalBudget - totalUsed)
+  const safe = calculateSafeSpend({ accounts, budgets, categories, upcomingExpenses, settings: journeySettings })
   const initial = profile.name.trim().charAt(0).toUpperCase() || 'P'
   return <aside className={`d-rail ${isSettings ? 'is-settings' : ''}`}>
     <div className="d-brand">
@@ -287,8 +304,8 @@ function Rail({ activePage, setActivePage }: Pick<DesktopExperienceProps, 'activ
       ><Icon size={18} /><span>{label}</span>{activePage === id && <i />}</button>)}
     </nav>
     <div className="d-context">
-      <Label>{isSettings ? 'Version' : activePage === 'accounts' ? 'Linked' : activePage === 'transactions' ? 'This cycle' : 'Cycle 4 · July'}</Label>
-      <p>{isSettings ? <>Pocket Ledger <strong>2.4.0</strong> · up to date.</> : activePage === 'accounts' ? <><strong>{accounts.length}</strong> accounts linked.</> : activePage === 'transactions' ? <><strong>{transactions.length}</strong> entries in your ledger.</> : <>You have <strong>Rs {nf(underBudget)}</strong> left in your current plan.</>}</p>
+      <Label>{isSettings ? 'Version' : activePage === 'accounts' ? 'Linked' : activePage === 'transactions' ? 'This cycle' : cycleDateLabel(safe.cycle)}</Label>
+      <p>{isSettings ? <>Pocket Ledger <strong>2.4.0</strong> · up to date.</> : activePage === 'accounts' ? <><strong>{accounts.length}</strong> accounts linked.</> : activePage === 'transactions' ? <><strong>{transactions.length}</strong> entries in your ledger.</> : safe.cycle ? <>Safe to spend today: <strong>Rs {nf(safe.safeToSpendToday)}</strong>.</> : <>Finish your income-cycle setup to see your safe-to-spend amount.</>}</p>
     </div>
     <button type="button" className={`d-profile ${isSettings ? 'is-active' : ''}`} onClick={() => setActivePage('settings')}>
       <span>{profile.avatar ? <img src={profile.avatar} alt="" /> : initial}</span><div><strong>{profile.name}</strong><small>{isSettings ? 'Settings open' : 'Settings'}</small></div>{isSettings ? <i /> : <ChevronRight size={16} />}
@@ -375,14 +392,22 @@ function CommandPalette({ close, setActivePage, openModal }: { close: () => void
 }
 
 function Topbar({ page, openModal, openPalette, attentionCount, setActivePage, period, setPeriod, accountFilter, setAccountFilter }: { page: DesktopPage; openModal: OpenModal; openPalette: () => void; attentionCount: number; setActivePage: (page: string) => void; period: PeriodKey; setPeriod: (period: PeriodKey) => void; accountFilter: string; setAccountFilter: (accountId: string) => void }) {
-  const { accounts, profile } = useDesktopData()
+  const { accounts, budgets, categories, journeySettings, profile, upcomingExpenses } = useDesktopData()
   const [periodOpen, setPeriodOpen] = useState(false)
   const heading = titles[page]
   const isSettings = page === 'settings' || page === 'categories'
   const hasPeriod = page === 'transactions' || page === 'reports'
   const firstName = profile.name.trim().split(/\s+/)[0] || 'there'
+  const safe = calculateSafeSpend({ accounts, budgets, categories, upcomingExpenses, settings: journeySettings })
+  const eyebrow = page === 'dashboard'
+    ? currentDateLabel()
+    : page === 'settings'
+      ? 'Account'
+      : page === 'categories'
+        ? 'Settings · Categories'
+        : `${cycleDateLabel(safe.cycle)} · Current cycle`
   return <header className="d-topbar">
-    <div><Label>{heading.eyebrow}</Label><h1>{heading.first} <em>{page === 'dashboard' ? `${firstName}.` : heading.accent}</em></h1></div>
+    <div><Label>{eyebrow}</Label><h1>{heading.first} <em>{page === 'dashboard' ? `${firstName}.` : heading.accent}</em></h1></div>
     <div className="d-top-actions">
       {!isSettings && <button type="button" className="d-search" onClick={openPalette}><Search size={16} /><span>Search or jump</span><kbd>⌘ K</kbd></button>}
       {!isSettings && <button type="button" className="d-icon-button d-attention-button" aria-label={attentionCount ? `${attentionCount} items need attention` : 'Needs attention'} onClick={() => openModal('notifications')}><Bell size={17} />{attentionCount > 0 && <span>{attentionCount}</span>}</button>}
@@ -537,7 +562,7 @@ function InsightsPage({ openModal, period, setPeriod }: { openModal: OpenModal; 
 
 function Toggle({ on = true, onClick }: { on?: boolean; onClick?: () => void }) { return <button type="button" aria-label="Toggle setting" aria-pressed={on} className={`d-toggle ${on ? 'is-on' : ''}`} onClick={onClick}><i/></button> }
 
-function SettingsPage({ setActivePage, onSignOut, openModal, onAnalyticsConsentChange, onRestartJourney }: { setActivePage: (page: string) => void; onSignOut: () => void; openModal: OpenModal; onAnalyticsConsentChange: (granted: boolean) => void; onRestartJourney: () => void }) {
+function SettingsPage({ setActivePage, onSignOut, openModal, onRestartJourney }: { setActivePage: (page: string) => void; onSignOut: () => void; openModal: OpenModal; onAnalyticsConsentChange: (granted: boolean) => void; onRestartJourney: () => void }) {
   const { accounts, authEmail, journeySettings, profile, transactions } = useDesktopData()
   const [notificationsEnabled, setNotificationsEnabled] = useState(() => localStorage.getItem('pocket-ledger-notifications') !== 'off')
   const initial = profile.name.trim().charAt(0).toUpperCase() || 'P'
@@ -545,7 +570,7 @@ function SettingsPage({ setActivePage, onSignOut, openModal, onAnalyticsConsentC
     <div className="d-work">
       <Card className="d-profile-card"><span>{profile.avatar ? <img src={profile.avatar} alt="" /> : initial}</span><div><h2>{profile.name}</h2><p>{authEmail ?? 'Signed-in Pocket Ledger account'}</p></div><Button kind="secondary" onClick={() => openModal('profile')}><Pencil size={16}/>Edit profile</Button></Card>
       <Card className="d-settings-card"><Label>Cycle & money</Label><div><span className="d-account-icon is-clay"><CalendarDays size={18}/></span><p><strong>Income cycle</strong><small>{journeySettings.nextIncomeDate ? `Next income ${journeySettings.nextIncomeDate}` : 'Add your next income date in journey setup'}</small></p><strong>{journeySettings.incomeCadence ? journeySettings.incomeCadence.replace('_', ' ') : 'Not set'}</strong></div><div><span className="d-account-icon is-sage"><CircleDollarSign size={18}/></span><p><strong>Currency</strong><small>Shown across the app</small></p><strong>PKR · Rs</strong></div><div><span className="d-account-icon is-blue"><Sparkles size={18}/></span><p><strong>Accounts included</strong><small>Balances used across your plan</small></p><strong>{accounts.length}</strong></div></Card>
-      <Card className="d-settings-card d-fill"><Label>Preferences</Label><div><p><strong>Notifications</strong><small>Bill reminders and money signals</small></p><Toggle on={notificationsEnabled} onClick={() => setNotificationsEnabled((value) => { const next = !value; localStorage.setItem('pocket-ledger-notifications', next ? 'on' : 'off'); return next })}/></div><div><p><strong>Analytics consent</strong><small>Help improve Pocket Ledger</small></p><Toggle on={journeySettings.analyticsConsent} onClick={() => onAnalyticsConsentChange(!journeySettings.analyticsConsent)}/></div><div><p><strong>Journey setup</strong><small>{journeySettings.nextIncomeDate ? `Next income ${journeySettings.nextIncomeDate}` : 'Income cycle not configured'}</small></p><button type="button" onClick={onRestartJourney}>Update cycle</button></div><div><p><strong>Safety reserve</strong><small>Protected from safe-to-spend</small></p><Money>Rs {nf(journeySettings.safetyReserve)}</Money></div></Card>
+      <Card className="d-settings-card d-fill"><Label>Preferences</Label><div><p><strong>Notifications</strong><small>Bill reminders and money signals</small></p><Toggle on={notificationsEnabled} onClick={() => setNotificationsEnabled((value) => { const next = !value; localStorage.setItem('pocket-ledger-notifications', next ? 'on' : 'off'); return next })}/></div><div><p><strong>Private usage analytics</strong><small>{journeySettings.analyticsConsent ? 'On · No email or financial content' : 'Not enabled for this account'}</small></p><strong>{journeySettings.analyticsConsent ? 'On' : 'Off'}</strong></div><div><p><strong>Journey setup</strong><small>{journeySettings.nextIncomeDate ? `Next income ${journeySettings.nextIncomeDate}` : 'Income cycle not configured'}</small></p><button type="button" onClick={onRestartJourney}>Update cycle</button></div><div><p><strong>Safety reserve</strong><small>Protected from safe-to-spend</small></p><Money>Rs {nf(journeySettings.safetyReserve)}</Money></div></Card>
     </div>
     <aside className="d-attention">
       <Card className="d-settings-card d-fill"><Label>Data & security</Label><button className="d-setting-link" onClick={() => setActivePage('categories')}><span className="d-account-icon is-sage"><WalletCards size={18}/></span><strong>Manage categories</strong><ChevronRight size={15}/></button><button className="d-setting-link" onClick={() => setActivePage('accounts')}><span className="d-account-icon is-blue"><CreditCard size={18}/></span><strong>Linked accounts</strong><small>{accounts.length}</small><ChevronRight size={15}/></button><button className="d-setting-link" onClick={() => exportTransactionsCsv(transactions)}><span className="d-account-icon is-sand"><Download size={18}/></span><strong>Export data</strong><small>CSV</small><ChevronRight size={15}/></button></Card>

@@ -4,6 +4,8 @@ import type { Json, TablesInsert } from '../types/database'
 import { localMonthKey } from './date'
 import type { Profile } from './profile'
 import { supabase } from './supabase'
+import { recordAppActivity } from './activity'
+import { trackEvent } from './analytics'
 
 export type FinanceData = {
   accounts: Account[]
@@ -31,6 +33,10 @@ function client() {
 
 function value(row: Row, key: string) {
   return row[key] as never
+}
+
+function recordMeaningfulActivity() {
+  void recordAppActivity('meaningful_action')
 }
 
 function accountFromRow(row: Row): Account {
@@ -243,6 +249,8 @@ export async function recordFinanceAction(action: FinanceAction) {
     },
   })
   if (error) throw error
+  recordMeaningfulActivity()
+  trackEvent('finance_action_recorded', { finance_action: action.type })
   return data as { id: string; ok: boolean }
 }
 
@@ -258,6 +266,8 @@ export async function markUpcomingExpensePaid(
     p_next_upcoming: (nextUpcoming ?? null) as unknown as Json,
   })
   if (error) throw error
+  recordMeaningfulActivity()
+  trackEvent('finance_action_recorded', { finance_action: action.type })
   return data as { id: string; ok: boolean }
 }
 
@@ -304,6 +314,8 @@ export async function saveAccount(account: Account, openingBalance?: number) {
   if (openingBalance !== undefined) row.opening_balance = openingBalance
   const { error } = await client().from('accounts').upsert(row)
   if (error) throw error
+  recordMeaningfulActivity()
+  trackEvent('account_saved')
 }
 
 export async function adjustAccountBalance(account: Account, transaction: Transaction) {
@@ -332,6 +344,8 @@ export async function saveCategory(category: Category) {
     color: category.color, icon_name: category.icon ?? null, spending_nature: category.spendingNature, sort_order: 100, archived: false,
   })
   if (error) throw error
+  recordMeaningfulActivity()
+  trackEvent('category_saved')
 }
 
 export async function archiveCategory(id: string) {
@@ -346,6 +360,8 @@ export async function saveBudget(budget: Budget) {
     amount: budget.amount, used: budget.used, period_month: budget.periodMonth ?? `${localMonthKey()}-01`, archived: false,
   })
   if (error) throw error
+  recordMeaningfulActivity()
+  trackEvent('budget_saved')
 }
 
 export async function deleteBudget(id: string) {
@@ -365,6 +381,8 @@ export async function saveGoal(goal: Goal) {
     due_date: goal.dueDate, linked_account_id: goal.linkedAccountId, notes: goal.notes, status: goal.status,
   })
   if (error) throw error
+  recordMeaningfulActivity()
+  trackEvent('goal_saved')
 }
 
 export async function deleteGoal(id: string) {
@@ -380,6 +398,8 @@ export async function saveDebt(debt: Debt) {
     due_date: debt.dueDate, category: debt.category, status: debt.status, notes: debt.notes,
   })
   if (error) throw error
+  recordMeaningfulActivity()
+  trackEvent('debt_saved')
 }
 
 export async function deleteDebt(id: string) {
@@ -398,6 +418,8 @@ export async function saveUpcomingExpense(expense: UpcomingExpense) {
     paid_transaction_id: expense.paidTransactionId,
   })
   if (error) throw error
+  recordMeaningfulActivity()
+  trackEvent('upcoming_expense_saved')
 }
 
 export async function deleteUpcomingExpense(id: string) {
@@ -443,6 +465,8 @@ export async function saveMoneyQuest(quest: MoneyQuest) {
     target_count: quest.targetCount, starts_on: quest.startsOn, ends_on: quest.endsOn, status: quest.status,
   })
   if (error) throw error
+  recordMeaningfulActivity()
+  trackEvent('quest_saved')
 }
 
 export async function saveWishlistItem(item: WishlistItem) {
@@ -453,6 +477,8 @@ export async function saveWishlistItem(item: WishlistItem) {
     status: item.status, transaction_id: item.transactionId, reason: item.reason,
   })
   if (error) throw error
+  recordMeaningfulActivity()
+  trackEvent('wishlist_saved')
 }
 
 export async function deleteWishlistItem(id: string) {

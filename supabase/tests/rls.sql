@@ -27,6 +27,14 @@ begin
   delete from public.accounts where user_id = other_user;
   get diagnostics affected = row_count;
   if affected <> 0 then raise exception 'RLS failure: cross-user delete succeeded'; end if;
+
+  begin
+    insert into public.user_activity_daily (user_id, activity_date, session_count)
+    values (other_user, current_date, 1);
+    raise exception 'RLS failure: cross-user activity insert succeeded';
+  exception when insufficient_privilege then
+    null;
+  end;
 end $$;
 
 reset role;

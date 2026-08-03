@@ -383,6 +383,23 @@
 .ao-summary-row span { font-size: 15px; font-weight: 600; color: var(--ink); }
 .ao-summary-row strong { font-family: var(--font-digits); font-variant-numeric: tabular-nums; font-size: 16px; font-weight: 600; }
 
+.ao-analytics-notice {
+  display: flex;
+  align-items: flex-start;
+  gap: 11px;
+  margin-top: 14px;
+  padding: 13px 15px;
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--sage) 12%, transparent);
+  color: var(--ink-soft);
+}
+
+.ao-analytics-notice > svg { flex: 0 0 auto; margin-top: 2px; color: var(--sage-deep); }
+.ao-analytics-notice p { margin: 0; font-size: 12px; line-height: 1.55; }
+.ao-analytics-notice strong { display: block; margin-bottom: 2px; color: var(--ink); font-size: 12.5px; }
+.ao-analytics-notice span { display: block; }
+.ao-analytics-notice a { color: var(--clay-deep); font-weight: 700; text-decoration: underline; text-underline-offset: 2px; }
+
 /* ---- Bill rows ---- */
 .ao-bill-list { display: grid; gap: 10px; margin-top: 24px; }
 

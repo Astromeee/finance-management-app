@@ -9,7 +9,8 @@ import { adjustAccountBalance, archiveAccount, archiveCategory, deleteBudget, de
 import { addRecurringDate, localDateKey, localMonthKey } from './lib/date'
 import { applyAccountOrder } from './lib/accountOrder'
 import { billsToUpcomingExpenses } from './lib/onboardingBills'
-import { setAnalyticsConsent, trackEvent } from './lib/analytics'
+import { setAnalyticsConsent, setAnalyticsUserId, trackEvent } from './lib/analytics'
+import { recordAppActivity } from './lib/activity'
 import { getProfile, onProfileChange, setProfile, type Profile } from './lib/profile'
 import { isSupabaseConfigured, supabase } from './lib/supabase'
 import { AuthCallback, AuthPage } from './pages/Auth'
@@ -181,7 +182,18 @@ function App() {
   // expose the active page to CSS so Home gets its own "ledger paper" canvas (see theme.css §7)
   useEffect(() => { document.documentElement.dataset.page = activePage }, [activePage])
   useEffect(() => { setAnalyticsConsent(journeySettings.analyticsConsent) }, [journeySettings.analyticsConsent])
-  useEffect(() => { trackEvent('page_view', { surface: analyticsSurfaceFor(activePage) }) }, [activePage])
+  useEffect(() => { setAnalyticsUserId(financeUserId) }, [financeUserId])
+  useEffect(() => {
+    if (!financeUserId) return
+    void recordAppActivity('session')
+  }, [financeUserId])
+  useEffect(() => {
+    if (!financeUserId && !designPreview) return
+    trackEvent('page_view', { surface: analyticsSurfaceFor(activePage) })
+  }, [activePage, designPreview, financeUserId, journeySettings.analyticsConsent])
+  useEffect(() => {
+    if (financeUserId) void recordAppActivity('page_view')
+  }, [activePage, financeUserId])
 
   const setActivePage = useCallback((page: string) => {
     const previewQuery = designPreview ? '?vault-preview' : ''
@@ -1131,6 +1143,7 @@ function App() {
         setProfile(nextProfile)
         setProfileState(nextProfile)
         setOnboardingCompleted(true)
+        setAnalyticsConsent(settings.analyticsConsent)
         trackEvent('onboarding_completed', { surface: 'onboarding', action: 'complete' })
         navigate('/app', { replace: true })
       }} /></Suspense>} />

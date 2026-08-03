@@ -7,6 +7,7 @@ import { BrandLockup } from '../components/auth/BrandLockup'
 import { LoginShowcase } from '../components/auth/LoginShowcase'
 import { passwordRequirements, passwordValidationMessage } from '../lib/password'
 import { supabase } from '../lib/supabase'
+import { clearQueuedAuthEvent, queueAuthEvent } from '../lib/analytics'
 
 function LoginPanel() {
   return <>
@@ -65,6 +66,7 @@ export function AuthPage({ mode }: { mode: AuthMode }) {
       if (mode === 'login') {
         const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password, options: { captchaToken } })
         if (error) throw error
+        queueAuthEvent('login', 'password')
         navigate('/app', { replace: true })
       } else if (mode === 'signup') {
         const { error } = await supabase.auth.signUp({
@@ -76,6 +78,7 @@ export function AuthPage({ mode }: { mode: AuthMode }) {
           },
         })
         if (error) throw error
+        queueAuthEvent('sign_up', 'password')
         setSuccess(true)
         setMessage('Check your email to verify your account, then return to Pocket Ledger.')
       } else if (mode === 'forgot') {
@@ -101,10 +104,12 @@ export function AuthPage({ mode }: { mode: AuthMode }) {
   const google = async () => {
     if (!supabase) return
     setLoading(true)
+    queueAuthEvent(mode === 'signup' ? 'sign_up' : 'login', 'google')
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google', options: { redirectTo: `${window.location.origin}/auth/callback` },
     })
     if (error) {
+      clearQueuedAuthEvent()
       setMessage(error.message)
       setLoading(false)
     }

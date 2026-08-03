@@ -181,6 +181,36 @@ export type Database = {
         }
         Relationships: []
       }
+      user_activity_daily: {
+        Row: {
+          activity_date: string
+          first_seen_at: string
+          last_seen_at: string
+          meaningful_action_count: number
+          page_view_count: number
+          session_count: number
+          user_id: string
+        }
+        Insert: {
+          activity_date: string
+          first_seen_at?: string
+          last_seen_at?: string
+          meaningful_action_count?: number
+          page_view_count?: number
+          session_count?: number
+          user_id: string
+        }
+        Update: {
+          activity_date?: string
+          first_seen_at?: string
+          last_seen_at?: string
+          meaningful_action_count?: number
+          page_view_count?: number
+          session_count?: number
+          user_id?: string
+        }
+        Relationships: []
+      }
       debts: {
         Row: {
           category: string
@@ -732,6 +762,7 @@ export type Database = {
         Returns: Json
       }
       record_finance_action: { Args: { p_action: Json }; Returns: Json }
+      record_app_activity: { Args: { p_kind: string }; Returns: undefined }
       update_finance_transaction: {
         Args: { p_action: Json; p_id: string }
         Returns: Json

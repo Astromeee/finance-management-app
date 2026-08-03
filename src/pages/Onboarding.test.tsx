@@ -57,13 +57,15 @@ describe('four step onboarding', () => {
     await click('Continue')
 
     expect(container.textContent).toContain('Safe to spend today')
+    expect(container.textContent).toContain('Private usage analytics')
+    expect(container.textContent).toContain('never your email, balances, amounts, transaction names, or notes')
     await click('Enter Pocket Ledger')
 
     expect(onProgress).toHaveBeenCalledTimes(3)
     expect(onComplete).toHaveBeenCalledTimes(1)
     const [, account, settings, bills] = onComplete.mock.calls[0] as unknown as Parameters<ComponentProps<typeof Onboarding>['onComplete']>
     expect(account?.balance).toBe(30_000)
-    expect(settings).toMatchObject({ incomeSourceType: 'allowance', incomeCadence: 'monthly', typicalIncome: 30_000, onboardingStep: 4 })
+    expect(settings).toMatchObject({ incomeSourceType: 'allowance', incomeCadence: 'monthly', typicalIncome: 30_000, onboardingStep: 4, analyticsConsent: true })
     expect(settings.incomeSourceTypes).toEqual(['allowance', 'salary'])
     expect(bills).toEqual([])
   })
