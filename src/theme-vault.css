@@ -754,6 +754,82 @@ body::after,
   place-items: center;
 }
 
+/* Home "Your paths" card — a tap-through to the Paths screen showing the
+   same featured goal that screen leads with. Rendered only when the user
+   actually has a goal or debt. */
+.vault-paths {
+  width: 100%;
+  text-align: left;
+  border: 1px solid var(--rule);
+  border-radius: var(--r-card);
+  background: var(--vault-surface);
+  padding: 15px 18px 17px;
+  display: block;
+}
+.vault-paths + section.mt-8 { margin-top: 27px; }
+.vault-paths-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+.vault-paths-title {
+  font-family: var(--font-display);
+  font-size: 21px;
+  color: var(--ink);
+}
+.vault-paths-title em { font-style: italic; color: var(--clay); }
+.vault-paths-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--clay-ink);
+  white-space: nowrap;
+}
+.vault-paths-body { display: flex; align-items: center; gap: 12px; margin-top: 12px; }
+.vault-paths-ring {
+  width: 42px;
+  height: 42px;
+  flex: none;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+}
+.vault-paths-ring > span {
+  width: 33px;
+  height: 33px;
+  border-radius: 999px;
+  background: var(--vault-surface);
+  display: grid;
+  place-items: center;
+  font-family: var(--font-digits);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--ink);
+}
+.vault-paths-copy { min-width: 0; }
+.vault-paths-name {
+  display: block;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.vault-paths-meta { display: block; margin-top: 2px; font-size: 12.5px; color: var(--taupe); }
+.vault-paths-bar {
+  display: block;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--track);
+  margin-top: 13px;
+  overflow: hidden;
+}
+.vault-paths-bar > span { display: block; height: 100%; border-radius: 999px; background: var(--clay); }
+
 /* 14b — wallet account cards. One shared height (the cash card has no
    masked-number line, so its content spreads to match the others). */
 .vault-wallet-card {

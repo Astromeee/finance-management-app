@@ -6,6 +6,7 @@ import type { Account, Budget, Category, Debt, Goal, JourneySettings, Transactio
 import { calculateSafeSpend, detectMoneyLeak } from '../utils/journeyCalculations'
 import { cn } from '../utils/ui'
 import { buildAttentionItems } from '../utils/attention'
+import { goalProgress, selectFeaturedGoal } from '../components/goals/goalsDesktopLogic'
 
 type DashboardAction = 'income' | 'expense' | 'transfer' | 'goal' | 'debt' | null
 
@@ -52,6 +53,7 @@ export function Dashboard({
   accounts,
   transactions,
   goals,
+  debts,
   budgets,
   upcomingExpenses,
   categories,
@@ -131,6 +133,32 @@ export function Dashboard({
       page: item.page,
     }))
   }, [accounts, budgets, goals, transactions, upcomingExpenses, wishlistItems])
+
+  /* The Home paths card mirrors the featured goal the Paths screen leads with,
+     so the two surfaces never disagree about what matters most right now. */
+  const featuredPath = useMemo(() => {
+    const goal = selectFeaturedGoal(goals)
+    if (goal) return { name: goal.name, saved: goal.saved, target: goal.target, progress: goalProgress(goal) }
+    /* Someone tracking only what they owe still has a path worth showing. */
+    const debt = debts.find((item) => item.status !== 'Paid')
+    if (!debt) return null
+    const total = debt.totalAmount ?? debt.total ?? 0
+    const paid = debt.paidAmount ?? debt.paid ?? 0
+    return {
+      name: debt.title || debt.name || 'Debt',
+      saved: paid,
+      target: total,
+      progress: Math.min(100, Math.max(0, Math.round((paid / Math.max(1, total)) * 100))),
+    }
+  }, [goals, debts])
+
+  const pathsSummary = useMemo(() => {
+    const openDebts = debts.filter((debt) => debt.status !== 'Paid').length
+    const parts = []
+    if (goals.length) parts.push(`${goals.length} ${goals.length === 1 ? 'goal' : 'goals'}`)
+    if (openDebts) parts.push(`${openDebts} ${openDebts === 1 ? 'debt' : 'debts'}`)
+    return parts.join(' · ')
+  }, [goals, debts])
 
   return (
     <div className="vault-screen">
@@ -263,6 +291,27 @@ export function Dashboard({
           <span className="vault-leak-arrow"><ArrowUpRight size={18} strokeWidth={2} /></span>
         </button>
       ) : null}
+
+      {/* Paths only earns a slot on Home once there is something to show;
+          an empty goals list would just be a dead card. */}
+      {featuredPath && (
+        <button aria-label="Open your paths" className="vault-paths mt-7" type="button" onClick={() => onNavigate('goals')}>
+          <span className="vault-paths-head">
+            <span className="vault-paths-title">Your <em>paths.</em></span>
+            <span className="vault-paths-link">{pathsSummary}<ArrowRight size={13} strokeWidth={2.4} /></span>
+          </span>
+          <span className="vault-paths-body">
+            <span className="vault-paths-ring" style={{ background: `conic-gradient(var(--clay) ${featuredPath.progress}%, var(--track) 0)` }}>
+              <span>{featuredPath.progress}%</span>
+            </span>
+            <span className="vault-paths-copy">
+              <span className="vault-paths-name">{featuredPath.name}</span>
+              <span className="vault-paths-meta vault-digits">Rs {nf(featuredPath.saved)} of {nf(featuredPath.target)}</span>
+            </span>
+          </span>
+          <span className="vault-paths-bar"><span style={{ width: `${featuredPath.progress}%` }} /></span>
+        </button>
+      )}
 
       <section aria-label="Latest entries" className="mt-8">
         <div className="flex items-baseline justify-between">

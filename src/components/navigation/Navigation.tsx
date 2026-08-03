@@ -1,4 +1,4 @@
-import { ArrowDown, ArrowLeftRight, ArrowUpRight, CreditCard, Hourglass, House, List, PieChart, Plus, Target } from 'lucide-react'
+import { ArrowDown, ArrowLeftRight, ArrowUpRight, Hourglass, House, List, PieChart, Plus, Target } from 'lucide-react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { useEffect, useRef, useState } from 'react'
 import { navItems } from '../../data/navigation'
@@ -47,10 +47,12 @@ const FAB_ACTIONS: Array<{ action: AddAction; label: string; circle: string; ico
 ]
 
 /* "The Vault" dock (spec §5.7) — a floating espresso pill with exactly four
-   destinations (Home · Ledger · Wallet · Insights) plus a separate clay FAB.
-   Goals/Plan have no permanent slot: while you're on one of them the Wallet
-   slot swaps to the target icon (matching screens 15b/16a); you reach them
-   from in-page links, never from the dock. The FAB opens the 19a action fan. */
+   destinations (Home · Ledger · Paths · Insights) plus a separate clay FAB.
+   The third slot used to swap between Wallet/Plan/Goals depending on the
+   current page, which meant it could only ever confirm you had arrived at
+   Paths, never take you there. It is now a fixed Paths destination; Wallet
+   and Plan keep their Home shortcuts ("Open wallet" / "Open plan") and
+   Wallet is also in Settings. The FAB opens the 19a action fan. */
 /* Pushed detail screens (reached from a link, dismissed with their own back
    chevron) hide the dock + FAB to match the design. */
 const DOCKLESS_PAGES = new Set(['settings', 'categories', 'profile'])
@@ -59,14 +61,11 @@ export function BottomNav({ activePage, setActivePage, onAdd }: { activePage: st
   const [menuOpen, setMenuOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
   const fabRef = useRef<HTMLButtonElement>(null)
-  const onTargetScreen = activePage === 'goals' || activePage === 'budgets'
 
   const slots = [
     { id: 'dashboard', label: 'Home', icon: House },
     { id: 'transactions', label: 'Ledger', icon: List },
-    onTargetScreen
-      ? { id: activePage, label: activePage === 'goals' ? 'Goals' : 'Plan', icon: Target }
-      : { id: 'accounts', label: 'Wallet', icon: CreditCard },
+    { id: 'goals', label: 'Paths', icon: Target },
     { id: 'reports', label: 'Insights', icon: PieChart },
   ]
 

@@ -81,8 +81,11 @@ export function Settings(props: Props) {
         <div className="vault-settings-group">
           <Row icon={<DollarSign size={18} strokeWidth={1.9} />} title="Currency" value="Rs · PKR" />
           <Row icon={<Calendar size={18} strokeWidth={1.9} />} title="Income cycle" value={incomeCycleLabel(props.journeySettings)} onPress={props.onRestartTour} />
-          <Row icon={<CreditCard size={18} strokeWidth={1.9} />} title="Accounts" value={`${props.accounts.length} linked`} onPress={() => props.onNavigate('accounts')} />
           <Row highlight icon={<LayoutGrid size={18} strokeWidth={2} />} title="Categories" subtitle={`${expenseCount} expense · ${incomeCount} income`} onPress={() => props.onNavigate('categories')} />
+          {/* Wallet lost its dock slot to Paths, so this row is now its main
+              route in from Settings. Worded as an invitation to add, since
+              that is what most people come here to do. */}
+          <Row icon={<CreditCard size={18} strokeWidth={1.9} />} title="Cards & accounts" subtitle={`Add a card or cash account · ${props.accounts.length} linked`} onPress={() => props.onNavigate('accounts')} />
         </div>
       </section>
 
