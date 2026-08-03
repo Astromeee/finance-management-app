@@ -29,7 +29,6 @@ import {
   isBillActive,
   isWishlistActive,
   nf,
-  sectionDescriptions,
   type PlanActions,
   type PlanData,
   type PlanHistoryFilter,
@@ -48,6 +47,16 @@ const sections: Array<{ key: PlanSection; label: string }> = [
   { key: 'cooling', label: 'Cool-off' },
   { key: 'quests', label: 'Quests' },
 ]
+
+/* Colour-coded section headers so the four parts of the plan read as distinct
+   families rather than one flat wall. Each heading ends on an italic accent
+   word in the section's colour, matching the page-title pattern. */
+const sectionHeads: Record<PlanSection, { eyebrow: string; accent: string; lead: string; word: string; copy: string }> = {
+  limits: { eyebrow: 'Spending limits', accent: '#C85A2A', lead: 'Caps for ', word: 'this month.', copy: 'Each category has a ceiling, so nothing quietly runs over.' },
+  bills: { eyebrow: 'Scheduled bills', accent: '#657355', lead: 'Set aside ', word: 'first.', copy: 'Known payments protected before your spending number is drawn.' },
+  cooling: { eyebrow: 'Cool-off list', accent: '#837661', lead: 'Sleep on ', word: 'it.', copy: 'Non-essential buys you’re pausing on before deciding.' },
+  quests: { eyebrow: 'Weekly quests', accent: '#7C8A6B', lead: 'Small ', word: 'wins.', copy: 'Light money challenges, scored from your ledger for you.' },
+}
 
 export function Budgets(props: PlanData & PlanActions) {
   const {
@@ -78,6 +87,7 @@ export function Budgets(props: PlanData & PlanActions) {
   const totalLimit = budgets.reduce((sum, budget) => sum + budget.amount, 0)
   const totalUsed = budgets.reduce((sum, budget) => sum + budget.used, 0)
   const remaining = Math.max(0, totalLimit - totalUsed)
+  const spentPct = totalLimit > 0 ? Math.min(100, Math.round((totalUsed / totalLimit) * 100)) : 0
   const dueSoon = activeBills.filter((bill) => daysUntil(bill.dueDate) <= 30).length
   const readyItems = coolingItems.filter((item) => item.status === 'ready' || new Date(item.reconsiderAt).getTime() <= now).length
   const previousMonthLimits = budgetHistory.filter((budget) => !budget.archived).length
@@ -115,11 +125,20 @@ export function Budgets(props: PlanData & PlanActions) {
       </header>
       <h1 className="vault-title">The <em>plan.</em></h1>
 
-      <section className="pl-mobile-summary" aria-label="Plan summary">
-        <div><span>Limit money left</span><strong className="vault-digits">Rs {nf(remaining)}</strong></div>
-        <div><span>Bills due in 30 days</span><strong className="vault-digits">{dueSoon}</strong></div>
-        <div><span>Decisions ready</span><strong className="vault-digits">{readyItems}</strong></div>
-        <div><span>Active quests</span><strong className="vault-digits">{activeQuests.length} / 3</strong></div>
+      <section className="pl-hero" aria-label="Limit money left">
+        <div className="pl-hero-top">
+          <span className="pl-hero-label">Limit money left</span>
+          <span className="pl-hero-pill">{spentPct}% spent</span>
+        </div>
+        <strong className="pl-hero-figure vault-digits">Rs {nf(remaining)}</strong>
+        <p className="pl-hero-sub">Rs {nf(totalUsed)} of Rs {nf(totalLimit)} used across your {budgets.length} {budgets.length === 1 ? 'limit' : 'limits'}</p>
+        <span className="pl-hero-bar"><i style={{ width: `${spentPct}%` }} /></span>
+      </section>
+
+      <section className="pl-statstrip" aria-label="Plan at a glance">
+        <div><span>Bills due</span><strong className="vault-digits" style={{ color: 'var(--clay-deep)' }}>{dueSoon}</strong></div>
+        <div><span>Decisions ready</span><strong className="vault-digits" style={{ color: '#657355' }}>{readyItems}</strong></div>
+        <div><span>Quests</span><strong className="vault-digits" style={{ color: '#7C8A6B' }}>{activeQuests.length} <small>/ 3</small></strong></div>
       </section>
 
       <div className="vault-chiprow pl-plan-chips sticky top-0 z-10 -mx-[26px] bg-[var(--bone)] px-[26px] py-2">
@@ -128,8 +147,12 @@ export function Budgets(props: PlanData & PlanActions) {
 
       {sections.map(({ key, label }) => (
         <section key={key} ref={(node) => { sectionRefs.current[key] = node }} data-section={key} className="pl-mobile-section scroll-mt-16">
-          <header>
-            <div><h2 className="vault-h2">{key === 'cooling' ? 'Cool-off list' : key === 'quests' ? 'Weekly quests' : key === 'bills' ? 'Scheduled bills' : 'Spending limits'}</h2><p>{sectionDescriptions[key]}</p></div>
+          <header className="pl-section-head">
+            <div>
+              <p className="pl-section-eyebrow" style={{ color: sectionHeads[key].accent }}>{sectionHeads[key].eyebrow}</p>
+              <h2 className="pl-section-title">{sectionHeads[key].lead}<em style={{ color: sectionHeads[key].accent }}>{sectionHeads[key].word}</em></h2>
+              <p className="pl-section-copy">{sectionHeads[key].copy}</p>
+            </div>
             <button type="button" disabled={key === 'quests' && activeQuests.length >= 3} onClick={() => addFor(key)}><Plus size={14} /> Add</button>
           </header>
           {key === 'limits' && previousMonthLimits > 0 && budgets.length === 0 && <button className="pl-copy-month" type="button" onClick={onCopyLastMonthBudgets}><Copy size={15} /> Copy last month&rsquo;s limits</button>}
@@ -163,7 +186,7 @@ function MobilePlanRow({ kind, item, transactions, onOpen }: { kind: PlanSection
   if (kind === 'limits') {
     const budget = item as Budget
     const used = Math.round((budget.used / Math.max(1, budget.amount)) * 100)
-    return <button className="pl-mobile-row" type="button" onClick={onOpen}><span className="pl-row-icon"><CategoryIcon label={budget.category} type="expense" size={18} /></span><span><strong>{budget.category}</strong><small>Rs {nf(Math.max(0, budget.amount - budget.used))} left · {used}% used</small><i><b className={used >= 80 ? 'is-hot' : ''} style={{ width: `${Math.min(100, used)}%` }} /></i></span><span className="vault-digits">Rs {nf(budget.amount)}</span></button>
+    return <button className="pl-mobile-row" type="button" onClick={onOpen}><span className="pl-row-icon is-clay"><CategoryIcon label={budget.category} type="expense" size={18} /></span><span><strong>{budget.category}</strong><small>Rs {nf(Math.max(0, budget.amount - budget.used))} left · {used}% used</small><i><b className={used >= 80 ? 'is-hot' : ''} style={{ width: `${Math.min(100, used)}%` }} /></i></span><span className="vault-digits">Rs {nf(budget.amount)}</span></button>
   }
   if (kind === 'bills') {
     const bill = item as UpcomingExpense
@@ -173,11 +196,11 @@ function MobilePlanRow({ kind, item, transactions, onOpen }: { kind: PlanSection
   if (kind === 'cooling') {
     const wish = item as WishlistItem
     const ready = wish.status === 'ready' || new Date(wish.reconsiderAt).getTime() <= now
-    return <button className="pl-mobile-row" type="button" onClick={onOpen}><span className="pl-row-icon is-taupe"><Clock3 size={18} /></span><span><strong>{wish.name}</strong><small>{ready ? 'Ready to decide' : `Think until ${formatPlanDate(wish.reconsiderAt)}`}{wish.reason ? ` · ${wish.reason}` : ''}</small></span><span className="vault-digits">Rs {nf(wish.amount)}</span></button>
+    return <button className="pl-mobile-row" type="button" onClick={onOpen}><span className="pl-row-icon is-taupe"><Clock3 size={18} /></span><span><strong>{wish.name}</strong><small>{ready ? <b className="pl-row-ready">Ready to decide</b> : `Think until ${formatPlanDate(wish.reconsiderAt)}`}{wish.reason ? ` · ${wish.reason}` : ''}</small></span><span className="vault-digits">Rs {nf(wish.amount)}</span></button>
   }
   const quest = item as MoneyQuest
   const progress = Math.min(100, Math.round(questProgress(quest, transactions)))
-  return <button className="pl-mobile-row" type="button" onClick={onOpen}><span className="pl-row-icon is-clay"><Flag size={18} /></span><span><strong>{quest.title}</strong><small>{progress}% complete · ends {formatPlanDate(quest.endsOn)}</small><i><b style={{ width: `${progress}%` }} /></i></span><span className="vault-digits">{progress}%</span></button>
+  return <button className="pl-mobile-row" type="button" onClick={onOpen}><span className="pl-row-icon is-sage"><Flag size={18} /></span><span><strong>{quest.title}</strong><small>{progress}% complete · ends {formatPlanDate(quest.endsOn)}</small><i><b style={{ width: `${progress}%` }} /></i></span><span className="vault-digits">{progress}%</span></button>
 }
 
 function LimitSheet({ budget, budgets, categories, onClose, onSave }: { budget?: Budget; budgets: Budget[]; categories: PlanData['categories']; onClose: () => void; onSave: (budget: Budget) => void }) {
@@ -215,28 +238,55 @@ function DetailSheet({ target, accounts, categories, goals, transactions, onClos
   const [goalId, setGoalId] = useState(goals[0]?.id ?? '')
   const [now] = useState(() => Date.now())
   if (target.kind === 'limit') {
-    const used = Math.round((target.item.used / Math.max(1, target.item.amount)) * 100)
-    return <PlanDetailShell title={target.item.category} eyebrow="Spending limit" onClose={onClose}><DetailGrid items={[['Limit', `Rs ${nf(target.item.amount)}`], ['Spent', `Rs ${nf(target.item.used)}`], ['Remaining', `Rs ${nf(Math.max(0, target.item.amount - target.item.used))}`], ['Used', `${used}%`]]} /><div className="pl-sheet-actions"><button className="vault-commit is-espresso" type="button" onClick={onEdit}><Pencil size={16} /> Edit limit</button><button className="pl-sheet-secondary" type="button" onClick={() => onArchiveLimit(target.item)}><Archive size={16} /> Archive</button></div></PlanDetailShell>
+    const spent = target.item.used
+    const remaining = Math.max(0, target.item.amount - spent)
+    const used = Math.round((spent / Math.max(1, target.item.amount)) * 100)
+    const cycle = new Date(target.item.periodMonth ?? localMonthKey()).toLocaleDateString('en-PK', { month: 'long', year: 'numeric' })
+    const dayOfMonth = new Date().getDate()
+    const dailyRate = spent / Math.max(1, dayOfMonth)
+    const daysAtPace = dailyRate > 0 ? Math.max(1, Math.round(remaining / dailyRate)) : null
+    return <PlanDetailShell eyebrow="Spending limit" accent="#C85A2A" title={target.item.category} hero={<span className="pl-hero-fig vault-digits">Rs {nf(remaining)} <small>left</small></span>} pill={<span className="pl-hero-pill-tag is-clay">{used}% used</span>} onClose={onClose}>
+      <span className="pl-usage-bar"><i style={{ width: `${Math.min(100, used)}%` }} /></span>
+      <PlanDetailList items={[['Monthly limit', `Rs ${nf(target.item.amount)}`], ['Spent so far', `Rs ${nf(spent)}`], ['Cycle', cycle]]} />
+      <p className="pl-pace-note">{used >= 80 && daysAtPace ? <>You’re close to the ceiling. <strong>Rs {nf(remaining)}</strong> covers about {daysAtPace} more {daysAtPace === 1 ? 'day' : 'days'} at your current pace.</> : <><strong>Rs {nf(remaining)}</strong> of your Rs {nf(target.item.amount)} limit is still free this month.</>}</p>
+      <div className="pl-sheet-actions-row"><button className="vault-commit is-espresso" type="button" onClick={onEdit}><Pencil size={16} /> Edit limit</button><button className="pl-sheet-secondary" type="button" onClick={() => onArchiveLimit(target.item)}><Archive size={16} /> Archive</button></div>
+    </PlanDetailShell>
   }
   if (target.kind === 'bill') {
     const account = accounts.find((item) => item.id === target.item.linkedAccountId)
-    return <PlanDetailShell title={target.item.title} eyebrow="Scheduled bill" onClose={onClose}><DetailGrid items={[['Amount', `Rs ${nf(target.item.amount)}`], ['Due', formatPlanDate(target.item.dueDate, true)], ['Category', target.item.category], ['Account', account?.name ?? 'Choose when paying'], ['Repeats', target.item.isRecurring ? target.item.recurringFrequency?.replace('_', ' ') ?? 'Yes' : 'No'], ['Reminder', target.item.reminderDaysBefore ? `${target.item.reminderDaysBefore} days before` : 'None']]} />{target.item.notes && <p className="pl-detail-note">{target.item.notes}</p>}<div className="pl-sheet-actions"><button className="vault-commit is-espresso" type="button" onClick={() => onPayBill(target.item)}><Check size={16} /> Mark paid</button><button className="pl-sheet-secondary" type="button" onClick={onEdit}><Pencil size={16} /> Edit bill</button><button className="pl-sheet-danger" type="button" onClick={() => onCancelBill(target.item)}><X size={16} /> Cancel bill</button></div></PlanDetailShell>
+    const repeats = target.item.isRecurring && target.item.recurringFrequency ? capitalize(target.item.recurringFrequency.replace('_', ' ')) : 'One time'
+    return <PlanDetailShell eyebrow="Scheduled bill" accent="#657355" title={target.item.title} hero={<span className="pl-hero-fig vault-digits">Rs {nf(target.item.amount)}</span>} pill={<span className="pl-hero-pill-tag is-sage">Due {formatPlanDate(target.item.dueDate, true)}</span>} onClose={onClose}>
+      <PlanDetailList items={[['Category', target.item.category], ['Paid from', account?.name ?? 'Choose when paying'], ['Repeats', repeats], ['Reminder', target.item.reminderDaysBefore ? `${target.item.reminderDaysBefore} days before` : 'None']]} />
+      {target.item.notes && <p className="pl-pace-note">{target.item.notes}</p>}
+      <div className="pl-sheet-actions"><button className="vault-commit is-espresso" type="button" onClick={() => onPayBill(target.item)}><Check size={16} /> Mark paid</button><div className="pl-sheet-actions-row"><button className="pl-sheet-secondary" type="button" onClick={onEdit}><Pencil size={16} /> Edit</button><button className="pl-sheet-danger" type="button" onClick={() => onCancelBill(target.item)}><X size={16} /> Cancel bill</button></div></div>
+    </PlanDetailShell>
   }
   if (target.kind === 'cooling') {
     const item = target.item
     const ready = item.status === 'ready' || new Date(item.reconsiderAt).getTime() <= now
     const category = categories.find((entry) => entry.id === item.categoryId)
-    return <PlanDetailShell title={item.name} eyebrow="Cool-off decision" onClose={onClose}><DetailGrid items={[['Expected cost', `Rs ${nf(item.amount)}`], ['Category', category?.name ?? 'Not set'], ['Started', formatPlanDate(item.createdAt)], ['Ready', formatPlanDate(item.reconsiderAt, true)], ['Status', ready ? 'Ready to decide' : 'Still cooling off']]} />{item.reason && <p className="pl-detail-note"><strong>Why you paused</strong>{item.reason}</p>}<div className="pl-sheet-actions">{ready && <button className="vault-commit is-espresso" type="button" onClick={() => onBuyWishlist(item)}>Buy and record expense</button>}<button className="pl-sheet-secondary" type="button" onClick={() => onSaveWishlist({ ...item, reconsiderAt: new Date(Date.now() + 3 * 86_400_000).toISOString(), status: 'waiting' })}>Keep waiting 3 days</button><button className="pl-sheet-secondary" type="button" onClick={() => onSaveWishlist({ ...item, status: 'skipped' })}>Skip purchase</button>{goals.length > 0 && <div className="pl-move-goal"><select className="form-input" value={goalId} onChange={(event) => setGoalId(event.target.value)}>{goals.map((goal) => <option key={goal.id} value={goal.id}>{goal.name}</option>)}</select><button type="button" onClick={() => onSaveWishlist({ ...item, goalId, status: 'moved_to_goal' })}>Move to goal</button></div>}<button className="pl-sheet-secondary" type="button" onClick={onEdit}><Pencil size={16} /> Edit</button><button className="pl-sheet-danger" type="button" onClick={() => onRemoveWishlist(item)}><Trash2 size={16} /> Remove</button></div></PlanDetailShell>
+    return <PlanDetailShell eyebrow="Cool-off decision" accent="#837661" title={item.name} hero={<span className="pl-hero-fig vault-digits">Rs {nf(item.amount)}</span>} pill={<span className="pl-hero-pill-tag is-taupe">{ready ? 'Ready to decide' : 'Cooling off'}</span>} onClose={onClose}>
+      <PlanDetailList items={[['Category', category?.name ?? 'Not set'], ['Started', formatPlanDate(item.createdAt)], ['Ready', formatPlanDate(item.reconsiderAt, true)], ['Status', ready ? 'Ready to decide' : 'Still cooling off']]} />
+      {item.reason && <p className="pl-pace-note"><strong>Why you paused</strong>{item.reason}</p>}
+      <div className="pl-sheet-actions">{ready && <button className="vault-commit is-espresso" type="button" onClick={() => onBuyWishlist(item)}>Buy and record expense</button>}<button className="pl-sheet-secondary" type="button" onClick={() => onSaveWishlist({ ...item, reconsiderAt: new Date(Date.now() + 3 * 86_400_000).toISOString(), status: 'waiting' })}>Keep waiting 3 days</button><button className="pl-sheet-secondary" type="button" onClick={() => onSaveWishlist({ ...item, status: 'skipped' })}>Skip purchase</button>{goals.length > 0 && <div className="pl-move-goal"><select className="form-input" value={goalId} onChange={(event) => setGoalId(event.target.value)}>{goals.map((goal) => <option key={goal.id} value={goal.id}>{goal.name}</option>)}</select><button type="button" onClick={() => onSaveWishlist({ ...item, goalId, status: 'moved_to_goal' })}>Move to goal</button></div>}<button className="pl-sheet-secondary" type="button" onClick={onEdit}><Pencil size={16} /> Edit</button><button className="pl-sheet-danger" type="button" onClick={() => onRemoveWishlist(item)}><Trash2 size={16} /> Remove</button></div>
+    </PlanDetailShell>
   }
   const progress = Math.min(100, Math.round(questProgress(target.item, transactions)))
-  return <PlanDetailShell title={target.item.title} eyebrow="Weekly quest" onClose={onClose}><DetailGrid items={[['Progress', `${progress}%`], ['Started', formatPlanDate(target.item.startsOn)], ['Ends', formatPlanDate(target.item.endsOn, true)], ['Days remaining', String(Math.max(0, daysUntil(target.item.endsOn)))], ['Status', target.item.status]]} /><div className="pl-progress"><i style={{ width: `${progress}%` }} /></div><p className="pl-detail-note">The target is locked while this quest is active. Progress is calculated from matching ledger activity.</p><div className="pl-sheet-actions"><button className="pl-sheet-secondary" type="button" onClick={() => onRepeatQuest(target.item)}><RotateCcw size={16} /> Repeat as new</button>{target.item.status === 'active' && <button className="pl-sheet-danger" type="button" onClick={() => onEndQuest(target.item)}><X size={16} /> End quest</button>}</div></PlanDetailShell>
+  return <PlanDetailShell eyebrow="Weekly quest" accent="#7C8A6B" title={target.item.title} hero={<span className="pl-hero-fig vault-digits">{progress}%</span>} pill={<span className="pl-hero-pill-tag is-green">{target.item.status}</span>} onClose={onClose}>
+    <span className="pl-usage-bar is-green"><i style={{ width: `${progress}%` }} /></span>
+    <PlanDetailList items={[['Started', formatPlanDate(target.item.startsOn)], ['Ends', formatPlanDate(target.item.endsOn, true)], ['Days remaining', String(Math.max(0, daysUntil(target.item.endsOn)))], ['Status', capitalize(target.item.status)]]} />
+    <p className="pl-pace-note">The target is locked while this quest is active. Progress is calculated from matching ledger activity.</p>
+    <div className="pl-sheet-actions-row"><button className="pl-sheet-secondary" type="button" onClick={() => onRepeatQuest(target.item)}><RotateCcw size={16} /> Repeat as new</button>{target.item.status === 'active' && <button className="pl-sheet-danger" type="button" onClick={() => onEndQuest(target.item)}><X size={16} /> End quest</button>}</div>
+  </PlanDetailShell>
 }
 
-function PlanDetailShell({ title, eyebrow, onClose, children }: { title: string; eyebrow: string; onClose: () => void; children: ReactNode }) {
-  return <VaultSheet open label={`${eyebrow}: ${title}`} onClose={onClose}><div className="pl-sheet-head"><div><p className="vault-eyebrow">{eyebrow}</p><h2 className="vault-sheet-title text-left">{title}</h2></div><button aria-label="Close" type="button" onClick={onClose}><X size={18} /></button></div>{children}</VaultSheet>
+function capitalize(value: string) { return value ? value.charAt(0).toUpperCase() + value.slice(1) : value }
+
+function PlanDetailShell({ title, eyebrow, accent, hero, pill, onClose, children }: { title: string; eyebrow: string; accent: string; hero: ReactNode; pill?: ReactNode; onClose: () => void; children: ReactNode }) {
+  return <VaultSheet open label={`${eyebrow}: ${title}`} onClose={onClose}><div className="pl-sheet-head"><div><p className="vault-eyebrow" style={{ color: accent }}>{eyebrow}</p><h2 className="vault-sheet-title text-left">{title}</h2></div><button aria-label="Close" type="button" onClick={onClose}><X size={18} /></button></div><div className="pl-hero-amount">{hero}{pill}</div>{children}</VaultSheet>
 }
 
-function DetailGrid({ items }: { items: Array<[string, string]> }) { return <dl className="pl-detail-grid">{items.map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}</dl> }
+function PlanDetailList({ items }: { items: Array<[string, ReactNode]> }) { return <dl className="pl-detail-list">{items.map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}</dl> }
 
 function ListSheet({ title, onClose, children }: { title: string; onClose: () => void; children: ReactNode }) { return <VaultSheet open label={`All ${title}`} onClose={onClose}><div className="pl-sheet-head"><div><p className="vault-eyebrow">Your plan</p><h2 className="vault-sheet-title text-left">All {title.toLowerCase()}</h2></div><button aria-label="Close" type="button" onClick={onClose}><X size={18} /></button></div><div className="pl-mobile-list mt-4">{children}</div></VaultSheet> }
 

@@ -294,7 +294,7 @@ function DebtNode({ debt, onPay, onEdit, onDelete }: { debt: Debt; onPay: () => 
   const meta = [debt.dueDate ? `Due ${formatDate(debt.dueDate)}` : null, detail || null].filter(Boolean).join(' · ')
   return (
     <div className="vault-debt-node">
-      <span className="vault-debt-badge">{paidOff ? <Check size={19} strokeWidth={2.4} /> : <CircleAlert size={19} strokeWidth={2} />}</span>
+      <span className="vault-debt-badge">{paidOff ? <Check size={22} strokeWidth={2.4} /> : <CircleAlert size={22} strokeWidth={2} />}</span>
       <div
         className={cn('vault-debt-card', paidOff && 'is-paid')}
         role="button"
@@ -303,15 +303,15 @@ function DebtNode({ debt, onPay, onEdit, onDelete }: { debt: Debt; onPay: () => 
         onClick={() => setActionsOpen((open) => !open)}
         onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); setActionsOpen((open) => !open) } }}
       >
-        <div className="flex items-baseline justify-between gap-3">
-          <h3 className={cn('min-w-0 truncate font-display text-[21px] leading-tight', paidOff ? 'text-[var(--taupe-faint)]' : 'text-[var(--espresso)]')}>{debtTitle(debt)}</h3>
+        <div className="vault-debt-head flex items-baseline justify-between gap-3">
+          <h3 className={cn('min-w-0 truncate font-display text-[23px] leading-tight', paidOff ? 'text-[var(--taupe-faint)]' : 'text-[var(--espresso)]')}>{debtTitle(debt)}</h3>
           <p className={cn('vault-digits flex-none text-[15px] font-bold', paidOff ? 'text-[var(--taupe-faint)]' : 'text-[var(--espresso)]')}>
             {paidOff ? 'Cleared' : <>{nf(remaining)} left</>}
           </p>
         </div>
-        {meta && <p className={cn('mt-1.5 text-[12.5px] font-medium leading-[1.45]', paidOff ? 'text-[var(--taupe-faint)]' : 'text-[var(--clay-ink)]')}>{meta}</p>}
+        {meta && <p className={cn('vault-debt-meta mt-2 text-[13px] font-semibold leading-[1.45]', paidOff ? 'text-[var(--taupe-faint)]' : 'text-[var(--clay-ink)]')}>{meta}</p>}
         {actionsOpen && (
-          <p className={cn('mt-3 text-[11px] font-bold', paidOff ? 'text-[var(--taupe-faint)]' : 'text-[var(--clay-ink)]')}>
+          <p className={cn('vault-debt-actions mt-3 text-[11px] font-bold', paidOff ? 'text-[var(--taupe-faint)]' : 'text-[var(--clay-ink)]')}>
             {!paidOff && <><button className="uppercase tracking-[1.2px]" type="button" onClick={(event) => { event.stopPropagation(); onPay() }}>Pay</button><span aria-hidden="true"> · </span></>}
             <button className="uppercase tracking-[1.2px]" type="button" onClick={(event) => { event.stopPropagation(); onEdit() }}>Edit</button>
             <span aria-hidden="true"> · </span>
