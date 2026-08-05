@@ -74,9 +74,11 @@ describe('four step onboarding', () => {
     const onComplete = vi.fn(async () => undefined)
     await act(async () => root.render(<Onboarding initialSettings={{ ...baseSettings, onboardingStep: 2, typicalIncome: 30_000, nextIncomeDate: futureDate(20) }} onProgress={async () => undefined} onComplete={onComplete} />))
 
-    await click('Add a custom bill')
+    await click('Add a bill')
     await change('Bill name', 'Rent')
     await change('Amount (PKR)', '18000')
+    await change('Due day', '1')
+    await select('Category', 'Housing/Rent')
     await click('Save bill')
 
     expect(container.textContent).toContain('Rent')
@@ -90,22 +92,49 @@ describe('four step onboarding', () => {
     expect(bills[0]).toMatchObject({ name: 'Rent', amount: 18_000 })
   })
 
-  it('adds a bill from a suggestion chip and stops offering it', async () => {
+  it('starts every bill blank and allows multiple bills', async () => {
     const onComplete = vi.fn(async () => undefined)
     await act(async () => root.render(<Onboarding initialSettings={{ ...baseSettings, onboardingStep: 2, typicalIncome: 30_000, nextIncomeDate: futureDate(20) }} onProgress={async () => undefined} onComplete={onComplete} />))
 
-    expect(container.querySelectorAll('.ao-bill-chip').length).toBe(4)
-    await click('Electricity')
+    expect(container.querySelectorAll('.ao-bill-chip')).toHaveLength(0)
+    await click('Add a bill')
 
-    expect(container.querySelectorAll('.ao-bill-chip').length).toBe(3)
+    const amountInput = container.querySelector<HTMLInputElement>('[aria-label="Amount (PKR)"]')
+    const dueDayInput = container.querySelector<HTMLInputElement>('[aria-label="Due day"]')
+    const saveButton = [...container.querySelectorAll('button')].find((item) => item.textContent?.includes('Save bill'))
+    expect(amountInput?.value).toBe('')
+    expect(dueDayInput?.value).toBe('')
+    expect(saveButton?.disabled).toBe(true)
+    expect(container.querySelector('.ao-bill-summary')?.textContent).toContain('Rs 0')
+
+    await change('Bill name', 'Electricity')
+    await change('Amount (PKR)', '4500')
+    await change('Due day', '12')
+    await select('Category', 'Utilities')
+    await click('Save bill')
+
     expect(container.querySelector('.ao-bill-summary')?.textContent).toContain('4,500')
+
+    await click('Add another bill')
+    expect(container.querySelector<HTMLInputElement>('[aria-label="Bill name"]')?.value).toBe('')
+    expect(container.querySelector<HTMLInputElement>('[aria-label="Amount (PKR)"]')?.value).toBe('')
+    expect(container.querySelector<HTMLInputElement>('[aria-label="Due day"]')?.value).toBe('')
+    expect(container.querySelector<HTMLSelectElement>('[aria-label="Category"]')?.value).toBe('')
+    await change('Bill name', 'Internet')
+    await change('Amount (PKR)', '3500')
+    await change('Due day', '5')
+    await select('Category', 'Mobile & Internet')
+    await click('Save bill')
+
+    expect(container.querySelector('.ao-bill-summary')?.textContent).toContain('8,000')
 
     await click('Continue')
     await click('Enter Pocket Ledger')
 
     const [, , , bills] = onComplete.mock.calls[0] as unknown as Parameters<ComponentProps<typeof Onboarding>['onComplete']>
-    expect(bills).toHaveLength(1)
-    expect(bills[0]).toMatchObject({ name: 'Electricity', amount: 4_500, category: 'Utilities' })
+    expect(bills).toHaveLength(2)
+    expect(bills[0]).toMatchObject({ name: 'Electricity', amount: 4_500, dueDay: 12 })
+    expect(bills[1]).toMatchObject({ name: 'Internet', amount: 3_500, dueDay: 5 })
   })
 
   it('blocks continue until a source is chosen', async () => {
@@ -152,6 +181,16 @@ describe('four step onboarding', () => {
     await act(async () => {
       setter?.call(input, value)
       input!.dispatchEvent(new Event('input', { bubbles: true }))
+      input!.dispatchEvent(new Event('change', { bubbles: true }))
+    })
+  }
+
+  async function select(label: string, value: string) {
+    const input = container.querySelector<HTMLSelectElement>(`[aria-label="${label}"]`)
+    expect(input, `field ${label}`).toBeTruthy()
+    const setter = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value')?.set
+    await act(async () => {
+      setter?.call(input, value)
       input!.dispatchEvent(new Event('change', { bubbles: true }))
     })
   }
