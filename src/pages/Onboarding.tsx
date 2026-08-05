@@ -56,6 +56,13 @@ const accountTypes: Array<{ id: AccountType; label: string }> = [
 
 const quickAmounts = [15_000, 30_000, 50_000]
 
+const billSuggestions: Array<{ name: string; category: string }> = [
+  { name: 'Rent', category: 'Housing/Rent' },
+  { name: 'Electricity', category: 'Utilities' },
+  { name: 'Internet', category: 'Mobile & Internet' },
+  { name: 'Phone', category: 'Mobile & Internet' },
+]
+
 // Eases a number up to its target once, honouring reduced-motion.
 // Progress is tracked rather than the figure itself, so the effect never
 // sets state synchronously — every update lands inside a rAF callback.
@@ -286,16 +293,28 @@ function BillsStep({ bills, setBills }: { bills: OnboardingBill[]; setBills: (va
   const [amount, setAmount] = useState('')
   const [category, setCategory] = useState('')
   const [dueDay, setDueDay] = useState('')
+  const [selectedSuggestion, setSelectedSuggestion] = useState<string | null>(null)
 
   const resetBillDraft = () => {
     setBillName('')
     setAmount('')
     setCategory('')
     setDueDay('')
+    setSelectedSuggestion(null)
   }
 
   const openBillForm = () => {
     resetBillDraft()
+    setDueDay('1')
+    setAdding(true)
+  }
+
+  const openSuggestedBill = (suggestion: (typeof billSuggestions)[number]) => {
+    setBillName(suggestion.name)
+    setAmount('')
+    setCategory(suggestion.category)
+    setDueDay('1')
+    setSelectedSuggestion(suggestion.name)
     setAdding(true)
   }
 
@@ -323,9 +342,14 @@ function BillsStep({ bills, setBills }: { bills: OnboardingBill[]; setBills: (va
     && Number.isInteger(parsedDueDay)
     && parsedDueDay >= 1
     && parsedDueDay <= 31
+  const remainingSuggestions = billSuggestions.filter((suggestion) => !bills.some((bill) => bill.name.toLowerCase() === suggestion.name.toLowerCase()))
 
   return <div>
-    <StepHeading kicker="Protect the essentials" lead="What must be" accent="paid each cycle?" support="Add each recurring bill and enter exactly what you pay. Nothing is suggested or filled in for you." />
+    <StepHeading kicker="Protect the essentials" lead="What must be" accent="paid each cycle?" support="Pick a common expense or add your own. You always enter the amount yourself." />
+
+    {remainingSuggestions.length > 0 && <div className="ao-bill-chips">
+      {remainingSuggestions.map((suggestion) => <button aria-pressed={selectedSuggestion === suggestion.name} className={cn('ao-bill-chip', selectedSuggestion === suggestion.name && 'is-selected')} key={suggestion.name} onClick={() => openSuggestedBill(suggestion)} type="button"><Plus size={13} strokeWidth={2.6} />{suggestion.name}</button>)}
+    </div>}
 
     <div className="ao-bill-list">
       {bills.map((bill) => <div className="ao-bill" key={bill.id}>
@@ -336,12 +360,14 @@ function BillsStep({ bills, setBills }: { bills: OnboardingBill[]; setBills: (va
       </div>)}
 
       {adding ? <div className="ao-bill-form">
-        <label className="ao-field"><span className="ao-label">Bill name</span><input aria-label="Bill name" className="ao-input" onChange={(event) => setBillName(event.target.value)} placeholder="Enter bill name" type="text" value={billName} /></label>
+        {selectedSuggestion
+          ? <div className="ao-bill-copy"><strong>{billName}</strong><small>{category}</small></div>
+          : <label className="ao-field"><span className="ao-label">Bill name</span><input aria-label="Bill name" className="ao-input" onChange={(event) => setBillName(event.target.value)} placeholder="Enter bill name" type="text" value={billName} /></label>}
         <div className="ao-bill-form-row">
           <label className="ao-field"><span className="ao-label">Amount (PKR)</span><input aria-label="Amount (PKR)" className="ao-input" inputMode="numeric" min="1" onChange={(event) => setAmount(event.target.value)} step="1" type="number" value={amount} /></label>
           <label className="ao-field"><span className="ao-label">Due day</span><input aria-label="Due day" className="ao-input" max="31" min="1" onChange={(event) => setDueDay(event.target.value)} step="1" type="number" value={dueDay} /></label>
         </div>
-        <label className="ao-field"><span className="ao-label">Category</span><select aria-label="Category" className="ao-input" onChange={(event) => setCategory(event.target.value)} value={category}><option disabled value="">Choose a category</option>{BILL_CATEGORY_OPTIONS.map((option) => <option key={option} value={option}>{option}</option>)}</select></label>
+        {!selectedSuggestion && <label className="ao-field"><span className="ao-label">Category</span><select aria-label="Category" className="ao-input" onChange={(event) => setCategory(event.target.value)} value={category}><option disabled value="">Choose a category</option>{BILL_CATEGORY_OPTIONS.map((option) => <option key={option} value={option}>{option}</option>)}</select></label>}
         <div className="ao-bill-form-actions">
           <button className="is-cancel" onClick={() => { resetBillDraft(); setAdding(false) }} type="button">Cancel</button>
           <button className="is-save" disabled={!canSave} onClick={save} type="button">Save bill</button>

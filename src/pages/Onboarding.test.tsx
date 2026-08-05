@@ -92,18 +92,18 @@ describe('four step onboarding', () => {
     expect(bills[0]).toMatchObject({ name: 'Rent', amount: 18_000 })
   })
 
-  it('starts every bill blank and allows multiple bills', async () => {
+  it('defaults custom bills to due day 1 and allows multiple bills', async () => {
     const onComplete = vi.fn(async () => undefined)
     await act(async () => root.render(<Onboarding initialSettings={{ ...baseSettings, onboardingStep: 2, typicalIncome: 30_000, nextIncomeDate: futureDate(20) }} onProgress={async () => undefined} onComplete={onComplete} />))
 
-    expect(container.querySelectorAll('.ao-bill-chip')).toHaveLength(0)
+    expect(container.querySelectorAll('.ao-bill-chip')).toHaveLength(4)
     await click('Add a bill')
 
     const amountInput = container.querySelector<HTMLInputElement>('[aria-label="Amount (PKR)"]')
     const dueDayInput = container.querySelector<HTMLInputElement>('[aria-label="Due day"]')
     const saveButton = [...container.querySelectorAll('button')].find((item) => item.textContent?.includes('Save bill'))
     expect(amountInput?.value).toBe('')
-    expect(dueDayInput?.value).toBe('')
+    expect(dueDayInput?.value).toBe('1')
     expect(saveButton?.disabled).toBe(true)
     expect(container.querySelector('.ao-bill-summary')?.textContent).toContain('Rs 0')
 
@@ -118,7 +118,7 @@ describe('four step onboarding', () => {
     await click('Add another bill')
     expect(container.querySelector<HTMLInputElement>('[aria-label="Bill name"]')?.value).toBe('')
     expect(container.querySelector<HTMLInputElement>('[aria-label="Amount (PKR)"]')?.value).toBe('')
-    expect(container.querySelector<HTMLInputElement>('[aria-label="Due day"]')?.value).toBe('')
+    expect(container.querySelector<HTMLInputElement>('[aria-label="Due day"]')?.value).toBe('1')
     expect(container.querySelector<HTMLSelectElement>('[aria-label="Category"]')?.value).toBe('')
     await change('Bill name', 'Internet')
     await change('Amount (PKR)', '3500')
@@ -135,6 +135,34 @@ describe('four step onboarding', () => {
     expect(bills).toHaveLength(2)
     expect(bills[0]).toMatchObject({ name: 'Electricity', amount: 4_500, dueDay: 12 })
     expect(bills[1]).toMatchObject({ name: 'Internet', amount: 3_500, dueDay: 5 })
+  })
+
+  it('uses a suggestion name and category while asking for amount and due day', async () => {
+    const onComplete = vi.fn(async () => undefined)
+    await act(async () => root.render(<Onboarding initialSettings={{ ...baseSettings, onboardingStep: 2, typicalIncome: 30_000, nextIncomeDate: futureDate(20) }} onProgress={async () => undefined} onComplete={onComplete} />))
+
+    await click('Electricity')
+
+    expect(container.querySelector('[aria-label="Bill name"]')).toBeNull()
+    expect(container.querySelector('[aria-label="Category"]')).toBeNull()
+    expect(container.querySelector<HTMLInputElement>('[aria-label="Amount (PKR)"]')?.value).toBe('')
+    expect(container.querySelector<HTMLInputElement>('[aria-label="Due day"]')?.value).toBe('1')
+    expect(container.textContent).toContain('Utilities')
+    expect([...container.querySelectorAll('button')].find((item) => item.textContent?.includes('Save bill'))?.hasAttribute('disabled')).toBe(true)
+
+    await change('Amount (PKR)', '4500')
+    await change('Due day', '12')
+    await click('Save bill')
+
+    expect(container.querySelectorAll('.ao-bill-chip')).toHaveLength(3)
+    expect(container.querySelector('.ao-bill-summary')?.textContent).toContain('4,500')
+
+    await click('Continue')
+    await click('Enter Pocket Ledger')
+
+    const [, , , bills] = onComplete.mock.calls[0] as unknown as Parameters<ComponentProps<typeof Onboarding>['onComplete']>
+    expect(bills).toHaveLength(1)
+    expect(bills[0]).toMatchObject({ name: 'Electricity', amount: 4_500, dueDay: 12, category: 'Utilities' })
   })
 
   it('blocks continue until a source is chosen', async () => {
