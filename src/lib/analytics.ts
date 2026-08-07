@@ -111,7 +111,7 @@ export function clearQueuedAuthEvent() {
   }
 }
 
-export function flushQueuedAuthEvent() {
+function flushQueuedAuthEvent() {
   if (!consentGranted || !measurementId) return
   try {
     const raw = window.sessionStorage.getItem(queuedAuthEventKey)

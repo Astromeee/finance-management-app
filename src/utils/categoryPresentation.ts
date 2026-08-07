@@ -121,7 +121,7 @@ const CATEGORY_PRESENTATIONS: Array<{ match: RegExp; color: string; icon: Catego
   { match: /misc|other|unexplained/i, color: '#8A7B63', icon: 'miscellaneous' },
 ]
 
-export function categoryIconForName(name?: CategoryIconName): LucideIcon {
+function categoryIconForName(name?: CategoryIconName): LucideIcon {
   return CATEGORY_ICON_OPTIONS.find((option) => option.value === name)?.icon ?? WalletCards
 }
 

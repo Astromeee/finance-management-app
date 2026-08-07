@@ -2,15 +2,18 @@ import { ArrowRight, ArrowUpRight, Bell, ClipboardList, Eye, EyeOff, Settings, T
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { firstNameOf, getProfile, initialsOf } from '../lib/profile'
 import { trackEvent } from '../lib/analytics'
-import type { Account, Budget, Category, Debt, Goal, JourneySettings, Transaction, UpcomingExpense, WishlistItem } from '../types/finance'
-import { calculateSafeSpend, detectMoneyLeak } from '../utils/journeyCalculations'
+import type { Account, AccountType, Budget, Category, Goal, JourneySettings, Transaction, UpcomingExpense, WishlistItem } from '../types/finance'
+import { calculateSafeSpend } from '../utils/journeyCalculations'
 import { cn } from '../utils/ui'
 import { buildAttentionItems } from '../utils/attention'
-import { goalProgress, selectFeaturedGoal } from '../components/goals/goalsDesktopLogic'
-
-type DashboardAction = 'income' | 'expense' | 'transfer' | 'goal' | 'debt' | null
 
 const nf = (value: number) => Math.round(value).toLocaleString('en-PK')
+
+const ACCOUNT_TYPE_LABEL: Record<AccountType, string> = {
+  cash: 'Cash',
+  bank: 'Bank',
+  wallet: 'Mobile wallet',
+}
 
 function railStep(rail: HTMLElement) {
   const firstCard = rail.firstElementChild
@@ -49,11 +52,15 @@ function greetingWord() {
 
 type Notice = { id: string; dot: 'out' | 'in' | 'move'; title: string; meta: string; page: string }
 
+/**
+ * Home answers one question and offers one next step. Balances live in Wallet,
+ * spending patterns in Insights, goals in Paths — Home does not re-list them.
+ * Four blocks: greeting, balance carousel, the single top-ranked action, recent.
+ */
 export function Dashboard({
   accounts,
   transactions,
   goals,
-  debts,
   budgets,
   upcomingExpenses,
   categories,
@@ -65,17 +72,13 @@ export function Dashboard({
   accounts: Account[]
   transactions: Transaction[]
   goals: Goal[]
-  debts: Debt[]
   budgets: Budget[]
   upcomingExpenses: UpcomingExpense[]
   categories: Category[]
   journeySettings: JourneySettings
   wishlistItems?: WishlistItem[]
-  onAction: (action: DashboardAction) => void
   onNavigate: (page: string) => void
-  onPlanPurchase: () => void
   onSetupJourney: () => void
-  onTourComplete: () => void
 }) {
   const [showBalance, setShowBalance] = useState(true)
   const [menuOpen, setMenuOpen] = useState(false)
@@ -86,14 +89,18 @@ export function Dashboard({
   const activeBalanceCard = useRef(0)
   const profile = getProfile()
   const safeSpend = useMemo(() => calculateSafeSpend({ accounts, budgets, categories, upcomingExpenses, settings: journeySettings }), [accounts, budgets, categories, upcomingExpenses, journeySettings])
-  const insight = useMemo(() => detectMoneyLeak(transactions), [transactions])
   const recent = useMemo(() => [...transactions].sort((a, b) => new Date(b.createdAt ?? `${b.date}T23:59:59`).getTime() - new Date(a.createdAt ?? `${a.date}T23:59:59`).getTime()).slice(0, 4), [transactions])
   const needsSetup = safeSpend.state === 'needs_setup'
   const totalBalance = useMemo(() => accounts.reduce((sum, account) => sum + account.balance, 0), [accounts])
 
   const cards = useMemo(() => [
-    { id: 'total', label: 'Total balance', amount: totalBalance, foot: accounts.length ? `Across ${accounts.length} ${accounts.length === 1 ? 'account' : 'accounts'} · updated just now` : 'Add an account to begin' },
-    ...accounts.map((account) => ({ id: account.id, label: account.name, amount: account.balance, foot: account.includeInSafeSpend === false ? 'Excluded from safe spend' : 'In safe spend · updated just now' })),
+    { id: 'total', label: 'Total balance', amount: totalBalance, foot: accounts.length ? `Across ${accounts.length} ${accounts.length === 1 ? 'account' : 'accounts'}` : 'Add an account to begin' },
+    ...accounts.map((account) => ({
+      id: account.id,
+      label: account.name,
+      amount: account.balance,
+      foot: account.includeInSafeSpend === false ? 'Excluded from safe spend' : ACCOUNT_TYPE_LABEL[account.type],
+    })),
   ], [accounts, totalBalance])
 
   const handleBalanceRailScroll = useCallback(() => {
@@ -105,7 +112,7 @@ export function Dashboard({
       if (nextCard === activeBalanceCard.current) return
       activeBalanceCard.current = nextCard
       setActiveBalanceIndex(nextCard)
-      if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) navigator.vibrate?.(8)
+      if (!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) navigator.vibrate?.(8)
     })
   }, [cards.length])
 
@@ -119,46 +126,22 @@ export function Dashboard({
     rail.scrollTo({ left: index * railStep(rail), behavior: 'smooth' })
   }, [])
 
-  /* Leak headline: "Dining Out — Rs 40,139 in 30 days" */
-  const leakName = insight ? insight.title.replace(/ is quietly adding up$/, '') : null
+  /* One ranked inbox drives both surfaces: the bell lists what is waiting, and
+     Home promotes only the top item so there is exactly one next step. */
+  const attention = useMemo(
+    () => buildAttentionItems({ accounts, budgets, goals, transactions, upcomingExpenses, wishlistItems }),
+    [accounts, budgets, goals, transactions, upcomingExpenses, wishlistItems],
+  )
+  const notices = useMemo(() => attention.slice(0, 6).map<Notice>((item) => ({
+    id: item.id,
+    dot: item.priority === 'urgent' ? 'out' : item.priority === 'important' ? 'move' : 'in',
+    title: item.title,
+    meta: `${item.detail} ${item.action}`,
+    page: item.page,
+  })), [attention])
+  const nextAction = attention[0]
 
-  /* One ranked inbox shared with desktop. Each item explains the issue and
-     routes to the page where the user can resolve it. */
-  const notices = useMemo(() => {
-    return buildAttentionItems({ accounts, budgets, goals, transactions, upcomingExpenses, wishlistItems }).slice(0, 6).map<Notice>((item) => ({
-      id: item.id,
-      dot: item.priority === 'urgent' ? 'out' : item.priority === 'important' ? 'move' : 'in',
-      title: item.title,
-      meta: `${item.detail} ${item.action}`,
-      page: item.page,
-    }))
-  }, [accounts, budgets, goals, transactions, upcomingExpenses, wishlistItems])
-
-  /* The Home paths card mirrors the featured goal the Paths screen leads with,
-     so the two surfaces never disagree about what matters most right now. */
-  const featuredPath = useMemo(() => {
-    const goal = selectFeaturedGoal(goals)
-    if (goal) return { name: goal.name, saved: goal.saved, target: goal.target, progress: goalProgress(goal) }
-    /* Someone tracking only what they owe still has a path worth showing. */
-    const debt = debts.find((item) => item.status !== 'Paid')
-    if (!debt) return null
-    const total = debt.totalAmount ?? debt.total ?? 0
-    const paid = debt.paidAmount ?? debt.paid ?? 0
-    return {
-      name: debt.title || debt.name || 'Debt',
-      saved: paid,
-      target: total,
-      progress: Math.min(100, Math.max(0, Math.round((paid / Math.max(1, total)) * 100))),
-    }
-  }, [goals, debts])
-
-  const pathsSummary = useMemo(() => {
-    const openDebts = debts.filter((debt) => debt.status !== 'Paid').length
-    const parts = []
-    if (goals.length) parts.push(`${goals.length} ${goals.length === 1 ? 'goal' : 'goals'}`)
-    if (openDebts) parts.push(`${openDebts} ${openDebts === 1 ? 'debt' : 'debts'}`)
-    return parts.join(' · ')
-  }, [goals, debts])
+  const daysToPayday = safeSpend.cycle?.daysRemaining
 
   return (
     <div className="vault-screen">
@@ -215,7 +198,7 @@ export function Dashboard({
         <em>{firstNameOf(profile.name) || 'friend'}.</em>
       </h1>
 
-      <section aria-label="Your balances" className="mt-7">
+      <section aria-label="Your balances" className="vault-hero mt-7">
         <div ref={balanceRailRef} aria-label="Balances. Swipe to view each account." className="vault-carousel" onScroll={handleBalanceRailScroll} role="region">
           {cards.map((card, index) => (
             <article key={card.id} aria-label={`${card.label} balance`} className="vault-balance-card">
@@ -243,77 +226,40 @@ export function Dashboard({
             ))}
           </div>
         )}
+
+        {/* The daily number rides under the hero as a quiet line rather than
+            competing for its own card. Setup is still reachable from here. */}
+        {needsSetup ? (
+          <button className="vault-hero-sub is-action" type="button" onClick={onSetupJourney}>
+            Set your income date to unlock your daily number
+            <ArrowRight size={13} strokeWidth={2.4} />
+          </button>
+        ) : (
+          <p className="vault-hero-sub">
+            <span className="vault-hero-sub-amount">Rs {showBalance ? nf(safeSpend.safeToSpendToday) : '••••'}</span>
+            {' safe to spend today'}
+            {daysToPayday !== undefined && ` · ${daysToPayday} ${daysToPayday === 1 ? 'day' : 'days'} to payday`}
+          </p>
+        )}
       </section>
 
-      <p className="vault-insight-caption mt-7">Tap a card to dig in</p>
-      <section aria-label="Your cycle" className="vault-insight-row mt-3">
-        <button className="vault-insight is-tappable" type="button" onClick={() => needsSetup ? onSetupJourney() : onNavigate('budgets')}>
-          <span className="vault-insight-label">Safe today</span>
-          <span className="vault-insight-value">
-            {needsSetup ? '—' : showBalance ? <><span className="cur">Rs</span> {nf(safeSpend.safeToSpendToday)}</> : <><span className="cur">Rs</span> ••</>}
+      {/* Exactly one next step, taken from the same ranking the bell uses. */}
+      {nextAction && (
+        <button
+          className="vault-next"
+          type="button"
+          onClick={() => { trackEvent('insight_viewed', { surface: 'home', action: 'open' }); onNavigate(nextAction.page) }}
+        >
+          <span className="vault-next-main">
+            <span className="vault-next-kicker">Do this next</span>
+            <span className="vault-next-title">{nextAction.title}</span>
+            <span className="vault-next-sub">{nextAction.detail}</span>
           </span>
-          <span className="vault-insight-foot">
-            <span className="vault-insight-link">{needsSetup ? 'Finish setup' : 'Open plan'}</span>
-            <span className="vault-insight-arrow"><ArrowRight size={13} strokeWidth={2.4} /></span>
-          </span>
-        </button>
-        <div className="vault-insight is-flat">
-          <span className="vault-insight-label">Cycle</span>
-          <span className="vault-insight-value">{safeSpend.cycle ? <>Day {safeSpend.cycle.daysElapsed}<span className="unit">/{safeSpend.cycle.totalDays}</span></> : '—'}</span>
-          <span className="vault-insight-foot">
-            <span className="vault-insight-flat">On track</span>
-          </span>
-        </div>
-        <button className="vault-insight is-tappable" type="button" onClick={() => onNavigate('accounts')}>
-          <span className="vault-insight-label">Next income</span>
-          <span className="vault-insight-value">{safeSpend.cycle ? <>{safeSpend.cycle.daysRemaining} <span className="unit">days</span></> : '—'}</span>
-          <span className="vault-insight-foot">
-            <span className="vault-insight-link">Open wallet</span>
-            <span className="vault-insight-arrow"><ArrowRight size={13} strokeWidth={2.4} /></span>
-          </span>
-        </button>
-      </section>
-
-      {needsSetup ? (
-        <button className="vault-leak mt-7" type="button" onClick={onSetupJourney}>
-          <span className="min-w-0">
-            <span className="vault-leak-eyebrow block">Finish your setup</span>
-            <span className="vault-leak-title block">Set your income date to unlock your daily number</span>
-          </span>
-          <span className="vault-leak-arrow"><ArrowUpRight size={18} strokeWidth={2} /></span>
-        </button>
-      ) : insight && leakName ? (
-        <button className="vault-leak mt-7" type="button" onClick={() => { trackEvent('journey_breakdown_opened', { surface: 'home', state: safeSpend.state }); onNavigate('reports') }}>
-          <span className="min-w-0">
-            <span className="vault-leak-eyebrow block">Money leak found</span>
-            <span className="vault-leak-title block">{leakName} — <span className="vault-digits">Rs {nf(insight.amount)}</span> in 30 days</span>
-          </span>
-          <span className="vault-leak-arrow"><ArrowUpRight size={18} strokeWidth={2} /></span>
-        </button>
-      ) : null}
-
-      {/* Paths only earns a slot on Home once there is something to show;
-          an empty goals list would just be a dead card. */}
-      {featuredPath && (
-        <button aria-label="Open your paths" className="vault-paths mt-7" type="button" onClick={() => onNavigate('goals')}>
-          <span className="vault-paths-head">
-            <span className="vault-paths-title">Your <em>paths.</em></span>
-            <span className="vault-paths-link">{pathsSummary}<ArrowRight size={13} strokeWidth={2.4} /></span>
-          </span>
-          <span className="vault-paths-body">
-            <span className="vault-paths-ring" style={{ background: `conic-gradient(var(--clay) ${featuredPath.progress}%, var(--track) 0)` }}>
-              <span>{featuredPath.progress}%</span>
-            </span>
-            <span className="vault-paths-copy">
-              <span className="vault-paths-name">{featuredPath.name}</span>
-              <span className="vault-paths-meta vault-digits">Rs {nf(featuredPath.saved)} of {nf(featuredPath.target)}</span>
-            </span>
-          </span>
-          <span className="vault-paths-bar"><span style={{ width: `${featuredPath.progress}%` }} /></span>
+          <span className="vault-next-arrow"><ArrowUpRight size={18} strokeWidth={2} /></span>
         </button>
       )}
 
-      <section aria-label="Latest entries" className="mt-8">
+      <section aria-label="Latest entries" className="vault-recent mt-8">
         <div className="flex items-baseline justify-between">
           <h2 className="vault-h2">Recent</h2>
           <button className="vault-link" type="button" onClick={() => onNavigate('transactions')}>Ledger →</button>

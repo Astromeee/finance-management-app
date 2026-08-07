@@ -38,14 +38,51 @@ function previousCycleDate(nextIncomeDate: string, cadence: IncomeCadence) {
   return localDateKey(next)
 }
 
+/** Shift an anchor date by whole cycles. Every result is measured from the
+ *  anchor rather than from the previous hop, so someone paid on the 31st does
+ *  not get eroded to the 28th by passing through February. */
+function addCycles(anchor: string, cadence: IncomeCadence, cycles: number) {
+  const base = midday(anchor)
+  if (Number.isNaN(base.getTime())) return anchor
+  if (cadence === 'weekly') {
+    const shifted = midday(anchor)
+    shifted.setDate(shifted.getDate() + 7 * cycles)
+    return localDateKey(shifted)
+  }
+  const day = base.getDate()
+  const target = new Date(base.getFullYear(), base.getMonth() + cycles, 1, 12)
+  const lastDay = new Date(target.getFullYear(), target.getMonth() + 1, 0, 12).getDate()
+  target.setDate(Math.min(day, lastDay))
+  return localDateKey(target)
+}
+
+/**
+ * A stored payday goes stale the moment it arrives: the date is no longer the
+ * *next* one. Left alone it collapsed every downstream number into "needs
+ * setup" on payday itself, and stayed that way until the user edited the date
+ * by hand. Rolling forward by whole cycles keeps it naming the next payday.
+ */
+export function rollIncomeDateForward(nextIncomeDate: string, cadence: IncomeCadence, today = localDateKey()) {
+  if (!nextIncomeDate || nextIncomeDate > today) return nextIncomeDate
+  if (Number.isNaN(midday(nextIncomeDate).getTime())) return nextIncomeDate
+  /* 520 cycles covers a ten-year absence at the shortest cadence. */
+  for (let cycles = 1; cycles <= 520; cycles += 1) {
+    const candidate = addCycles(nextIncomeDate, cadence, cycles)
+    if (candidate > today) return candidate
+  }
+  return nextIncomeDate
+}
+
 export function calculateIncomeCycle(settings: JourneySettings, today = localDateKey()): IncomeCycle | null {
-  if (!settings.incomeCadence || !settings.nextIncomeDate || settings.nextIncomeDate <= today) return null
-  const startDate = previousCycleDate(settings.nextIncomeDate, settings.incomeCadence)
-  const totalDays = Math.max(1, daysBetween(startDate, settings.nextIncomeDate))
-  const daysRemaining = Math.max(1, daysBetween(today, settings.nextIncomeDate))
+  if (!settings.incomeCadence || !settings.nextIncomeDate) return null
+  const endDate = rollIncomeDateForward(settings.nextIncomeDate, settings.incomeCadence, today)
+  if (endDate <= today) return null
+  const startDate = previousCycleDate(endDate, settings.incomeCadence)
+  const totalDays = Math.max(1, daysBetween(startDate, endDate))
+  const daysRemaining = Math.max(1, daysBetween(today, endDate))
   return {
     startDate,
-    endDate: settings.nextIncomeDate,
+    endDate,
     totalDays,
     daysRemaining,
     daysElapsed: Math.min(totalDays, Math.max(0, totalDays - daysRemaining)),

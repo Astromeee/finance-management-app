@@ -16,7 +16,7 @@ import { isSupabaseConfigured, supabase } from './lib/supabase'
 import { AuthCallback, AuthPage } from './pages/Auth'
 import { LegalPage } from './pages/Legal'
 import type { Account, Budget, Category, Debt, DebtCategory, DebtStatus, Goal, JourneySettings, MoneyQuest, MoneyWin, RecurringFrequency, Transaction, UpcomingExpense, WishlistItem } from './types/finance'
-import { calculateSafeSpend } from './utils/journeyCalculations'
+import { calculateSafeSpend, rollIncomeDateForward } from './utils/journeyCalculations'
 import { resolveQuestStatus } from './utils/retention'
 
 const AddGoalModal = lazy(() => import('./components/forms/FinanceActionModals').then((module) => ({ default: module.AddGoalModal })))
@@ -194,6 +194,23 @@ function App() {
   useEffect(() => {
     if (financeUserId) void recordAppActivity('page_view')
   }, [activePage, financeUserId])
+
+  /* Once payday arrives the stored date is no longer the *next* one. Every
+     read already rolls it forward (see rollIncomeDateForward), so this only
+     catches the saved copy up — writing first, then adopting the value, so the
+     effect never sets state synchronously. */
+  const rolledIncomeDateFrom = useRef<string>(undefined)
+  useEffect(() => {
+    if (designPreview || !financeUserId) return
+    const { incomeCadence, nextIncomeDate } = journeySettings
+    if (!incomeCadence || !nextIncomeDate) return
+    const rolled = rollIncomeDateForward(nextIncomeDate, incomeCadence)
+    if (rolled === nextIncomeDate || rolledIncomeDateFrom.current === nextIncomeDate) return
+    rolledIncomeDateFrom.current = nextIncomeDate
+    void saveJourneySettings({ ...journeySettings, nextIncomeDate: rolled }, true)
+      .then(() => setJourneySettings((current) => current.nextIncomeDate === nextIncomeDate ? { ...current, nextIncomeDate: rolled } : current))
+      .catch((error) => console.warn('Could not save the rolled income date:', error))
+  }, [designPreview, financeUserId, journeySettings])
 
   const setActivePage = useCallback((page: string) => {
     const previewQuery = designPreview ? '?vault-preview' : ''
@@ -532,7 +549,7 @@ function App() {
   }
 
   const pages: Record<string, { title: string; subtitle: string; component: ReactNode }> = {
-    dashboard: { title: 'Home', subtitle: 'Your payday journey', component: <Dashboard accounts={accountsWithSavings} transactions={transactions} goals={goals} debts={debts} budgets={budgets} upcomingExpenses={upcomingExpenses} categories={categories} journeySettings={journeySettings} wishlistItems={wishlistItems} onAction={setActiveModal} onNavigate={setActivePage} onPlanPurchase={() => { setActiveModal('simulator'); trackEvent('simulator_opened', { surface: 'home' }) }} onSetupJourney={() => navigate('/onboarding')} onTourComplete={() => { const next = { ...journeySettings, tourCompleted: true }; setJourneySettings(next); void saveJourneySettings(next, true) }} /> },
+    dashboard: { title: 'Home', subtitle: 'Your payday journey', component: <Dashboard accounts={accountsWithSavings} transactions={transactions} goals={goals} budgets={budgets} upcomingExpenses={upcomingExpenses} categories={categories} journeySettings={journeySettings} wishlistItems={wishlistItems} onNavigate={setActivePage} onSetupJourney={() => navigate('/onboarding')} /> },
     transactions: { title: 'Transactions', subtitle: 'Track income, spending, and transfers', component: <Transactions transactions={transactions} accounts={accountsWithSavings} expenseCategories={expenseCategoryNames} incomeCategories={incomeCategoryNames} onUpdateTransaction={updateTransaction} onDeleteTransaction={deleteTransaction} /> },
     accounts: {
       title: 'Accounts',
@@ -742,11 +759,7 @@ function App() {
       subtitle: 'Spending trends and insights',
       component: (
         <Reports
-          accounts={accounts}
           transactions={transactions}
-          goals={goals}
-          debts={debts}
-          upcomingExpenses={upcomingExpenses}
           journeySettings={journeySettings}
           moneyWins={moneyWins}
         />
@@ -761,7 +774,11 @@ function App() {
     <AppShell
       activePage={activePage}
       setActivePage={setActivePage}
-      onAdd={(action) => { setExpenseDraft(undefined); setActiveModal(action) }}
+      onAdd={(action) => {
+        setExpenseDraft(undefined)
+        setActiveModal(action)
+        if (action === 'simulator') trackEvent('simulator_opened', { surface: 'home' })
+      }}
       onSignOut={() => { void supabase?.auth.signOut() }}
       onRecordEntry={({ direction, amount, category, accountId, date, notes }) => {
         const account = accountsWithSavings.find((item) => item.id === accountId)

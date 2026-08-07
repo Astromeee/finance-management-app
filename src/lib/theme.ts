@@ -6,22 +6,11 @@
  * page background.
  */
 
-export type Theme = 'vault'
-
 const BONE = '#F3EEE4'
 
-export function getTheme(): Theme {
-  return 'vault'
-}
-
-export function applyTheme() {
+export function initTheme() {
   document.documentElement.setAttribute('data-theme', 'vault')
   document.documentElement.style.colorScheme = 'light'
   const meta = document.querySelector('meta[name="theme-color"]')
   if (meta) meta.setAttribute('content', BONE)
-}
-
-export function initTheme(): Theme {
-  applyTheme()
-  return 'vault'
 }

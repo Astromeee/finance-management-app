@@ -9,13 +9,6 @@ export function localMonthKey(date = new Date()) {
   return localDateKey(date).slice(0, 7)
 }
 
-export function formatPakistanDate(value: string) {
-  const date = new Date(`${value}T12:00:00`)
-  return Number.isNaN(date.getTime())
-    ? value
-    : new Intl.DateTimeFormat('en-PK', { day: 'numeric', month: 'short', year: 'numeric' }).format(date)
-}
-
 export function addRecurringDate(
   value: string,
   frequency: 'weekly' | 'monthly' | 'quarterly' | 'semi_annual' | 'yearly',

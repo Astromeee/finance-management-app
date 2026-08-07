@@ -1,6 +1,6 @@
 import { BarChart3, Bell, Calendar, ChevronLeft, ChevronRight, CreditCard, DollarSign, Download, HelpCircle, LayoutGrid, LogOut, Lock, Sun } from 'lucide-react'
 import { useState, type ReactNode } from 'react'
-import { exportTransactionsCsv } from '../lib/exports'
+import { exportLedgerJson, exportTransactionsCsv } from '../lib/exports'
 import { supabase } from '../lib/supabase'
 import { requestPwaInstall } from '../lib/pwaInstall'
 import { initialsOf } from '../lib/profile'
@@ -104,7 +104,8 @@ export function Settings(props: Props) {
       <section className="mt-6">
         <p className="vault-settings-group-label">Data &amp; support</p>
         <div className="vault-settings-group">
-          <Row icon={<Download size={18} strokeWidth={1.9} />} title="Export data" value="CSV · PDF" onPress={() => exportTransactionsCsv(props.transactions)} />
+          <Row icon={<Download size={18} strokeWidth={1.9} />} title="Export transactions" value="CSV" onPress={() => exportTransactionsCsv(props.transactions)} />
+          <Row icon={<Download size={18} strokeWidth={1.9} />} title="Download full backup" subtitle="Everything in your ledger, as JSON" value="JSON" onPress={() => exportLedgerJson({ accounts: props.accounts, transactions: props.transactions, budgets: props.budgets, goals: props.goals, debts: props.debts, upcomingExpenses: props.upcomingExpenses, expenseCategories: props.expenseCategories, incomeCategories: props.incomeCategories })} />
           <Row icon={<Download size={18} strokeWidth={1.9} />} title="Install Pocket Ledger" subtitle="Add the app to this device" onPress={requestPwaInstall} />
           <Row icon={<BarChart3 size={18} strokeWidth={1.9} />} title="Private usage analytics" subtitle="No email or financial content" value={props.analyticsConsent ? 'On' : 'Off'} />
           <Row icon={<HelpCircle size={18} strokeWidth={1.9} />} title="Help &amp; feedback" onPress={() => props.onNavigate('profile')} />

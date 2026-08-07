@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { motion } from 'framer-motion'
 import { ChevronDown, Trophy } from 'lucide-react'
-import type { Account, Debt, Goal, JourneySettings, MoneyWin, Transaction, UpcomingExpense } from '../types/finance'
+import type { JourneySettings, MoneyWin, Transaction } from '../types/finance'
 import { cn } from '../utils/ui'
 import { buildPreviousCycleStory, buildWeeklyReveal, detectMoneyLeak } from '../utils/journeyCalculations'
 import { trackEvent } from '../lib/analytics'
@@ -43,11 +43,7 @@ export function Reports({
   journeySettings,
   moneyWins,
 }: {
-  accounts: Account[]
   transactions: Transaction[]
-  goals: Goal[]
-  debts: Debt[]
-  upcomingExpenses: UpcomingExpense[]
   journeySettings: JourneySettings
   moneyWins: MoneyWin[]
 }) {

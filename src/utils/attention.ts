@@ -38,7 +38,9 @@ export function buildAttentionItems({ accounts, budgets, goals, transactions, up
   const todayKey = dateKey(today)
 
   for (const bill of upcomingExpenses) {
-    if (bill.status === 'paid') continue
+    // a cancelled bill is not waiting on the user — only paid was skipped
+    // before, so bills sent to history kept nagging from this list forever
+    if (bill.status === 'paid' || bill.status === 'cancelled') continue
     const days = daysBetween(todayKey, bill.dueDate)
     if (days > 7) continue
     const timing = days < 0

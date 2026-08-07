@@ -1,7 +1,7 @@
 import { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { Account, Debt, Goal, JourneySettings } from '../types/finance'
+import type { Account, Budget, Goal, JourneySettings, Transaction, UpcomingExpense } from '../types/finance'
 import { Dashboard } from './Dashboard'
 
 (globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true
@@ -13,18 +13,24 @@ const settings: JourneySettings = {
 
 const accounts: Account[] = [
   { id: 'a1', name: 'Cash', type: 'cash', balance: 20_000, color: '#E2703A', activity: '', cardLabel: 'CASH', includeInSafeSpend: true },
+  { id: 'a2', name: 'HBL Bank', type: 'bank', balance: 35_600, color: '#2B241D', activity: '', cardLabel: 'HBL', includeInSafeSpend: false },
 ]
 
-const goal = (over: Partial<Goal> = {}): Goal => ({
-  id: 'g1', name: 'New laptop', target: 30_000, saved: 17_000, status: 'Active', ...over,
-})
+const overdueBill: UpcomingExpense = {
+  id: 'rent', title: 'Rent', amount: 8_000, category: 'Housing',
+  dueDate: '2020-01-01', status: 'upcoming', isRecurring: false, createdAt: '2019-12-01',
+}
 
-const debt = (over: Partial<Debt> = {}): Debt => ({
-  id: 'd1', title: 'Bike installment', totalAmount: 40_000, paidAmount: 10_000,
-  category: 'Installment', status: 'Active', createdAt: new Date().toISOString(), ...over,
-})
+const overBudget: Budget = { id: 'b1', category: 'Dining Out', categoryId: 'dining', amount: 4_000, used: 9_000 }
 
-describe('home paths card', () => {
+type Options = {
+  budgets?: Budget[]
+  upcomingExpenses?: UpcomingExpense[]
+  goals?: Goal[]
+  transactions?: Transaction[]
+}
+
+describe('home screen', () => {
   let container: HTMLDivElement
   let root: Root
 
@@ -39,54 +45,101 @@ describe('home paths card', () => {
     container.remove()
   })
 
-  const render = async (goals: Goal[], debts: Debt[], onNavigate = vi.fn()) => {
+  const render = async (options: Options = {}) => {
+    const onNavigate = vi.fn<(page: string) => void>()
+    const onSetupJourney = vi.fn<() => void>()
     await act(async () => root.render(
       <Dashboard
-        accounts={accounts} transactions={[]} goals={goals} debts={debts} budgets={[]}
-        upcomingExpenses={[]} categories={[]} journeySettings={settings} wishlistItems={[]}
-        onAction={vi.fn()} onNavigate={onNavigate} onPlanPurchase={vi.fn()}
-        onSetupJourney={vi.fn()} onTourComplete={vi.fn()}
+        accounts={accounts}
+        transactions={options.transactions ?? []}
+        goals={options.goals ?? []}
+        budgets={options.budgets ?? []}
+        upcomingExpenses={options.upcomingExpenses ?? []}
+        categories={[]}
+        journeySettings={settings}
+        wishlistItems={[]}
+        onNavigate={onNavigate}
+        onSetupJourney={onSetupJourney}
       />,
     ))
-    return onNavigate
+    return { onNavigate, onSetupJourney }
   }
 
-  it('hides the paths card when there are no goals and no debts', async () => {
-    await render([], [])
+  it('renders four blocks and none of the removed ones', async () => {
+    await render({ upcomingExpenses: [overdueBill] })
+    expect(container.querySelector('.vault-title')).toBeTruthy()
+    expect(container.querySelector('.vault-hero')).toBeTruthy()
+    expect(container.querySelector('.vault-next')).toBeTruthy()
+    expect(container.querySelector('.vault-recent')).toBeTruthy()
+    // the 3-insight row, leak card and paths card belong to other tabs now
+    expect(container.querySelector('.vault-insight-row')).toBeFalsy()
+    expect(container.querySelector('.vault-leak')).toBeFalsy()
     expect(container.querySelector('.vault-paths')).toBeFalsy()
   })
 
-  it('shows the featured goal with its progress', async () => {
-    await render([goal()], [])
-    const card = container.querySelector('.vault-paths')
-    expect(card).toBeTruthy()
-    expect(card?.textContent).toContain('New laptop')
-    expect(card?.textContent).toContain('57%')
-    expect(card?.textContent).toContain('17,000')
-    expect(card?.textContent).toContain('1 goal')
+  it('keeps the account carousel as the hero, one card per account plus a total', async () => {
+    await render()
+    const cards = container.querySelectorAll('.vault-balance-card')
+    expect(cards).toHaveLength(3)
+    expect(cards[0].textContent).toContain('Total balance')
+    expect(cards[0].textContent).toContain('55,600')
+    expect(cards[0].textContent).toContain('Across 2 accounts')
+    // the card foot no longer carries the meaningless "updated just now" tag
+    expect(cards[0].textContent).not.toContain('updated just now')
+    expect(cards[2].textContent).toContain('Excluded from safe spend')
   })
 
-  it('counts open goals and debts in the summary', async () => {
-    await render([goal(), goal({ id: 'g2', name: 'Umrah fund' })], [debt()])
-    expect(container.querySelector('.vault-paths-link')?.textContent).toContain('2 goals · 1 debt')
+  it('promotes only the single top-ranked attention item', async () => {
+    await render({ upcomingExpenses: [overdueBill], budgets: [overBudget] })
+    const next = container.querySelectorAll('.vault-next')
+    expect(next).toHaveLength(1)
+    expect(next[0].textContent).toContain('Do this next')
+    expect(next[0].textContent).toContain('Rent')
   })
 
-  it('falls back to an unpaid debt when there are no goals', async () => {
-    await render([], [debt()])
-    const card = container.querySelector('.vault-paths')
-    expect(card?.textContent).toContain('Bike installment')
-    expect(card?.textContent).toContain('25%')
-    expect(card?.textContent).not.toContain('goal')
+  it('routes the action card to the page that resolves it', async () => {
+    const { onNavigate } = await render({ upcomingExpenses: [overdueBill] })
+    await act(async () => { container.querySelector<HTMLButtonElement>('.vault-next')!.click() })
+    expect(onNavigate).toHaveBeenCalledWith('budgets')
   })
 
-  it('stays hidden when every debt is already paid', async () => {
-    await render([], [debt({ status: 'Paid' })])
-    expect(container.querySelector('.vault-paths')).toBeFalsy()
+  it('hides the action card when nothing needs attention', async () => {
+    await render()
+    expect(container.querySelector('.vault-next')).toBeFalsy()
   })
 
-  it('opens the paths screen when tapped', async () => {
-    const onNavigate = await render([goal()], [])
-    await act(async () => { container.querySelector<HTMLButtonElement>('.vault-paths')!.click() })
-    expect(onNavigate).toHaveBeenCalledWith('goals')
+  it('offers the setup route when the income cycle is incomplete', async () => {
+    const { onSetupJourney } = await render()
+    const sub = container.querySelector<HTMLButtonElement>('.vault-hero-sub.is-action')
+    expect(sub).toBeTruthy()
+    await act(async () => sub!.click())
+    expect(onSetupJourney).toHaveBeenCalled()
+  })
+
+  it('moves the pager dot as the carousel is swiped', async () => {
+    await render()
+    const rail = container.querySelector<HTMLDivElement>('.vault-carousel')!
+    // jsdom performs no layout, so give the first card a width for railStep()
+    Object.defineProperty(rail.firstElementChild!, 'offsetWidth', { value: 300, configurable: true })
+    const activeDot = () => [...container.querySelectorAll('.vault-carousel-dot')].findIndex((dot) => dot.classList.contains('is-active'))
+
+    expect(activeDot()).toBe(0)
+    for (const index of [1, 2, 0]) {
+      await act(async () => {
+        rail.scrollLeft = index * 300
+        rail.dispatchEvent(new Event('scroll', { bubbles: true }))
+        await new Promise((resolve) => requestAnimationFrame(() => resolve(null)))
+      })
+      expect(activeDot()).toBe(index)
+    }
+  })
+
+  it('masks every amount from the single eye toggle', async () => {
+    await render()
+    const hero = container.querySelector('.vault-hero')!
+    expect(hero.textContent).toContain('55,600')
+    await act(async () => { container.querySelector<HTMLButtonElement>('.vault-balance-card button')!.click() })
+    expect(hero.textContent).not.toContain('55,600')
+    expect(hero.textContent).toContain('••••')
   })
 })
