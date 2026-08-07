@@ -1,3 +1,4 @@
+import { currencySymbol, formatMoney } from '../../lib/currency'
 import { ArrowDownUp, PencilLine } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import type { Account, SafeSpendResult } from '../../types/finance'
@@ -22,7 +23,7 @@ export type MovePayload = {
   notes?: string
 }
 
-const nf = (value: number) => Math.round(Math.abs(value)).toLocaleString('en-PK')
+const money = (value: number) => formatMoney(value)
 
 function rememberedAccount(accounts: Account[]) {
   const saved = localStorage.getItem('pl-last-account')
@@ -96,10 +97,10 @@ export function MoveSheet({
     }
     if (!toIn) {
       const after = Math.floor(Math.max(0, safeSpend.flexibleMoneyRemaining - amount) / days)
-      return { warn: true, text: <>{shortName(to)} is outside safe spend — Safe today drops to <strong>Rs {nf(after)}</strong>.</> }
+      return { warn: true, text: <>{shortName(to)} is outside safe spend — Safe today drops to <strong>{money(after)}</strong>.</> }
     }
     const after = Math.floor(Math.max(0, safeSpend.flexibleMoneyRemaining + amount) / days)
-    return { warn: false, text: <>{shortName(from)} joins safe spend — Safe today grows to <strong>Rs {nf(after)}</strong>.</> }
+    return { warn: false, text: <>{shortName(from)} joins safe spend — Safe today grows to <strong>{money(after)}</strong>.</> }
   }, [from, to, amount, safeSpend])
 
   const swap = () => {
@@ -141,7 +142,7 @@ export function MoveSheet({
             <span className="vault-move-name block truncate">{from ? tileName(from) : 'Pick an account'}</span>
           </span>
           <span className="flex-none">
-            <span className="vault-move-balance block">Rs {nf(from?.balance ?? 0)}</span>
+            <span className="vault-move-balance block">{money(from?.balance ?? 0)}</span>
             <span className="vault-move-change block">tap to change ▾</span>
           </span>
         </button>
@@ -154,7 +155,7 @@ export function MoveSheet({
             <span className="vault-move-name block truncate">{to ? tileName(to) : 'Pick an account'}</span>
           </span>
           <span className="flex-none">
-            <span className="vault-move-balance block">Rs {nf(to?.balance ?? 0)}</span>
+            <span className="vault-move-balance block">{money(to?.balance ?? 0)}</span>
             <span className="vault-move-change block">tap to change ▾</span>
           </span>
         </button>
@@ -167,7 +168,7 @@ export function MoveSheet({
             <button key={account.id} className="vault-row" role="option" aria-selected={account.id === (picking === 'from' ? fromId : toId)} type="button" onClick={() => pick(account.id)}>
               <span className={cn('vault-row-dot', account.includeInSafeSpend === false ? 'is-paid' : 'is-in')} />
               <span className="vault-row-main"><span className="vault-row-title block">{account.name}</span></span>
-              <span className="vault-row-amount">Rs {nf(account.balance)}</span>
+              <span className="vault-row-amount">{money(account.balance)}</span>
             </button>
           ))}
         </div>
@@ -175,14 +176,14 @@ export function MoveSheet({
 
       {/* Amount */}
       <div aria-live="polite" className="vault-amount mt-6">
-        <span className="vault-amount-currency">Rs</span>
+        <span className="vault-amount-currency">{currencySymbol()}</span>
         <span className="vault-amount-value">{formatAmount(value)}<span aria-hidden className="vault-amount-caret" /></span>
       </div>
 
       {/* Preview lines */}
       {from && to && (
         <p className="vault-impact mt-3">
-          After: {shortName(from)} <strong>Rs {nf(Math.max(0, from.balance - amount))}</strong> · {shortName(to)} <strong>Rs {nf(to.balance + amount)}</strong>
+          After: {shortName(from)} <strong>{money(Math.max(0, from.balance - amount))}</strong> · {shortName(to)} <strong>{money(to.balance + amount)}</strong>
         </p>
       )}
       {insufficient
@@ -216,7 +217,7 @@ export function MoveSheet({
       <div className="vault-commit-row mt-4">
         <button className="vault-commit is-espresso" disabled={invalid} type="button" onClick={commit}>
           {amount > 0 && to
-            ? <>Move <span className="vault-digits">Rs {nf(amount)}</span> to {shortName(to)}</>
+            ? <>Move <span className="vault-digits">{money(amount)}</span> to {shortName(to)}</>
             : <>Move money</>}
         </button>
         <button aria-expanded={noteOpen} aria-label="Add a note" className={cn('vault-note-btn', noteOpen && 'is-open')} type="button" onClick={() => setNoteOpen((current) => !current)}>

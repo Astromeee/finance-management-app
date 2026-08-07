@@ -1,3 +1,4 @@
+import { currencySymbol, formatAmount, formatMoney } from '../lib/currency'
 import { ArrowLeft, ArrowRight, Check, CreditCard, GraduationCap, Home, Landmark, Plus, ShieldCheck, Sparkles, WalletCards, X, Zap } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { AuthShell } from '../components/auth/AuthShell'
@@ -32,7 +33,8 @@ type Props = {
 const STORAGE_KEY = 'pocket-ledger-onboarding-draft-v4'
 const TOTAL_STEPS = 4
 
-const nf = (value: number) => Math.round(value).toLocaleString('en-PK')
+const nf = (value: number) => formatAmount(value)
+const money = (value: number) => formatMoney(value)
 
 const TRACKER_STEPS: TrackerStep[] = [
   { title: 'Income source', detail: 'How money reaches you' },
@@ -355,7 +357,7 @@ function BillsStep({ bills, setBills }: { bills: OnboardingBill[]; setBills: (va
       {bills.map((bill) => <div className="ao-bill" key={bill.id}>
         <span className="ao-option-icon">{bill.category === 'Housing/Rent' ? <Home size={19} /> : bill.category === 'Utilities' ? <Zap size={19} /> : <CreditCard size={19} />}</span>
         <span className="ao-bill-copy"><strong>{bill.name}</strong><small>Monthly, due {bill.dueDay}</small></span>
-        <span className="ao-bill-amount">Rs {nf(bill.amount)}</span>
+        <span className="ao-bill-amount">{money(bill.amount)}</span>
         <button aria-label={`Remove ${bill.name}`} className="ao-bill-remove" onClick={() => setBills(bills.filter((item) => item.id !== bill.id))} type="button"><X size={17} /></button>
       </div>)}
 
@@ -380,7 +382,7 @@ function BillsStep({ bills, setBills }: { bills: OnboardingBill[]; setBills: (va
         <p className="ao-ink-label">Set aside each cycle</p>
         <p className="ao-hero-note">Protected before you spend</p>
       </div>
-      <strong>Rs {nf(billsTotal(bills))}</strong>
+      <strong>{money(billsTotal(bills))}</strong>
     </div>
   </div>
 }
@@ -411,13 +413,13 @@ function RevealStep({ account, bills, name, settings }: { account: Account; bill
     />
     <div className="ao-ink-card mt-7 text-center">
       <p className="ao-ink-label">Safe to spend today</p>
-      <p className="ao-hero-figure"><small>Rs</small>{ready ? nf(counted) : '···'}</p>
+      <p className="ao-hero-figure"><small>{currencySymbol()}</small>{ready ? nf(counted) : '···'}</p>
       <p className="ao-hero-note">{ready ? 'Bills, savings and your reserve are already protected.' : 'Add a balance and a future income date and this number appears right away.'}</p>
     </div>
     <div className="ao-summary">
-      <div className="ao-summary-row"><span>Income</span><strong>Rs {nf(settings.typicalIncome)}</strong></div>
-      <div className="ao-summary-row"><span>Fixed bills</span><strong>Rs {nf(total)}</strong></div>
-      <div className="ao-summary-row"><span>Daily flow</span><strong>Rs {nf(dailyFlow)}</strong></div>
+      <div className="ao-summary-row"><span>Income</span><strong>{money(settings.typicalIncome)}</strong></div>
+      <div className="ao-summary-row"><span>Fixed bills</span><strong>{money(total)}</strong></div>
+      <div className="ao-summary-row"><span>Daily flow</span><strong>{money(dailyFlow)}</strong></div>
     </div>
     <div className="ao-analytics-notice" role="note">
       <ShieldCheck aria-hidden="true" size={19} />

@@ -1,6 +1,7 @@
 import { DEFAULT_EXPENSE_CATEGORIES, DEFAULT_INCOME_CATEGORIES, generalizeCategory } from '../data/defaultCategories'
 import type { Account, Budget, Category, Debt, Goal, IncomeSourceType, JourneySettings, MoneyPriority, MoneyQuest, MoneyWin, Transaction, UpcomingExpense, WishlistItem } from '../types/finance'
 import type { Json, TablesInsert } from '../types/database'
+import { getCurrency, hydrateCurrency } from './currency'
 import { localMonthKey } from './date'
 import type { Profile } from './profile'
 import { supabase } from './supabase'
@@ -178,6 +179,9 @@ export async function loadFinanceData(): Promise<FinanceData> {
   })
   const currentMonth = localMonthKey()
   const settingsRow = settings.data as Row | null
+  /* The column has always been written; this is the first read of it, so a
+     currency chosen on another device now follows the user here. */
+  hydrateCurrency(settingsRow?.currency)
   return {
     accounts: (accounts.data as Row[]).map(accountFromRow),
     transactions: transactionModels,
@@ -431,7 +435,7 @@ export async function saveUserSettings(profile: Profile, onboardingCompleted: bo
   const userId = await requireUserId()
   const { error } = await client().from('user_settings').upsert({
     user_id: userId, display_name: profile.name, avatar: profile.avatar,
-    currency: 'PKR', timezone: 'Asia/Karachi', onboarding_completed: onboardingCompleted,
+    currency: getCurrency(), timezone: 'Asia/Karachi', onboarding_completed: onboardingCompleted,
   })
   if (error) throw error
 }
@@ -440,7 +444,7 @@ export async function saveJourneySettings(settings: JourneySettings, onboardingC
   const userId = await requireUserId()
   const { error } = await client().from('user_settings').upsert({
     user_id: userId,
-    currency: 'PKR',
+    currency: getCurrency(),
     timezone: 'Asia/Karachi',
     onboarding_completed: onboardingCompleted,
     income_source_type: settings.incomeSourceType,

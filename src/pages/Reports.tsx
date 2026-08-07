@@ -1,3 +1,4 @@
+import { formatAmount, formatMoney } from '../lib/currency'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { motion } from 'framer-motion'
 import { ChevronDown, Trophy } from 'lucide-react'
@@ -36,7 +37,8 @@ type Range = {
   end?: Date
 }
 
-const nf = (value: number) => Math.round(value).toLocaleString('en-PK')
+const nf = (value: number) => formatAmount(value)
+const money = (value: number) => formatMoney(value)
 
 export function Reports({
   transactions,
@@ -93,7 +95,7 @@ export function Reports({
   const winSentence = latestWin
     ? latestWin.title
     : netSaved > 0
-      ? <>You kept <span className="vault-digits">Rs {nf(netSaved)}</span> — that&rsquo;s {savingsRate}% of what came in.</>
+      ? <>You kept <span className="vault-digits">{money(netSaved)}</span> — that&rsquo;s {savingsRate}% of what came in.</>
       : 'Record a full cycle and your first win lands here.'
 
   const eyebrow = `${range.label} · Story`.toUpperCase()
@@ -139,7 +141,7 @@ export function Reports({
         </span>
         <div className="min-w-0">
           <h2 className="vault-row-title">{expenseChange === null ? 'Your comparison is still forming' : `${expenseChange <= 0 ? 'Less' : 'More'} spent than the previous period`}</h2>
-          <p className="vault-row-meta mt-1">{expenseChange === null ? 'Keep recording and Pocket Ledger will explain the change after another comparable period.' : `Rs ${nf(totalExpenses)} now, compared with Rs ${nf(previousExpenses)} before.`}</p>
+          <p className="vault-row-meta mt-1">{expenseChange === null ? 'Keep recording and Pocket Ledger will explain the change after another comparable period.' : `${money(totalExpenses)} now, compared with ${money(previousExpenses)} before.`}</p>
         </div>
       </section>
 
@@ -251,7 +253,7 @@ function StoryCell({ label, value }: { label: string; value: number }) {
   return (
     <div className="vault-cell">
       <p className="vault-cell-label">{label}</p>
-      <p className="vault-cell-value text-[17px]">Rs {nf(value)}</p>
+      <p className="vault-cell-value text-[17px]">{money(value)}</p>
     </div>
   )
 }
@@ -368,7 +370,7 @@ function WeekChart({ weeks, average }: { weeks: WeekBar[]; average: number }) {
       <div className="flex items-baseline justify-between gap-3">
         <h2 className="vault-h2">Week by week</h2>
         <p className="vault-h2-sub vault-digits">
-          {picked ? <><span className="text-[var(--ink)]">{picked.sub}</span> · Rs {nf(picked.amount)}</> : <>avg {nf(average)} / week</>}
+          {picked ? <><span className="text-[var(--ink)]">{picked.sub}</span> · {money(picked.amount)}</> : <>avg {nf(average)} / week</>}
         </p>
       </div>
       <div className="vault-bars">
@@ -377,7 +379,7 @@ function WeekChart({ weeks, average }: { weeks: WeekBar[]; average: number }) {
           return (
             <motion.button
               key={index}
-              aria-label={`${week.sub}: Rs ${nf(week.amount)}`}
+              aria-label={`${week.sub}: ${money(week.amount)}`}
               aria-pressed={selected === index}
               className={cn('vault-bar', on && 'is-now')}
               type="button"
@@ -420,7 +422,7 @@ function DayChart({ days }: { days: DayBar[] }) {
         <h2 className="vault-h2">Day by day</h2>
         <p className="vault-h2-sub vault-digits">
           {active && active.amount > 0
-            ? <><span className="text-[var(--ink)]">{active.isToday ? 'Today' : active.full}</span> · Rs {nf(active.amount)}</>
+            ? <><span className="text-[var(--ink)]">{active.isToday ? 'Today' : active.full}</span> · {money(active.amount)}</>
             : active?.isToday ? 'nothing spent today' : 'tap a day'}
         </p>
       </div>
@@ -433,7 +435,7 @@ function DayChart({ days }: { days: DayBar[] }) {
                 <div className="vault-day-bararea">
                   <motion.button
                     ref={day.isToday ? todayRef : undefined}
-                    aria-label={`${day.full}: Rs ${nf(day.amount)}`}
+                    aria-label={`${day.full}: ${money(day.amount)}`}
                     aria-pressed={selected === day.key}
                     className={cn('vault-bar', on && 'is-now')}
                     type="button"
@@ -522,7 +524,7 @@ function SplitChart({ data, total }: { data: Array<{ name: string; value: number
                   />
                 )
               })}
-              <text fill="var(--ink)" fontFamily="'Space Grotesk', sans-serif" fontSize={30} fontWeight={600} letterSpacing={-1} textAnchor="middle" x={MID} y={MID - 2}>Rs {nf(centerAmount)}</text>
+              <text fill="var(--ink)" fontFamily="'Space Grotesk', sans-serif" fontSize={30} fontWeight={600} letterSpacing={-1} textAnchor="middle" x={MID} y={MID - 2}>{money(centerAmount)}</text>
               <text fill="var(--taupe)" fontFamily="'Schibsted Grotesk', sans-serif" fontSize={11} letterSpacing={1.8} textAnchor="middle" x={MID} y={MID + 22}>{centerLabel.length > 18 ? `${centerLabel.slice(0, 17)}…` : centerLabel}</text>
             </svg>
           </div>
@@ -543,7 +545,7 @@ function SplitChart({ data, total }: { data: Array<{ name: string; value: number
                 >
                   <span aria-hidden className="h-2.5 w-2.5 flex-none rounded-full" style={{ background: segment.color }} />
                   <span className="min-w-0 flex-1 truncate text-[13.5px] font-semibold text-[var(--ink)]">{segment.name}</span>
-                  <span className="vault-digits flex-none text-[13.5px] font-semibold text-[var(--ink)]">Rs {nf(segment.value)}</span>
+                  <span className="vault-digits flex-none text-[13.5px] font-semibold text-[var(--ink)]">{money(segment.value)}</span>
                   <span className="vault-digits w-10 flex-none text-right text-[13px] font-medium text-[var(--taupe)]">{segment.percent}%</span>
                 </motion.button>
               )

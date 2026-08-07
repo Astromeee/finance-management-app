@@ -1,7 +1,7 @@
+import { currencySymbol, formatMoney } from '../../lib/currency'
 import { useState, type ReactNode } from 'react'
 import { BottomSheet as Sheet } from '../BottomSheet'
 import type { Account, Debt } from '../../types/finance'
-import { formatPKR } from '../../utils/financeCalculations'
 import { localDateKey } from '../../lib/date'
 import { parseWholePkr } from '../../lib/money'
 
@@ -53,7 +53,7 @@ export function AddGoalModal({
     <Sheet title="Add goal" eyebrow="Savings target" open={open} onClose={onClose}>
       <form className="mt-5 grid gap-4" onSubmit={(event) => { event.preventDefault(); if (!invalid) { onSubmit({ name: name.trim(), target: targetAmount, dueDate: dueDate || undefined, notes }); onClose() } }}>
         <Field label="Goal name" value={name} onChange={setName} placeholder="New laptop" />
-        <Field label="Target amount" type="number" value={target} onChange={setTarget} placeholder="Rs. 250,000" />
+        <Field label="Target amount" type="number" value={target} onChange={setTarget} placeholder={`${currencySymbol()} 250,000`} />
         <Field label="Deadline optional" type="date" value={dueDate} onChange={setDueDate} />
         <TextArea label="Notes" value={notes} onChange={setNotes} />
         <ActionFooter submit="Create goal" disabled={invalid} onCancel={onClose} />
@@ -90,7 +90,7 @@ export function DebtPaymentModal({
       <form className="mt-5 grid gap-4" onSubmit={(event) => { event.preventDefault(); if (!invalid) { onSubmit({ debtId, amount: parsedAmount, accountId, date, notes }); onClose() } }}>
         <Select label="Debt / money owed item" value={debtId} onChange={setDebtId} options={debts.map((item) => ({ value: item.id, label: item.title || item.name || 'Debt' }))} />
         <Field label="Amount paid" type="number" value={amount} onChange={setAmount} />
-        <Select label="Paid from account" value={accountId} onChange={setAccountId} options={accounts.map((item) => ({ value: item.id, label: `${item.name} · ${formatPKR(item.balance)}` }))} />
+        <Select label="Paid from account" value={accountId} onChange={setAccountId} options={accounts.map((item) => ({ value: item.id, label: `${item.name} · ${formatMoney(item.balance)}` }))} />
         <Field label="Date" type="date" value={date} onChange={setDate} />
         <TextArea label="Notes" value={notes} onChange={setNotes} />
         <ActionFooter submit="Record payment" disabled={invalid} onCancel={onClose} />

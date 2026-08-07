@@ -1,8 +1,9 @@
+import { currencySymbol, formatMoney } from '../lib/currency'
 import { ArchiveRestore, ArrowRightLeft, GripVertical, PencilLine, Plus, RotateCcw, ShieldCheck, Trash2, WalletCards, X } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { useRef, useState, type Dispatch, type PointerEvent as ReactPointerEvent, type SetStateAction } from 'react'
 import type { Account, Transaction } from '../types/finance'
-import { formatPKR, totalBalance } from '../utils/financeCalculations'
+import { totalBalance } from '../utils/financeCalculations'
 import { cn } from '../utils/ui'
 import { localDateKey } from '../lib/date'
 import { saveAccountOrder } from '../lib/accountOrder'
@@ -48,7 +49,7 @@ interface AccountsProps {
 
 const makeAccountId = (name: string) => `${name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'account'}-${Date.now().toString(36)}`
 
-const nf = (value: number) => Math.round(value).toLocaleString('en-PK')
+const money = (value: number) => formatMoney(value)
 
 /** Chosen theme surface, or the spec's type-based cycle for legacy colors. */
 function treatmentFor(account: Account, fallback: string) {
@@ -143,7 +144,7 @@ export function Accounts({ accounts, archivedAccounts, setAccounts, setTransacti
       <section aria-label="Wallet totals" className="vault-strip mt-7">
         <div className="vault-cell">
           <p className="vault-cell-label">Total</p>
-          <p className="vault-cell-value">Rs {nf(total)}</p>
+          <p className="vault-cell-value">{money(total)}</p>
         </div>
         <div className="vault-cell">
           <p className="vault-cell-label">Safe spend uses</p>
@@ -251,7 +252,7 @@ export function Accounts({ accounts, archivedAccounts, setAccounts, setTransacti
         <h2 className="vault-sheet-title">Archived <em>accounts.</em></h2>
         <p className="vault-archived-help">Restoring an account brings its balance and transaction history back into your wallet.</p>
         <div className="vault-archived-list">
-          {archivedAccounts.map((account) => <div key={account.id} className="vault-archived-row"><span><strong>{account.name}</strong><small>{typeTag(account)} · Rs {nf(account.balance)}</small></span><button type="button" onClick={async () => { try { await onRestoreAccount(account.id); setNotice(`${account.name} restored.`); if (archivedAccounts.length === 1) setShowArchived(false) } catch (error) { setNotice(error instanceof Error ? error.message : 'Could not restore account.') } }}><RotateCcw size={15}/>Restore</button></div>)}
+          {archivedAccounts.map((account) => <div key={account.id} className="vault-archived-row"><span><strong>{account.name}</strong><small>{typeTag(account)} · {money(account.balance)}</small></span><button type="button" onClick={async () => { try { await onRestoreAccount(account.id); setNotice(`${account.name} restored.`); if (archivedAccounts.length === 1) setShowArchived(false) } catch (error) { setNotice(error instanceof Error ? error.message : 'Could not restore account.') } }}><RotateCcw size={15}/>Restore</button></div>)}
         </div>
       </VaultSheet>
     </div>
@@ -397,7 +398,7 @@ function WalletList({ accounts, treatments, onOpen, onReorder }: {
               <span className="vault-acct-number block">···· ···· {account.cardLabel || '····'}</span>
             )}
             <span className="vault-acct-foot">
-              <span className="vault-acct-balance">Rs {nf(account.balance)}</span>
+              <span className="vault-acct-balance">{money(account.balance)}</span>
               <span className="vault-acct-safe">{included ? 'In safe spend' : 'Excluded'}</span>
             </span>
           </div>
@@ -484,7 +485,7 @@ function AddAccountModal({
           </label>
           <label>
             <span className="form-label">Opening balance</span>
-            <input className="form-input text-2xl font-semibold" type="number" value={balance} onChange={(event) => setBalance(event.target.value)} placeholder="Rs. 0" />
+            <input className="form-input text-2xl font-semibold" type="number" value={balance} onChange={(event) => setBalance(event.target.value)} placeholder={`${currencySymbol()} 0`} />
           </label>
           <label>
             <span className="form-label">Masked card label</span>
@@ -542,7 +543,7 @@ function EditAccountModal({
       balance: parsedBalance,
       color,
       cardLabel: cardLabel.trim().toUpperCase() || account.cardLabel,
-      activity: balanceDifference === 0 ? account.activity : `${adjustmentLabel}: ${formatPKR(absoluteDifference)}`,
+      activity: balanceDifference === 0 ? account.activity : `${adjustmentLabel}: ${formatMoney(absoluteDifference)}`,
     }
     let adjustment: Transaction | undefined
     if (balanceDifference !== 0) {
@@ -556,7 +557,7 @@ function EditAccountModal({
           account: updatedName,
           accountId: account.id,
           date: localDateKey(),
-          notes: `Balance edited from ${formatPKR(account.balance)} to ${formatPKR(parsedBalance)}`,
+          notes: `Balance edited from ${formatMoney(account.balance)} to ${formatMoney(parsedBalance)}`,
           createdAt: new Date().toISOString(),
         }
     }
@@ -652,7 +653,8 @@ function CardColorPicker({ color, onPick }: { color: string; onPick: (value: str
   )
 }
 
-function AdjustBalanceModal({
+/** Also used from Home, where tapping a balance card adjusts that account. */
+export function AdjustBalanceModal({
   account,
   onClose,
   onNotice,
@@ -688,7 +690,7 @@ function AdjustBalanceModal({
       return
     }
 
-    const updatedAccount = { ...account, balance: parsedBalance, activity: `${adjustmentLabel}: ${formatPKR(absoluteDifference)}` }
+    const updatedAccount = { ...account, balance: parsedBalance, activity: `${adjustmentLabel}: ${formatMoney(absoluteDifference)}` }
     const adjustment: Transaction = {
         id: crypto.randomUUID(),
         title: adjustmentLabel,
@@ -726,13 +728,13 @@ function AdjustBalanceModal({
 
         <div className="mt-5 rounded-3xl bg-[var(--surface-2)] p-4">
           <p className="text-sm text-[var(--muted)]">Recorded balance</p>
-          <strong className="mt-1 block text-3xl text-[var(--ink)]">{formatPKR(account.balance)}</strong>
+          <strong className="mt-1 block text-3xl text-[var(--ink)]">{formatMoney(account.balance)}</strong>
         </div>
 
         <div className="mt-4 grid gap-4">
           <label>
             <span className="form-label">Actual balance</span>
-            <input className="form-input text-2xl font-semibold" type="number" placeholder="Rs. 42,000" value={actualBalance} onChange={(event) => setActualBalance(event.target.value)} />
+            <input className="form-input text-2xl font-semibold" type="number" placeholder={`${currencySymbol()} 42,000`} value={actualBalance} onChange={(event) => setActualBalance(event.target.value)} />
           </label>
           <label>
             <span className="form-label">Date</span>
@@ -748,7 +750,7 @@ function AdjustBalanceModal({
           <div className="flex items-center justify-between gap-3">
             <span className="text-sm text-[var(--muted)]">Difference</span>
             <strong className={cn('text-[var(--ink)]', (isIncrease || isDecrease) && 'text-[var(--clay)]')}>
-              {hasValue ? `${formatPKR(absoluteDifference)}${isIncrease ? ' increase' : isDecrease ? ' decrease' : ''}` : 'Enter actual balance'}
+              {hasValue ? `${formatMoney(absoluteDifference)}${isIncrease ? ' increase' : isDecrease ? ' decrease' : ''}` : 'Enter actual balance'}
             </strong>
           </div>
           <p className="mt-3 text-sm text-[var(--muted)]">

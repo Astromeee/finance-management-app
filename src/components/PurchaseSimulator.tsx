@@ -1,8 +1,8 @@
+import { formatMoney } from '../lib/currency'
 import { AlertTriangle, ArrowRight, CheckCircle2, ShieldAlert, Sparkles } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { trackEvent } from '../lib/analytics'
 import type { AffordabilityResult, Category, SafeSpendResult } from '../types/finance'
-import { formatPKR } from '../utils/financeCalculations'
 import { calculateAffordability } from '../utils/journeyCalculations'
 import { cn } from '../utils/ui'
 import { BottomSheet } from './BottomSheet'
@@ -47,5 +47,5 @@ function SimulatorResult({ result }: { result: AffordabilityResult }) {
       ? { label: 'Caution', icon: AlertTriangle, className: 'border-[color-mix(in_srgb,var(--warning)_35%,transparent)] bg-[color-mix(in_srgb,var(--warning)_9%,transparent)]', iconClass: 'text-[var(--warning)]' }
       : { label: result.state === 'needs_setup' ? 'Needs setup' : 'Risky', icon: ShieldAlert, className: 'border-[color-mix(in_srgb,var(--negative)_35%,transparent)] bg-[color-mix(in_srgb,var(--negative)_9%,transparent)]', iconClass: 'text-[var(--negative)]' }
   const Icon = config.icon
-  return <div className={cn('rounded-2xl border p-5', config.className)}><div className="flex items-center gap-2"><Icon className={config.iconClass} size={20} /><p className="font-semibold">{config.label}</p></div><p className="mt-3 text-sm leading-6 text-[var(--muted)]">{result.explanation}</p><div className="mt-4 flex justify-between border-t border-[var(--border)] pt-3 text-sm"><span className="text-[var(--muted)]">Today after purchase</span><span className="font-semibold tabular-nums">{formatPKR(result.safeToSpendAfter)}</span></div></div>
+  return <div className={cn('rounded-2xl border p-5', config.className)}><div className="flex items-center gap-2"><Icon className={config.iconClass} size={20} /><p className="font-semibold">{config.label}</p></div><p className="mt-3 text-sm leading-6 text-[var(--muted)]">{result.explanation}</p><div className="mt-4 flex justify-between border-t border-[var(--border)] pt-3 text-sm"><span className="text-[var(--muted)]">Today after purchase</span><span className="font-semibold tabular-nums">{formatMoney(result.safeToSpendAfter)}</span></div></div>
 }

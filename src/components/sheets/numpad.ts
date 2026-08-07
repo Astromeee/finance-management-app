@@ -1,3 +1,5 @@
+import { formatAmount as groupDigits } from '../../lib/currency'
+
 /** Light haptic on numpad keys / snaps — skipped under prefers-reduced-motion. */
 export function hapticTap() {
   if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
@@ -19,10 +21,11 @@ export function pressKey(value: string, key: string): string {
   return value + key
 }
 
-/** "48250.5" → "48,250.5" for display (digits stay Space Grotesk). */
+/** "48250.5" → "48,250.5" for display (digits stay Space Grotesk).
+ *  Grouping follows the active currency's locale. */
 export function formatAmount(value: string) {
   if (!value) return ''
   const [whole, decimals] = value.split('.')
-  const grouped = whole ? Number(whole).toLocaleString('en-PK') : '0'
+  const grouped = whole ? groupDigits(Number(whole)) : '0'
   return decimals !== undefined ? `${grouped}.${decimals}` : grouped
 }

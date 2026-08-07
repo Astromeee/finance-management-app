@@ -1,3 +1,4 @@
+import { formatMoney } from '../lib/currency'
 import { ChevronLeft, PencilLine, Plus, ShoppingBag } from 'lucide-react'
 import { useMemo, useState, type FormEvent } from 'react'
 import { CategoryAppearancePicker } from '../components/categories/CategoryAppearancePicker'
@@ -10,7 +11,7 @@ import type { Category, Transaction } from '../types/finance'
    transaction count. Colours/icons follow the design's palette by name,
    falling back to the category's own colour + a generic tag. */
 
-const nf = (value: number) => Math.round(value).toLocaleString('en-PK')
+const money = (value: number) => formatMoney(value)
 
 export function Categories({
   categories,
@@ -71,7 +72,7 @@ export function Categories({
             <button key={category.id} className="vault-cattile" type="button" onClick={() => setEditor({ category, kind })}>
               <span className="vault-cat-chip" style={{ background: color }}><Icon size={17} strokeWidth={2} /></span>
               <span className="vault-cat-name">{category.name}</span>
-              <span className="vault-cat-stat">Rs {nf(stat?.total ?? 0)} · {stat?.count ?? 0}</span>
+              <span className="vault-cat-stat">{money(stat?.total ?? 0)} · {stat?.count ?? 0}</span>
             </button>
           )
         })}

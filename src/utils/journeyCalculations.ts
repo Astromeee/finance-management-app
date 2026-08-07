@@ -1,3 +1,4 @@
+import { formatAmount } from '../lib/currency'
 import type {
   Account,
   AffordabilityResult,
@@ -141,16 +142,27 @@ export function calculateSafeSpend(input: {
 
   const safeToSpendToday = Math.floor(Math.max(0, flexibleMoneyRemaining) / cycle.daysRemaining)
   const expectedDaily = input.settings.typicalIncome > 0 ? input.settings.typicalIncome / cycle.totalDays : safeToSpendToday
-  const state = flexibleMoneyRemaining <= 0 || safeToSpendToday < expectedDaily * 0.5
+  /* Day zero is payday itself. What is in the accounts is last cycle's
+     leftovers spread over a fresh full cycle, so the usual ratio reads alarming
+     on the one morning people feel richest. Hold the warning back until the
+     income has had a chance to be recorded. */
+  const onPayday = cycle.daysElapsed === 0
+  const state = flexibleMoneyRemaining <= 0
     ? 'protect'
-    : safeToSpendToday < expectedDaily
+    : onPayday
       ? 'watchful'
-      : 'comfortable'
-  const explanation = state === 'comfortable'
-    ? `You are comfortably covered until ${cycle.endDate}.`
-    : state === 'watchful'
-      ? `Your plan still works, but keep flexible spending measured for the next ${cycle.daysRemaining} days.`
-      : `Pause flexible spending so bills and your safety reserve stay protected.`
+      : safeToSpendToday < expectedDaily * 0.5
+        ? 'protect'
+        : safeToSpendToday < expectedDaily
+          ? 'watchful'
+          : 'comfortable'
+  const explanation = onPayday && flexibleMoneyRemaining > 0
+    ? 'A new cycle starts today. Record your income to see the daily number it buys you.'
+    : state === 'comfortable'
+      ? `You are comfortably covered until ${cycle.endDate}.`
+      : state === 'watchful'
+        ? `Your plan still works, but keep flexible spending measured for the next ${cycle.daysRemaining} days.`
+        : `Pause flexible spending so bills and your safety reserve stay protected.`
 
   return {
     state, safeToSpendToday, flexibleMoneyRemaining, includedBalance, reservedForBills,
@@ -196,7 +208,7 @@ export function detectMoneyLeak(transactions: Transaction[], today = localDateKe
   return {
     id: `repeat-${candidate.categoryId ?? candidate.name.toLowerCase().replace(/\W+/g, '-')}`,
     title: `${candidate.name} is quietly adding up`,
-    explanation: `${candidate.count} purchases added up to PKR ${candidate.amount.toLocaleString('en-PK')} in the last 30 days.`,
+    explanation: `${candidate.count} purchases added up to PKR ${formatAmount(candidate.amount)} in the last 30 days.`,
     action: `Try a simple limit for ${candidate.name} this week.`,
     amount: candidate.amount,
     transactionCount: candidate.count,
@@ -221,8 +233,8 @@ export function buildWeeklyReveal(transactions: Transaction[], today = localDate
   const [category, amount] = [...categories.entries()].sort((a, b) => b[1] - a[1])[0]
   const noSpendDays = 7 - days.size
   return noSpendDays >= 3
-    ? { title: `${noSpendDays} no-spend days`, detail: `${category} was still the week’s largest flexible pattern at PKR ${amount.toLocaleString('en-PK')}.`, metric: noSpendDays, kind: 'no_spend' }
-    : { title: `${category} led this week`, detail: `It accounted for PKR ${amount.toLocaleString('en-PK')} across the last seven days.`, metric: amount, kind: 'category' }
+    ? { title: `${noSpendDays} no-spend days`, detail: `${category} was still the week’s largest flexible pattern at PKR ${formatAmount(amount)}.`, metric: noSpendDays, kind: 'no_spend' }
+    : { title: `${category} led this week`, detail: `It accounted for PKR ${formatAmount(amount)} across the last seven days.`, metric: amount, kind: 'category' }
 }
 
 export function buildPreviousCycleStory(settings: JourneySettings, transactions: Transaction[], today = localDateKey()): CycleStory | null {

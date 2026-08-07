@@ -1,5 +1,8 @@
-import { BarChart3, Bell, Calendar, ChevronLeft, ChevronRight, CreditCard, DollarSign, Download, HelpCircle, LayoutGrid, LogOut, Lock, Sun } from 'lucide-react'
+import { BarChart3, Bell, Calendar, Check, ChevronLeft, ChevronRight, CreditCard, DollarSign, Download, HelpCircle, LayoutGrid, LogOut, Sparkles, Sun } from 'lucide-react'
 import { useState, type ReactNode } from 'react'
+import { CURRENCIES, currencyMeta, setCurrency, useCurrency, type CurrencyCode } from '../lib/currency'
+import { notificationsEnabled, setNotificationsEnabled } from '../lib/notifications'
+import { VaultSheet } from '../components/sheets/VaultSheet'
 import { exportLedgerJson, exportTransactionsCsv } from '../lib/exports'
 import { supabase } from '../lib/supabase'
 import { requestPwaInstall } from '../lib/pwaInstall'
@@ -42,19 +45,30 @@ function incomeCycleLabel(settings: JourneySettings) {
 }
 
 export function Settings(props: Props) {
-  const [notify, setNotify] = useState(() => localStorage.getItem('pl-notifications') !== 'off')
+  const currency = useCurrency()
+  const [notify, setNotify] = useState(notificationsEnabled)
+  const [notifyNote, setNotifyNote] = useState<string>()
+  const [currencyOpen, setCurrencyOpen] = useState(false)
   const [deleteOpen, setDeleteOpen] = useState(false)
 
   const expenseCount = props.categories.filter((category) => category.kind === 'expense').length
   const incomeCount = props.categories.filter((category) => category.kind === 'income').length
   const email = props.authEmail ?? 'you@pocketledger.app'
 
-  const toggleNotifications = () => {
-    setNotify((current) => {
-      const next = !current
-      localStorage.setItem('pl-notifications', next ? 'on' : 'off')
-      return next
-    })
+  /* Asking the browser is the whole point: a stored "on" without permission is
+     the silent lie this replaced. */
+  const toggleNotifications = async () => {
+    const wanted = !notify
+    const permission = await setNotificationsEnabled(wanted)
+    const granted = wanted && permission === 'granted'
+    setNotify(granted)
+    setNotifyNote(
+      !wanted ? undefined
+        : permission === 'granted' ? undefined
+          : permission === 'denied' ? 'Blocked in your browser settings.'
+            : permission === 'unsupported' ? 'This browser cannot show reminders.'
+              : 'Permission was dismissed.',
+    )
   }
 
   return (
@@ -80,7 +94,7 @@ export function Settings(props: Props) {
       <section className="mt-7">
         <p className="vault-settings-group-label">Money</p>
         <div className="vault-settings-group">
-          <Row icon={<DollarSign size={18} strokeWidth={1.9} />} title="Currency" value="Rs · PKR" />
+          <Row icon={<DollarSign size={18} strokeWidth={1.9} />} title="Currency" value={`${currencyMeta(currency).symbol} · ${currency}`} onPress={() => setCurrencyOpen(true)} />
           <Row icon={<Calendar size={18} strokeWidth={1.9} />} title="Income cycle" value={incomeCycleLabel(props.journeySettings)} onPress={props.onRestartTour} />
           <Row highlight icon={<LayoutGrid size={18} strokeWidth={2} />} title="Categories" subtitle={`${expenseCount} expense · ${incomeCount} income`} onPress={() => props.onNavigate('categories')} />
           {/* Wallet lost its dock slot to Paths, so this row is now its main
@@ -94,8 +108,7 @@ export function Settings(props: Props) {
       <section className="mt-6">
         <p className="vault-settings-group-label">Preferences</p>
         <div className="vault-settings-group">
-          <Row icon={<Bell size={18} strokeWidth={1.9} />} title="Notifications" trailing={<button aria-checked={notify} aria-label="Notifications" className={`vault-toggle${notify ? ' is-on' : ''}`} role="switch" type="button" onClick={toggleNotifications} />} />
-          <Row icon={<Lock size={18} strokeWidth={1.9} />} title="App lock" value="Face ID" />
+          <Row icon={<Bell size={18} strokeWidth={1.9} />} title="Bill reminders" subtitle={notifyNote ?? 'When a bill is due or overdue'} trailing={<button aria-checked={notify} aria-label="Bill reminders" className={`vault-toggle${notify ? ' is-on' : ''}`} role="switch" type="button" onClick={() => { void toggleNotifications() }} />} />
           <Row icon={<Sun size={18} strokeWidth={1.9} />} title="Appearance" value="Warm" />
         </div>
       </section>
@@ -107,7 +120,10 @@ export function Settings(props: Props) {
           <Row icon={<Download size={18} strokeWidth={1.9} />} title="Export transactions" value="CSV" onPress={() => exportTransactionsCsv(props.transactions)} />
           <Row icon={<Download size={18} strokeWidth={1.9} />} title="Download full backup" subtitle="Everything in your ledger, as JSON" value="JSON" onPress={() => exportLedgerJson({ accounts: props.accounts, transactions: props.transactions, budgets: props.budgets, goals: props.goals, debts: props.debts, upcomingExpenses: props.upcomingExpenses, expenseCategories: props.expenseCategories, incomeCategories: props.incomeCategories })} />
           <Row icon={<Download size={18} strokeWidth={1.9} />} title="Install Pocket Ledger" subtitle="Add the app to this device" onPress={requestPwaInstall} />
-          <Row icon={<BarChart3 size={18} strokeWidth={1.9} />} title="Private usage analytics" subtitle="No email or financial content" value={props.analyticsConsent ? 'On' : 'Off'} />
+          {/* Consent has to be withdrawable, so this is a real switch now —
+              it previously rendered the state as plain text with no control. */}
+          <Row icon={<BarChart3 size={18} strokeWidth={1.9} />} title="Private usage analytics" subtitle="No email or financial content" trailing={<button aria-checked={props.analyticsConsent} aria-label="Private usage analytics" className={`vault-toggle${props.analyticsConsent ? ' is-on' : ''}`} role="switch" type="button" onClick={() => props.onAnalyticsConsentChange(!props.analyticsConsent)} />} />
+          <Row highlight icon={<Sparkles size={18} strokeWidth={1.9} />} title="What Pocket Ledger can do" subtitle="A short guide to every feature" onPress={() => props.onNavigate('features')} />
           <Row icon={<HelpCircle size={18} strokeWidth={1.9} />} title="Help &amp; feedback" onPress={() => props.onNavigate('profile')} />
         </div>
       </section>
@@ -121,6 +137,8 @@ export function Settings(props: Props) {
           {deleteOpen && <DeleteAccount authEmail={props.authEmail} authProvider={props.authProvider} />}
         </div>
       )}
+
+      <CurrencyPicker open={currencyOpen} active={currency} onClose={() => setCurrencyOpen(false)} />
     </div>
   )
 }
@@ -140,6 +158,39 @@ function Row({ icon, title, subtitle, value, trailing, highlight, onPress }: { i
   )
   if (onPress) return <button className={`vault-settings-row${highlight ? ' is-highlight' : ''}`} type="button" onClick={onPress}>{content}</button>
   return <div className={`vault-settings-row${highlight ? ' is-highlight' : ''}`}>{content}</div>
+}
+
+/**
+ * Currency picker. States plainly that this relabels rather than converts —
+ * the app holds no exchange rates, and quietly restating someone's balances
+ * would be far worse than saying so.
+ */
+function CurrencyPicker({ open, active, onClose }: { open: boolean; active: CurrencyCode; onClose: () => void }) {
+  return (
+    <VaultSheet open={open} label="Choose your currency" onClose={onClose}>
+      <p className="vault-eyebrow">Currency</p>
+      <h2 className="vault-h2 mt-1">Which symbol do you keep your ledger in?</h2>
+      <p className="vault-sheet-note mt-2">Amounts already recorded keep their value — only the symbol changes. Pocket Ledger does not convert between currencies.</p>
+      <div className="vault-currency-list mt-4">
+        {CURRENCIES.map((entry) => (
+          <button
+            key={entry.code}
+            aria-pressed={entry.code === active}
+            className={`vault-currency-option${entry.code === active ? ' is-active' : ''}`}
+            type="button"
+            onClick={() => { setCurrency(entry.code); onClose() }}
+          >
+            <span className="vault-currency-symbol">{entry.symbol}</span>
+            <span className="vault-currency-copy">
+              <span className="vault-currency-name">{entry.label}</span>
+              <span className="vault-currency-code">{entry.code}</span>
+            </span>
+            {entry.code === active && <Check className="vault-currency-check" size={17} strokeWidth={2.4} />}
+          </button>
+        ))}
+      </div>
+    </VaultSheet>
+  )
 }
 
 /* Account deletion kept behind the muted "Delete account" link. */

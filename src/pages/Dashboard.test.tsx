@@ -60,6 +60,9 @@ describe('home screen', () => {
         wishlistItems={[]}
         onNavigate={onNavigate}
         onSetupJourney={onSetupJourney}
+        setAccounts={vi.fn()}
+        setTransactions={vi.fn()}
+        onNotice={vi.fn()}
       />,
     ))
     return { onNavigate, onSetupJourney }

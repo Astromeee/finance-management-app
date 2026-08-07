@@ -1,3 +1,4 @@
+import { formatAmount } from '../../lib/currency'
 import type { Account, Budget, Category, Goal, MoneyQuest, Transaction, UpcomingExpense, WishlistItem } from '../../types/finance'
 
 export type UpcomingPayload = Omit<UpcomingExpense, 'id' | 'status' | 'createdAt' | 'paidTransactionId'>
@@ -40,7 +41,7 @@ export const sectionDescriptions: Record<PlanSection, string> = {
   quests: 'Short challenges that Pocket Ledger tracks automatically from your activity.',
 }
 
-export const nf = (value: number) => Math.round(value).toLocaleString('en-PK')
+export const nf = (value: number) => formatAmount(value)
 
 export function formatPlanDate(value?: string, withYear = false) {
   if (!value) return 'Not set'

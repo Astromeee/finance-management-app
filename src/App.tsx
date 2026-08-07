@@ -1,3 +1,5 @@
+import { formatMoney, useCurrency } from './lib/currency'
+import { notifyDueBills } from './lib/notifications'
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
@@ -35,6 +37,7 @@ const Reports = lazy(() => import('./pages/Reports').then((module) => ({ default
 const Settings = lazy(() => import('./pages/Settings').then((module) => ({ default: module.Settings })))
 const Transactions = lazy(() => import('./pages/Transactions').then((module) => ({ default: module.Transactions })))
 const Onboarding = lazy(() => import('./pages/Onboarding').then((module) => ({ default: module.Onboarding })))
+const Features = lazy(() => import('./pages/Features').then((module) => ({ default: module.Features })))
 
 type ActionModal = 'income' | 'expense' | 'transfer' | 'cooloff' | 'goal' | 'debt' | 'simulator' | null
 type ToastState = { message: string; actionLabel?: string; onAction?: () => void | Promise<void> }
@@ -128,6 +131,7 @@ function updateDebtFromPayload(debt: Debt, payload: DebtPayload): Debt {
 function App() {
   const location = useLocation()
   const navigate = useNavigate()
+  const currency = useCurrency()
   const routePage = location.pathname.startsWith('/app/') ? location.pathname.split('/')[2] : 'dashboard'
   const activePage = routePage
   const [activeModal, setActiveModal] = useState<ActionModal>(null)
@@ -194,6 +198,14 @@ function App() {
   useEffect(() => {
     if (financeUserId) void recordAppActivity('page_view')
   }, [activePage, financeUserId])
+
+  /* Reminders fire when the ledger is open, which is the most a PWA can do
+     without a push backend. notifyDueBills is a no-op unless the user turned
+     reminders on and the browser granted permission. */
+  useEffect(() => {
+    if (designPreview || !dataReady) return
+    notifyDueBills(upcomingExpenses)
+  }, [dataReady, designPreview, upcomingExpenses])
 
   /* Once payday arrives the stored date is no longer the *next* one. Every
      read already rolls it forward (see rollIncomeDateForward), so this only
@@ -549,7 +561,7 @@ function App() {
   }
 
   const pages: Record<string, { title: string; subtitle: string; component: ReactNode }> = {
-    dashboard: { title: 'Home', subtitle: 'Your payday journey', component: <Dashboard accounts={accountsWithSavings} transactions={transactions} goals={goals} budgets={budgets} upcomingExpenses={upcomingExpenses} categories={categories} journeySettings={journeySettings} wishlistItems={wishlistItems} onNavigate={setActivePage} onSetupJourney={() => navigate('/onboarding')} /> },
+    dashboard: { title: 'Home', subtitle: 'Your payday journey', component: <Dashboard accounts={accountsWithSavings} transactions={transactions} goals={goals} budgets={budgets} upcomingExpenses={upcomingExpenses} categories={categories} journeySettings={journeySettings} wishlistItems={wishlistItems} onNavigate={setActivePage} onSetupJourney={() => navigate('/onboarding')} setAccounts={setAccounts} setTransactions={setTransactions} onNotice={showToast} onAdjustBalance={designPreview ? undefined : async (account, transaction) => { await adjustAccountBalance(account, transaction) }} /> },
     transactions: { title: 'Transactions', subtitle: 'Track income, spending, and transfers', component: <Transactions transactions={transactions} accounts={accountsWithSavings} expenseCategories={expenseCategoryNames} incomeCategories={incomeCategoryNames} onUpdateTransaction={updateTransaction} onDeleteTransaction={deleteTransaction} /> },
     accounts: {
       title: 'Accounts',
@@ -717,7 +729,7 @@ function App() {
               id: `wishlist-skipped:${item.id}`,
               type: 'wishlist_skipped',
               title: `You chose not to buy ${item.name}`,
-              detail: `${item.amount.toLocaleString('en-PK')} PKR remains unspent. It becomes saved only if you move it to a goal.`,
+              detail: `${formatMoney(item.amount)} remains unspent. It becomes saved only if you move it to a goal.`,
               earnedAt: new Date().toISOString(),
             })
             trackEvent('wishlist_decision', { surface: 'plan', action: 'skip' })
@@ -768,10 +780,15 @@ function App() {
     categories: { title: 'Categories', subtitle: 'Manage your categories', component: <Categories categories={categories} transactions={transactions} onNavigate={setActivePage} onSaveCategory={async (category) => { if (!designPreview) await saveCategory(category); setCategories((current) => [...current.filter((item) => item.id !== category.id), category]) }} onArchiveCategory={async (id) => { if (!designPreview) await archiveCategory(id); setCategories((current) => current.filter((item) => item.id !== id)) }} /> },
     settings: { title: 'Settings', subtitle: 'Preferences and data tools', component: <Settings accounts={accounts} authEmail={authEmail} authProvider={authProvider} budgets={budgets} categories={categories} debts={debts} expenseCategories={expenseCategoryNames} goals={goals} incomeCategories={incomeCategoryNames} profile={profile} transactions={transactions} upcomingExpenses={upcomingExpenses} journeySettings={journeySettings} analyticsConsent={journeySettings.analyticsConsent} onAnalyticsConsentChange={(analyticsConsent) => { const next = { ...journeySettings, analyticsConsent }; setJourneySettings(next); void saveJourneySettings(next, true) }} onNavigate={setActivePage} onRestartTour={() => navigate('/onboarding')} onProfileChange={(next) => { setProfile(next); setProfileState(next); void saveUserSettings(next, true) }} onSaveCategory={async (category) => { if (!designPreview) await saveCategory(category); setCategories((current) => [...current.filter((item) => item.id !== category.id), category]) }} onArchiveCategory={async (id) => { if (!designPreview) await archiveCategory(id); setCategories((current) => current.filter((item) => item.id !== id)) }} onSaveBudget={async (budget) => { await saveBudget(budget); setBudgets((current) => [...current.filter((item) => item.id !== budget.id), budget]) }} onDeleteBudget={async (id) => { await deleteBudget(id); setBudgets((current) => current.filter((item) => item.id !== id)) }} onSignOut={() => supabase?.auth.signOut()} /> },
     profile: { title: 'Profile', subtitle: 'Your name and photo', component: <ProfilePage onBack={() => setActivePage('dashboard')} /> },
+    features: { title: 'Guide', subtitle: 'What Pocket Ledger can do', component: <Features onNavigate={setActivePage} /> },
   }
 
+  /* Money strings are formatted from the currency store at render time, so a
+     switch has to remount the shell for every screen to pick it up. Changing
+     currency is rare enough that losing transient screen state is fine. */
   const ledger = (
     <AppShell
+      key={currency}
       activePage={activePage}
       setActivePage={setActivePage}
       onAdd={(action) => {
@@ -851,7 +868,7 @@ function App() {
         setGoals((current) => current.map((item) => item.id === goalId ? { ...item, saved: Math.min(item.target, item.saved + amount), status: item.saved + amount >= item.target ? 'Completed' : item.status } : item))
         setTransactions((current) => [transaction, ...current])
         if (!designPreview) void recordFinanceAction(transaction).catch((error) => showToast(error.message))
-        showToast(`Rs ${amount.toLocaleString('en-PK')} added to ${goal.name}`)
+        showToast(`${formatMoney(amount)} added to ${goal.name}`)
       }}
       onCreateBudget={({ category, amount }) => {
         const existing = budgets.find((budget) => budget.category === category)

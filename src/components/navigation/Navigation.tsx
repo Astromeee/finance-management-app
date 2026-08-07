@@ -1,6 +1,7 @@
 import { ArrowDown, ArrowLeftRight, ArrowUpRight, Calculator, Hourglass, House, List, PieChart, Plus, Target } from 'lucide-react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { useEffect, useRef, useState } from 'react'
+import { useCurrency } from '../../lib/currency'
 import { navItems } from '../../data/navigation'
 import { cn } from '../../utils/ui'
 
@@ -31,7 +32,7 @@ export function Sidebar({ activePage, setActivePage }: { activePage: string; set
       </nav>
       <div className="vault-outline mt-8 p-4 text-sm text-[var(--taupe)]">
         <p className="font-semibold text-[var(--ink)]">Moeed</p>
-        <p>PKR · Local data</p>
+        <p>{useCurrency()} · Local data</p>
       </div>
     </aside>
   )
@@ -58,7 +59,7 @@ const FAB_ACTIONS: Array<{ action: AddAction; label: string; circle: string; ico
    Wallet is also in Settings. The FAB opens the 19a action fan. */
 /* Pushed detail screens (reached from a link, dismissed with their own back
    chevron) hide the dock + FAB to match the design. */
-const DOCKLESS_PAGES = new Set(['settings', 'categories', 'profile'])
+const DOCKLESS_PAGES = new Set(['settings', 'categories', 'profile', 'features'])
 
 export function BottomNav({ activePage, setActivePage, onAdd }: { activePage: string; setActivePage: (page: string) => void; onAdd: (action: AddAction) => void }) {
   const [menuOpen, setMenuOpen] = useState(false)

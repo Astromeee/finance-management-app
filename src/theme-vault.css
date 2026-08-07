@@ -2155,3 +2155,211 @@ article.rounded-2xl {
 .pwa-install-action { border-radius: .65rem; background: var(--clay); color: #fff; padding: .45rem .7rem; font-size: .78rem; font-weight: 700; }
 .pwa-install-dismiss { display: grid; flex: 0 0 auto; place-items: center; color: var(--ink-soft); padding: .25rem; }
 @media (max-width: 520px) { .pwa-install-prompt { align-items: flex-start; }.pwa-install-prompt span { font-size: .7rem; } }
+
+/* Currency picker (Settings → Money → Currency). Plain list of options in the
+   sheet: symbol block, name, code, and a check on the active one. */
+.vault-sheet-note {
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--taupe);
+}
+.vault-currency-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: 46vh;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.vault-currency-option {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  min-height: 56px;
+  padding: 10px 12px;
+  border: none;
+  border-radius: 16px;
+  background: none;
+  text-align: left;
+  color: var(--ink);
+}
+.vault-currency-option.is-active { background: var(--surface-2, #EFE8DA); }
+.vault-currency-option:active { transform: scale(0.995); }
+.vault-currency-symbol {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 42px;
+  height: 42px;
+  border-radius: 999px;
+  border: 1px solid var(--rule);
+  font-family: var(--font-digits);
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--ink);
+}
+.vault-currency-option.is-active .vault-currency-symbol {
+  border-color: transparent;
+  background: var(--espresso);
+  color: var(--bone-text);
+}
+.vault-currency-copy { min-width: 0; flex: 1; }
+.vault-currency-name {
+  display: block;
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.2;
+}
+.vault-currency-code {
+  display: block;
+  margin-top: 2px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 1.4px;
+  color: var(--taupe);
+}
+.vault-currency-check { flex: none; color: var(--clay); }
+
+/* Safe-to-spend breakdown. A printed receipt, not a dashboard: one column of
+   figures, a hairline before the subtotal, a heavier rule before the result.
+   No chart and no colour beyond the single clay total. */
+.ss-receipt {
+  display: flex;
+  flex-direction: column;
+}
+.ss-line {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  width: 100%;
+  min-height: 44px;
+  padding: 9px 0;
+  border: none;
+  background: none;
+  text-align: left;
+  color: var(--ink);
+}
+.ss-line-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.3;
+  color: var(--ink-soft);
+}
+.ss-line-label svg { flex: none; color: var(--clay); opacity: 0; transition: opacity .15s ease; }
+.ss-line.is-tappable .ss-line-label svg { opacity: .55; }
+.ss-line.is-tappable:active { opacity: .6; }
+.ss-line-value {
+  flex: none;
+  font-variant-numeric: tabular-nums;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--ink);
+}
+.ss-line-value.is-minus { color: var(--taupe); }
+.ss-line.is-subtotal {
+  border-top: 1px solid var(--rule-soft);
+  margin-top: 4px;
+  padding-top: 13px;
+}
+.ss-line.is-subtotal .ss-line-label { font-weight: 600; color: var(--ink); }
+.ss-line.is-total {
+  border-top: 1.5px solid var(--rule);
+  margin-top: 4px;
+  padding-top: 14px;
+}
+.ss-line.is-total .ss-line-label { font-weight: 700; color: var(--ink); font-size: 15px; }
+.ss-line.is-total .ss-line-value { font-size: 22px; letter-spacing: -0.4px; color: var(--clay-deep, #B4551F); }
+
+/* The daily-number line is tappable, but must still read as a sentence:
+   a dotted underline on the figure alone, no button chrome. */
+.vault-hero-sub.is-explained {
+  width: 100%;
+  min-height: 44px;
+  border: none;
+  background: none;
+  padding: 4px 0;
+  cursor: pointer;
+  color: var(--taupe);
+}
+.vault-hero-sub.is-explained .vault-hero-sub-amount {
+  border-bottom: 1px dotted var(--rule);
+  padding-bottom: 1px;
+}
+.vault-hero-sub.is-explained:active { opacity: .65; }
+
+/* The balance figure is the tap target for adjusting that account — the card
+   itself cannot be a button because it already holds the eye toggle. */
+.vault-balance-amount.is-editable {
+  border: none;
+  background: none;
+  padding: 0;
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+}
+.vault-balance-amount.is-editable:active { opacity: .75; }
+
+/* "What Pocket Ledger can do" — the feature guide reached from Settings. */
+.vault-feature-list {
+  margin-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.vault-feature-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 13px;
+  width: 100%;
+  padding: 14px 15px;
+  border: 1px solid var(--rule-soft);
+  border-radius: 18px;
+  background: var(--vault-surface);
+  text-align: left;
+  color: var(--ink);
+}
+.vault-feature-row.is-tappable { cursor: pointer; }
+.vault-feature-row.is-tappable:active { transform: scale(0.995); }
+.vault-feature-chip {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 36px;
+  height: 36px;
+  border-radius: 12px;
+  background: var(--track);
+  color: var(--clay-deep, #B4551F);
+}
+.vault-feature-copy { min-width: 0; flex: 1; }
+.vault-feature-title {
+  display: block;
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.25;
+}
+.vault-feature-body {
+  display: block;
+  margin-top: 3px;
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 1.42;
+  color: var(--ink-soft);
+}
+.vault-feature-hint {
+  display: inline-block;
+  margin-top: 7px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: var(--track);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .6px;
+  color: var(--taupe);
+}
+.vault-feature-arrow { flex: none; margin-top: 9px; color: var(--clay); opacity: .5; }

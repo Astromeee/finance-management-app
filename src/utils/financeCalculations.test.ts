@@ -1,5 +1,6 @@
+import { formatMoney } from '../lib/currency'
 import { describe, expect, it } from 'vitest'
-import { formatPKR, percent, totalBalance } from './financeCalculations'
+import { percent, totalBalance } from './financeCalculations'
 import type { Account } from '../types/finance'
 
 const account = (balance: number, includeInSafeSpend = true): Account => ({
@@ -46,14 +47,14 @@ describe('formatPKR', () => {
   const normalise = (value: string) => value.replace(/\u00a0/g, ' ')
 
   it('renders whole rupees with an Rs prefix and grouped digits', () => {
-    expect(normalise(formatPKR(48_250))).toBe('Rs 48,250')
+    expect(normalise(formatMoney(48_250))).toBe('Rs 48,250')
   })
 
   it('drops fractional paisa', () => {
-    expect(normalise(formatPKR(99.6))).toBe('Rs 100')
+    expect(normalise(formatMoney(99.6))).toBe('Rs 100')
   })
 
   it('keeps a negative amount signed', () => {
-    expect(normalise(formatPKR(-1_200))).toContain('1,200')
+    expect(normalise(formatMoney(-1_200))).toContain('1,200')
   })
 })

@@ -1,10 +1,11 @@
+import { currencySymbol, formatAmount, formatMoney } from '../lib/currency'
 import { ArrowRight, Check, CircleAlert, Plus, Target, X } from 'lucide-react'
 import { useState } from 'react'
 import type { ReactNode } from 'react'
 import { BottomSheet as Sheet } from '../components/BottomSheet'
 import { expenseCategories } from '../data/mockData'
 import type { Account, Debt, DebtCategory, DebtStatus, Goal, RecurringFrequency, UpcomingExpense } from '../types/finance'
-import { formatPKR, percent } from '../utils/financeCalculations'
+import { percent } from '../utils/financeCalculations'
 import { cn } from '../utils/ui'
 
 /* ============================================================
@@ -106,11 +107,11 @@ export function GoalsDebts({
       <section aria-label="Progress across all paths" className="vault-strip mt-7">
         <div className="vault-cell">
           <p className="vault-cell-label">Saved so far</p>
-          <p className="vault-cell-value">Rs {nf(totalSavings)}</p>
+          <p className="vault-cell-value">{money(totalSavings)}</p>
         </div>
         <div className="vault-cell">
           <p className="vault-cell-label">Toward</p>
-          <p className="vault-cell-value">Rs {nf(totalGoalTarget)}</p>
+          <p className="vault-cell-value">{money(totalGoalTarget)}</p>
         </div>
         <div className="vault-cell">
           <p className="vault-cell-label">There</p>
@@ -226,7 +227,8 @@ export function GoalsDebts({
 
 /* ---------- trail nodes (Vault spec 15b) ---------- */
 
-const nf = (value: number) => Math.round(value).toLocaleString('en-PK')
+const nf = (value: number) => formatAmount(value)
+const money = (value: number) => formatMoney(value)
 
 const RING_R = 20
 const RING_C = 2 * Math.PI * RING_R
@@ -245,12 +247,12 @@ function goalEta(goal: Goal): { text: ReactNode; onPace: boolean } {
       const arriveLabel = due.toLocaleDateString('en-US', { month: 'long' })
       const elapsedShare = percent(goal.saved, goal.target)
       return {
-        text: <>Add <strong className="font-bold text-[var(--clay)]">Rs {nf(perCycle)}</strong>/cycle to arrive by {arriveLabel}</>,
+        text: <>Add <strong className="font-bold text-[var(--clay)]">{money(perCycle)}</strong>/cycle to arrive by {arriveLabel}</>,
         onPace: elapsedShare >= 40,
       }
     }
   }
-  return { text: <>Rs {nf(remaining)} to go — set a date to plan your pace</>, onPace: percent(goal.saved, goal.target) >= 40 }
+  return { text: <>{money(remaining)} to go — set a date to plan your pace</>, onPace: percent(goal.saved, goal.target) >= 40 }
 }
 
 function GoalNode({ goal, onQuickAdd, onEdit, onDelete }: { goal: Goal; onQuickAdd: () => void; onEdit: () => void; onDelete: () => void }) {
@@ -377,7 +379,7 @@ export function AddUpcomingExpenseModal({
         onClose()
       }}>
         <Field label="Title" value={title} onChange={setTitle} placeholder="Electricity Bill" />
-        <Field label="Amount" type="number" value={amount} onChange={setAmount} placeholder="Rs. 8,500" />
+        <Field label="Amount" type="number" value={amount} onChange={setAmount} placeholder={`${currencySymbol()} 8,500`} />
         <Select label="Category" value={category} onChange={setCategory} options={[...expenseCategories.map((item) => item.name), 'Internet Bill', 'Subscription', 'Family Payment', 'Other Upcoming Expense']} />
         <Field label="Due date" type="date" value={dueDate} onChange={setDueDate} />
         <Select label="Linked account optional" value={linkedAccountId} onChange={setLinkedAccountId} options={[{ value: '', label: 'No linked account' }, ...accounts.map((item) => ({ value: item.id, label: item.name }))]} />
@@ -447,7 +449,7 @@ function AddDebtModal({
         <Field label="Title" value={title} onChange={setTitle} placeholder={category === 'Money I Owe' ? 'Borrowed from Ali' : 'Course installment'} />
         <Select label="Type" value={category} onChange={(value) => setCategory(value as DebtCategory)} options={debtCategoryOptions} />
         <Field label={category === 'Money I Owe' ? 'Person name optional' : 'Person / Company name optional'} value={personOrCompany} onChange={setPersonOrCompany} placeholder={category === 'Money I Owe' ? 'Ali' : 'Bank, university, company'} />
-        <Field label="Total amount" type="number" value={total} onChange={setTotal} placeholder="Rs. 50,000" />
+        <Field label="Total amount" type="number" value={total} onChange={setTotal} placeholder={`${currencySymbol()} 50,000`} />
         <Field label="Already paid" type="number" value={paid} onChange={setPaid} />
         <Field label="Due date optional" type="date" value={dueDate} onChange={setDueDate} />
         <Select label="Status" value={status} onChange={(value) => setStatus(value as DebtStatus)} options={debtStatusOptions} />
@@ -500,7 +502,7 @@ function EditGoalModal({
         onClose()
       }}>
         <Field label="Goal name" value={name} onChange={setName} placeholder="New laptop" />
-        <Field label="Target amount" type="number" value={target} onChange={setTarget} placeholder="Rs. 250,000" />
+        <Field label="Target amount" type="number" value={target} onChange={setTarget} placeholder={`${currencySymbol()} 250,000`} />
         <Field label="Saved amount" type="number" value={saved} onChange={setSaved} />
         <Select label="Linked account optional" value={linkedAccountId} onChange={setLinkedAccountId} options={[{ value: '', label: 'No linked account' }, ...accounts.map((item) => ({ value: item.id, label: item.name }))]} />
         <Field label="Deadline optional" type="date" value={dueDate} onChange={setDueDate} />
@@ -549,12 +551,12 @@ function AddSavingsModal({
         onSubmit({ goalId: goal.id, amount: parsedAmount, accountId: selectedAccount.id, date, notes: notes.trim() || undefined })
         onClose()
       }}>
-        <Field label="Savings amount" type="number" value={amount} onChange={setAmount} placeholder="Rs. 5,000" />
-        <Select label="Pay from account" value={accountId} onChange={setAccountId} options={accounts.map((account) => ({ value: account.id, label: `${account.name} · ${formatPKR(account.balance)}` }))} />
+        <Field label="Savings amount" type="number" value={amount} onChange={setAmount} placeholder={`${currencySymbol()} 5,000`} />
+        <Select label="Pay from account" value={accountId} onChange={setAccountId} options={accounts.map((account) => ({ value: account.id, label: `${account.name} · ${formatMoney(account.balance)}` }))} />
         <Field label="Date" type="date" value={date} onChange={setDate} />
         <TextArea label="Notes optional" value={notes} onChange={setNotes} />
         <div className="rounded-2xl border border-[rgba(255, 122, 26,.2)] bg-[rgba(255, 122, 26,.06)] p-3 text-sm text-[var(--muted)]">
-          Remaining target: {formatPKR(remaining)}. This contribution will reduce the selected account balance.
+          Remaining target: {formatMoney(remaining)}. This contribution will reduce the selected account balance.
         </div>
         <button className="btn-primary justify-center disabled:opacity-60" disabled={invalid}>Add savings</button>
       </form>
@@ -563,7 +565,7 @@ function AddSavingsModal({
           <div className="w-full max-w-sm rounded-[1.5rem] border border-[rgba(232,105,74,.24)] bg-[var(--surface)] p-5 shadow-2xl">
             <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--negative)]">Not enough savings</p>
             <h3 className="mt-2 text-xl font-semibold text-[var(--ink)]">Savings balance is too low</h3>
-            <p className="mt-2 text-sm text-[var(--muted)]">{selectedAccount?.name ?? 'The selected account'} has {formatPKR(selectedAccount?.balance ?? 0)} available.</p>
+            <p className="mt-2 text-sm text-[var(--muted)]">{selectedAccount?.name ?? 'The selected account'} has {formatMoney(selectedAccount?.balance ?? 0)} available.</p>
             <button className="btn-primary mt-5 w-full justify-center" type="button" onClick={() => setShowInsufficient(false)}>Got it</button>
           </div>
         </div>
@@ -639,14 +641,14 @@ export function RecordUpcomingExpensePaidModal({
   if (!expense) return null
 
   return (
-    <Sheet title="Record this as an actual expense?" eyebrow={`${expense.title} · ${formatPKR(expense.amount)}`} open={Boolean(expense)} onClose={onClose}>
+    <Sheet title="Record this as an actual expense?" eyebrow={`${expense.title} · ${formatMoney(expense.amount)}`} open={Boolean(expense)} onClose={onClose}>
       <form className="mt-5 grid gap-4" onSubmit={(event) => {
         event.preventDefault()
         if (!accountId || !paymentDate) return
         onConfirm({ accountId, paymentDate, notes: notes.trim() || undefined })
         onClose()
       }}>
-        <Select label="Paid from account" value={accountId} onChange={setAccountId} options={accounts.map((item) => ({ value: item.id, label: `${item.name} · ${formatPKR(item.balance)}` }))} />
+        <Select label="Paid from account" value={accountId} onChange={setAccountId} options={accounts.map((item) => ({ value: item.id, label: `${item.name} · ${formatMoney(item.balance)}` }))} />
         <Field label="Payment date" type="date" value={paymentDate} onChange={setPaymentDate} />
         <TextArea label="Notes optional" value={notes} onChange={setNotes} />
         <div className="rounded-2xl border border-[rgba(255, 122, 26,.2)] bg-[rgba(255, 122, 26,.06)] p-3 text-sm text-[var(--muted)]">

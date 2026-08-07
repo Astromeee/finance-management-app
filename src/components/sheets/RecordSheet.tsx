@@ -1,3 +1,4 @@
+import { currencySymbol, formatMoney } from '../../lib/currency'
 import { PencilLine } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import type { Account, SafeSpendResult, Transaction } from '../../types/finance'
@@ -25,7 +26,7 @@ export type RecordPayload = {
   notes?: string
 }
 
-const nf = (value: number) => Math.round(Math.abs(value)).toLocaleString('en-PK')
+const money = (value: number) => formatMoney(value)
 
 function rememberedAccount(accounts: Account[]) {
   const saved = localStorage.getItem('pl-last-account')
@@ -138,7 +139,7 @@ export function RecordSheet({
 
       {/* Amount */}
       <div aria-live="polite" className={cn('vault-amount mt-6', !isSpent && 'is-received')}>
-        <span className="vault-amount-currency">Rs</span>
+        <span className="vault-amount-currency">{currencySymbol()}</span>
         <span className="vault-amount-value">{formatAmount(value)}<span aria-hidden className="vault-amount-caret" /></span>
       </div>
 
@@ -146,13 +147,13 @@ export function RecordSheet({
       {impact && (
         <p className="vault-impact mt-3">
           {impact.kind === 'excluded' && impact.text}
-          {impact.kind === 'base' && <>Safe today <strong>Rs {nf(impact.base)}</strong></>}
+          {impact.kind === 'base' && <>Safe today <strong>{money(impact.base)}</strong></>}
           {impact.kind === 'spent' && <>
-            Safe today <strong>Rs {nf(impact.base)}</strong> → <strong className={cn(impact.after < 0 && 'is-clay')}>{impact.after < 0 ? '−' : ''}Rs {nf(impact.after)}</strong>
+            Safe today <strong>{money(impact.base)}</strong> → <strong className={cn(impact.after < 0 && 'is-clay')}>{impact.after < 0 ? '−' : ''}{money(impact.after)}</strong>
             {impact.after < 0 && <> · dips into tomorrow</>}
           </>}
           {impact.kind === 'received' && <>
-            Safe today grows <strong>Rs {nf(impact.base)}</strong> → <strong>Rs {nf(impact.after)}</strong>
+            Safe today grows <strong>{money(impact.base)}</strong> → <strong>{money(impact.after)}</strong>
           </>}
         </p>
       )}
@@ -191,7 +192,7 @@ export function RecordSheet({
       <div className="vault-commit-row mt-4">
         <button className={cn('vault-commit', isSpent ? 'is-clay' : 'is-espresso')} disabled={amount <= 0 || !accountId} type="button" onClick={commit}>
           {amount > 0
-            ? <>Record <span className="vault-digits">Rs {nf(amount)}</span> {isSpent ? 'spent' : 'received'}</>
+            ? <>Record <span className="vault-digits">{money(amount)}</span> {isSpent ? 'spent' : 'received'}</>
             : <>Record {isSpent ? 'spending' : 'money in'}</>}
         </button>
         <button aria-expanded={noteOpen} aria-label="Add a note" className={cn('vault-note-btn', noteOpen && 'is-open')} type="button" onClick={() => setNoteOpen((current) => !current)}>

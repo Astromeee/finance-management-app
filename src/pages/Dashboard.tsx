@@ -1,13 +1,16 @@
+import { currencySymbol, formatAmount } from '../lib/currency'
 import { ArrowRight, ArrowUpRight, Bell, ClipboardList, Eye, EyeOff, Settings, Target, UserRound } from 'lucide-react'
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type Dispatch, type SetStateAction } from 'react'
 import { firstNameOf, getProfile, initialsOf } from '../lib/profile'
 import { trackEvent } from '../lib/analytics'
 import type { Account, AccountType, Budget, Category, Goal, JourneySettings, Transaction, UpcomingExpense, WishlistItem } from '../types/finance'
 import { calculateSafeSpend } from '../utils/journeyCalculations'
 import { cn } from '../utils/ui'
 import { buildAttentionItems } from '../utils/attention'
+import { SafeSpendSheet } from '../components/sheets/SafeSpendSheet'
+import { AdjustBalanceModal } from './Accounts'
 
-const nf = (value: number) => Math.round(value).toLocaleString('en-PK')
+const nf = (value: number) => formatAmount(value)
 
 const ACCOUNT_TYPE_LABEL: Record<AccountType, string> = {
   cash: 'Cash',
@@ -68,6 +71,10 @@ export function Dashboard({
   wishlistItems = [],
   onNavigate,
   onSetupJourney,
+  setAccounts,
+  setTransactions,
+  onAdjustBalance,
+  onNotice,
 }: {
   accounts: Account[]
   transactions: Transaction[]
@@ -79,8 +86,14 @@ export function Dashboard({
   wishlistItems?: WishlistItem[]
   onNavigate: (page: string) => void
   onSetupJourney: () => void
+  setAccounts: Dispatch<SetStateAction<Account[]>>
+  setTransactions: Dispatch<SetStateAction<Transaction[]>>
+  onAdjustBalance?: (account: Account, transaction: Transaction) => Promise<void>
+  onNotice: (message: string) => void
 }) {
   const [showBalance, setShowBalance] = useState(true)
+  const [breakdownOpen, setBreakdownOpen] = useState(false)
+  const [adjusting, setAdjusting] = useState<Account | null>(null)
   const [menuOpen, setMenuOpen] = useState(false)
   const [noticesOpen, setNoticesOpen] = useState(false)
   const [activeBalanceIndex, setActiveBalanceIndex] = useState(0)
@@ -94,11 +107,12 @@ export function Dashboard({
   const totalBalance = useMemo(() => accounts.reduce((sum, account) => sum + account.balance, 0), [accounts])
 
   const cards = useMemo(() => [
-    { id: 'total', label: 'Total balance', amount: totalBalance, foot: accounts.length ? `Across ${accounts.length} ${accounts.length === 1 ? 'account' : 'accounts'}` : 'Add an account to begin' },
+    { id: 'total', label: 'Total balance', amount: totalBalance, account: undefined as Account | undefined, foot: accounts.length ? `Across ${accounts.length} ${accounts.length === 1 ? 'account' : 'accounts'}` : 'Add an account to begin' },
     ...accounts.map((account) => ({
       id: account.id,
       label: account.name,
       amount: account.balance,
+      account,
       foot: account.includeInSafeSpend === false ? 'Excluded from safe spend' : ACCOUNT_TYPE_LABEL[account.type],
     })),
   ], [accounts, totalBalance])
@@ -208,10 +222,20 @@ export function Dashboard({
                   {showBalance ? <Eye size={17} strokeWidth={1.8} /> : <EyeOff size={17} strokeWidth={1.8} />}
                 </button>
               </div>
-              <div className="vault-balance-amount">
-                <span className="vault-currency">Rs</span>
+              {/* Tapping the figure adjusts that account's balance; the total
+                  card has no single account behind it, so it opens Wallet.
+                  It is the amount rather than the whole card because the card
+                  already contains the eye toggle, and buttons cannot nest. */}
+              <button
+                aria-label={card.account ? `Adjust the balance of ${card.label}` : 'Open your wallet'}
+                className="vault-balance-amount is-editable"
+                tabIndex={index === activeBalanceIndex ? 0 : -1}
+                type="button"
+                onClick={() => card.account ? setAdjusting(card.account) : onNavigate('accounts')}
+              >
+                <span className="vault-currency">{currencySymbol()}</span>
                 <span className="vault-numeral">{showBalance ? nf(card.amount) : '••••'}</span>
-              </div>
+              </button>
               <div className="vault-balance-foot">
                 <span className="truncate">{card.foot}</span>
                 {cards.length > 1 && <span className="vault-swipe">⟷ Swipe</span>}
@@ -235,11 +259,20 @@ export function Dashboard({
             <ArrowRight size={13} strokeWidth={2.4} />
           </button>
         ) : (
-          <p className="vault-hero-sub">
-            <span className="vault-hero-sub-amount">Rs {showBalance ? nf(safeSpend.safeToSpendToday) : '••••'}</span>
-            {' safe to spend today'}
-            {daysToPayday !== undefined && ` · ${daysToPayday} ${daysToPayday === 1 ? 'day' : 'days'} to payday`}
-          </p>
+          /* Tapping opens the breakdown. Kept as a sentence with a dotted
+             underline on the figure — an affordance, not a button. */
+          <button
+            aria-label={`${currencySymbol()} ${nf(safeSpend.safeToSpendToday)} safe to spend today. See how this was worked out.`}
+            className="vault-hero-sub is-explained"
+            type="button"
+            onClick={() => { setBreakdownOpen(true); trackEvent('journey_breakdown_opened', { surface: 'home', state: safeSpend.state }) }}
+          >
+            <span className="vault-hero-sub-amount">{currencySymbol()} {showBalance ? nf(safeSpend.safeToSpendToday) : '••••'}</span>
+            <span>
+              {' safe to spend today'}
+              {daysToPayday !== undefined && ` · ${daysToPayday} ${daysToPayday === 1 ? 'day' : 'days'} to payday`}
+            </span>
+          </button>
         )}
       </section>
 
@@ -259,13 +292,30 @@ export function Dashboard({
         </button>
       )}
 
+      <AdjustBalanceModal
+        account={adjusting}
+        onClose={() => setAdjusting(null)}
+        onNotice={onNotice}
+        onAdjustBalance={onAdjustBalance}
+        setAccounts={setAccounts}
+        setTransactions={setTransactions}
+      />
+
+      <SafeSpendSheet
+        open={breakdownOpen}
+        safeSpend={safeSpend}
+        onClose={() => setBreakdownOpen(false)}
+        onNavigate={onNavigate}
+        onSetupJourney={onSetupJourney}
+      />
+
       <section aria-label="Latest entries" className="vault-recent mt-8">
         <div className="flex items-baseline justify-between">
           <h2 className="vault-h2">Recent</h2>
           <button className="vault-link" type="button" onClick={() => onNavigate('transactions')}>Ledger →</button>
         </div>
         <div className="mt-1">
-          {recent.length ? recent.map((transaction) => <EntryRow key={transaction.id} transaction={transaction} />) : (
+          {recent.length ? recent.map((transaction) => <EntryRow key={transaction.id} transaction={transaction} showAmounts={showBalance} />) : (
             <p className="py-8 text-center text-sm text-[var(--taupe)]">No entries yet — tap <span className="font-bold text-[var(--clay)]">+</span> to record your first one.</p>
           )}
         </div>
@@ -274,7 +324,7 @@ export function Dashboard({
   )
 }
 
-function EntryRow({ transaction }: { transaction: Transaction }) {
+function EntryRow({ transaction, showAmounts }: { transaction: Transaction; showAmounts: boolean }) {
   const isIncome = transaction.type === 'income'
   const isTransfer = transaction.type === 'transfer'
   return (
@@ -285,7 +335,7 @@ function EntryRow({ transaction }: { transaction: Transaction }) {
         <p className="vault-row-meta">{transaction.account ?? transaction.category} · {relativeDay(transaction.date)}</p>
       </div>
       <p className={cn('vault-row-amount', isIncome && 'is-in', isTransfer && 'is-move')}>
-        {isTransfer ? nf(transaction.amount) : `${isIncome ? '+' : '−'}${nf(transaction.amount)}`}
+        {!showAmounts ? '••••' : isTransfer ? nf(transaction.amount) : `${isIncome ? '+' : '−'}${nf(transaction.amount)}`}
       </p>
     </div>
   )

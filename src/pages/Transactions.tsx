@@ -1,7 +1,7 @@
+import { formatAmount, formatMoney } from '../lib/currency'
 import { PencilLine, Search, SlidersHorizontal, Trash2, X } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { useMemo, useState } from 'react'
-import { formatPKR } from '../utils/financeCalculations'
 import { cn } from '../utils/ui'
 import type { Account, Transaction, TransactionType } from '../types/finance'
 import { localDateKey } from '../lib/date'
@@ -9,7 +9,8 @@ import { localDateKey } from '../lib/date'
 const editableTypes: TransactionType[] = ['income', 'expense', 'transfer', 'goal_saving', 'debt_payment']
 type TransactionFilterChip = 'All' | 'Spent' | 'Received' | 'Moved'
 
-const nf = (value: number) => Math.round(value).toLocaleString('en-PK')
+const nf = (value: number) => formatAmount(value)
+const money = (value: number) => formatMoney(value)
 
 function categoryLabel(transaction: Transaction) {
   return transaction.category ?? transaction.source ?? transaction.title
@@ -115,7 +116,7 @@ export function Transactions({
         transaction.date,
         transaction.notes,
         transaction.type.replace('_', ' '),
-        formatPKR(transaction.amount),
+        formatMoney(transaction.amount),
       ].some((value) => value?.toLowerCase().includes(search))
     })
   }, [activeChip, categoryFilter, monthFilter, query, transactions])
@@ -219,7 +220,7 @@ export function Transactions({
         <section key={group.date} className="mt-7">
           <h2 className="vault-h2 text-[20px]">
             {group.label}
-            {group.out > 0 && <span className="vault-h2-sub vault-digits"> — Rs {nf(group.out)} out</span>}
+            {group.out > 0 && <span className="vault-h2-sub vault-digits"> — {money(group.out)} out</span>}
           </h2>
           <div className="mt-1">
             {group.items.map((transaction) => <LedgerRow key={transaction.id} transaction={transaction} onOpen={() => setViewing(transaction)} />)}
@@ -282,7 +283,7 @@ function TransactionDetailsModal({ transaction, onClose, onEdit, onDelete }: { t
 
   const rows = [
     ['Type', transaction.type.replace('_', ' ')],
-    ['Amount', formatPKR(transaction.amount)],
+    ['Amount', formatMoney(transaction.amount)],
     ['Category / Source', transaction.category ?? transaction.source ?? transaction.title],
     ['Account', transaction.account],
     ['Date', transaction.date],

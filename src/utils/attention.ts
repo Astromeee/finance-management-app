@@ -1,3 +1,4 @@
+import { formatMoney } from '../lib/currency'
 import type { Account, Budget, Goal, Transaction, UpcomingExpense, WishlistItem } from '../types/finance'
 
 export type AttentionPriority = 'urgent' | 'important' | 'review'
@@ -30,7 +31,7 @@ function daysBetween(from: string, to: string) {
 }
 
 function money(value: number) {
-  return Math.round(value).toLocaleString('en-PK')
+  return formatMoney(value)
 }
 
 export function buildAttentionItems({ accounts, budgets, goals, transactions, upcomingExpenses, wishlistItems = [], today = new Date() }: AttentionInput) {
@@ -54,7 +55,7 @@ export function buildAttentionItems({ accounts, budgets, goals, transactions, up
       id: `bill-${bill.id}`,
       priority: days <= 0 ? 'urgent' : 'important',
       title: `${bill.title} is ${timing}`,
-      detail: `Rs ${money(bill.amount)} is reserved in your plan.`,
+      detail: `${money(bill.amount)} is reserved in your plan.`,
       page: 'budgets',
       action: days <= 7 ? 'Review bill' : 'Open plan',
     })
@@ -68,8 +69,8 @@ export function buildAttentionItems({ accounts, budgets, goals, transactions, up
       priority: over > 0 ? 'urgent' : 'important',
       title: over > 0 ? `${budget.category} is over its limit` : `${budget.category} is close to its limit`,
       detail: over > 0
-        ? `Rs ${money(over)} over the current limit.`
-        : `Rs ${money(Math.max(0, budget.amount - budget.used))} remains.`,
+        ? `${money(over)} over the current limit.`
+        : `${money(Math.max(0, budget.amount - budget.used))} remains.`,
       page: 'budgets',
       action: 'Review plan',
     })
@@ -95,7 +96,7 @@ export function buildAttentionItems({ accounts, budgets, goals, transactions, up
       id: `goal-${goal.id}`,
       priority: days < 0 ? 'urgent' : 'important',
       title: days < 0 ? `${goal.name} has passed its target date` : `${goal.name} is approaching its target date`,
-      detail: `Rs ${money(Math.max(0, goal.target - goal.saved))} is still needed.`,
+      detail: `${money(Math.max(0, goal.target - goal.saved))} is still needed.`,
       page: 'goals',
       action: 'Add payment',
     })
@@ -107,7 +108,7 @@ export function buildAttentionItems({ accounts, budgets, goals, transactions, up
       id: `wishlist-${item.id}`,
       priority: 'review',
       title: `${item.name} is ready for a decision`,
-      detail: `The cooling-off period for Rs ${money(item.amount)} has finished.`,
+      detail: `The cooling-off period for ${money(item.amount)} has finished.`,
       page: 'budgets',
       action: 'Review purchase',
     })
@@ -121,7 +122,7 @@ export function buildAttentionItems({ accounts, budgets, goals, transactions, up
       id: `account-${lowAccount.id}`,
       priority: 'review',
       title: `${lowAccount.name} has a low balance`,
-      detail: `Rs ${money(lowAccount.balance)} is currently available.`,
+      detail: `${money(lowAccount.balance)} is currently available.`,
       page: 'accounts',
       action: 'Open wallet',
     })
