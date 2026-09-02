@@ -3,6 +3,7 @@ import { notifyDueBills } from './lib/notifications'
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
+import { CircleCheck } from 'lucide-react'
 import { AppShell } from './components/layout/AppShell'
 import { LedgerLoader } from './components/SplashScreen'
 import { accounts as initialAccounts, budgets as initialBudgets, debts as initialDebts, expenseCategories as initialExpenseCategories, goals as initialGoals, incomeSources as initialIncomeSources, transactions as initialTransactions, upcomingExpenses as initialUpcomingExpenses } from './data/mockData'
@@ -1007,7 +1008,7 @@ function App() {
         wishlistItems,
       }}
     >
-      {toast && <div aria-live="polite" className="pl-action-toast fixed left-1/2 top-4 z-[80] flex -translate-x-1/2 items-center gap-3 rounded-full border border-[rgba(226,112,58,.32)] bg-[var(--espresso)] px-4 py-2.5 text-sm font-semibold text-[var(--bone-text)] shadow-2xl shadow-black/25" role="status"><span>{toast.message}</span>{toast.onAction && <button className="rounded-full bg-[var(--clay)] px-3 py-1.5 text-xs font-extrabold text-[var(--espresso)]" type="button" onClick={() => { const action = toast.onAction; setToast(null); if (toastTimer.current !== undefined) window.clearTimeout(toastTimer.current); void action?.() }}>{toast.actionLabel}</button>}</div>}
+      {toast && <div aria-live="polite" className="pl-action-toast" data-testid="action-toast" role="status"><CircleCheck aria-hidden="true" className="pl-action-toast-icon" size={18} strokeWidth={1.9} /><span>{toast.message}</span>{toast.onAction && <button className="pl-action-toast-button" type="button" onClick={() => { const action = toast.onAction; setToast(null); if (toastTimer.current !== undefined) window.clearTimeout(toastTimer.current); void action?.() }}>{toast.actionLabel}</button>}</div>}
       <div className="mobile-page-content"><Suspense fallback={<LedgerLoader label="Loading screen" />}>{(pages[activePage] ?? pages.dashboard).component}</Suspense></div>
       <Suspense fallback={null}>
       {(activeModal === 'income' || activeModal === 'expense') && <RecordSheet
