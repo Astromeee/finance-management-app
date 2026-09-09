@@ -1,7 +1,7 @@
 import { currencySymbol, formatMoney } from '../../lib/currency'
 import { PencilLine } from 'lucide-react'
 import { useMemo, useState } from 'react'
-import type { Account, SafeSpendResult, Transaction } from '../../types/finance'
+import type { Account, Transaction } from '../../types/finance'
 import { cn } from '../../utils/ui'
 import { Numpad, VaultSheet } from './VaultSheet'
 import { formatAmount, pressKey } from './numpad'
@@ -55,7 +55,6 @@ export function RecordSheet({
   expenseCategories,
   incomeCategories,
   transactions,
-  safeSpend,
   initialAmount,
   initialCategory,
   onClose,
@@ -67,7 +66,6 @@ export function RecordSheet({
   expenseCategories: string[]
   incomeCategories: string[]
   transactions: Transaction[]
-  safeSpend: SafeSpendResult
   initialAmount?: number
   initialCategory?: string
   onClose: () => void
@@ -101,26 +99,7 @@ export function RecordSheet({
   }, [order, category, showAllCategories])
 
   const amount = Number(value) || 0
-  const account = accounts.find((item) => item.id === accountId)
-  const included = account ? account.includeInSafeSpend !== false : true
   const today = localDateKey()
-
-  /* Impact line (17a §4). Spent hits today in full — negative means dipping
-     into tomorrow. Received spreads over the days left in the cycle. */
-  const impact = useMemo(() => {
-    if (safeSpend.state === 'needs_setup') return null
-    const base = safeSpend.safeToSpendToday
-    if (account && !included) {
-      return { kind: 'excluded' as const, text: `${shortName(account)} sits outside safe spend — today's number doesn't move.` }
-    }
-    if (amount <= 0) return { kind: 'base' as const, base }
-    if (isSpent) {
-      const after = base - amount
-      return { kind: 'spent' as const, base, after }
-    }
-    const days = Math.max(1, safeSpend.cycle?.daysRemaining ?? 1)
-    return { kind: 'received' as const, base, after: base + Math.floor(amount / days) }
-  }, [safeSpend, account, included, amount, isSpent])
 
   const commit = () => {
     if (amount <= 0 || !accountId) return
@@ -144,19 +123,7 @@ export function RecordSheet({
       </div>
 
       {/* Impact line */}
-      {impact && (
-        <p className="vault-impact mt-3">
-          {impact.kind === 'excluded' && impact.text}
-          {impact.kind === 'base' && <>Safe today <strong>{money(impact.base)}</strong></>}
-          {impact.kind === 'spent' && <>
-            Safe today <strong>{money(impact.base)}</strong> → <strong className={cn(impact.after < 0 && 'is-clay')}>{impact.after < 0 ? '−' : ''}{money(impact.after)}</strong>
-            {impact.after < 0 && <> · dips into tomorrow</>}
-          </>}
-          {impact.kind === 'received' && <>
-            Safe today grows <strong>{money(impact.base)}</strong> → <strong>{money(impact.after)}</strong>
-          </>}
-        </p>
-      )}
+
 
       {/* Category chips */}
       <div className="mt-5 flex flex-wrap justify-center gap-2.5">

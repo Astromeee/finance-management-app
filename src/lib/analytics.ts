@@ -31,7 +31,7 @@ type SafeParameters = {
   state?: 'comfortable' | 'watchful' | 'protect' | 'needs_setup' | 'safe' | 'caution' | 'risky' | 'empty' | 'available'
   action?: 'open' | 'complete' | 'cancel' | 'expire' | 'buy' | 'skip' | 'wait' | 'move_to_goal'
   method?: 'password' | 'google'
-  finance_action?: 'income' | 'expense' | 'transfer' | 'goal' | 'debt' | 'goal_saving' | 'debt_payment'
+  finance_action?: 'income' | 'expense' | 'transfer' | 'goal' | 'debt' | 'goal_saving' | 'debt_payment' | 'receivable_payment'
 }
 
 declare global {

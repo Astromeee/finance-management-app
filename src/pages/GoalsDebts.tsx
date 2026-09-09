@@ -1,3 +1,5 @@
+import { Receivables } from '../components/Receivables'
+import { useBackDismiss } from '../lib/backNavigation'
 import { currencySymbol, formatAmount, formatMoney } from '../lib/currency'
 import { ArrowRight, Check, CircleAlert, Plus, Target, X } from 'lucide-react'
 import { useState } from 'react'
@@ -84,6 +86,7 @@ export function GoalsDebts({
   const [deleteTarget, setDeleteTarget] = useState<DeleteTarget | null>(null)
   const [chooserOpen, setChooserOpen] = useState(false)
 
+  useBackDismiss(chooserOpen, () => setChooserOpen(false))
   const totalSavings = goals.reduce((sum, goal) => sum + goal.saved, 0)
   const totalGoalTarget = goals.reduce((sum, goal) => sum + goal.target, 0)
   const there = percent(totalSavings, totalGoalTarget)
@@ -181,6 +184,7 @@ export function GoalsDebts({
         </div>
       )}
 
+      <Receivables accounts={accounts} />
       <AddDebtModal
         open={showAddDebt}
         onClose={() => setShowAddDebt(false)}
@@ -296,7 +300,7 @@ function DebtNode({ debt, onPay, onEdit, onDelete }: { debt: Debt; onPay: () => 
   const meta = [debt.dueDate ? `Due ${formatDate(debt.dueDate)}` : null, detail || null].filter(Boolean).join(' · ')
   return (
     <div className="vault-debt-node">
-      <span className="vault-debt-badge">{paidOff ? <Check size={22} strokeWidth={2.4} /> : <CircleAlert size={22} strokeWidth={2} />}</span>
+      <span className="vault-debt-badge">{paidOff ? <Check size={22} strokeWidth={2.4} /> : <CircleAlert size={18} strokeWidth={2} />}</span>
       <div
         className={cn('vault-debt-card', paidOff && 'is-paid')}
         role="button"
@@ -583,6 +587,7 @@ function ConfirmDeleteModal({
   onClose: () => void
   onConfirm: () => void
 }) {
+  useBackDismiss(Boolean(target), onClose)
   if (!target) return null
 
   const labels: Record<DeleteTarget['kind'], { eyebrow: string; note: string }> = {

@@ -958,8 +958,8 @@ body::after,
 }
 .vault-debt-badge {
   flex: none;
-  width: 60px;
-  height: 60px;
+  width: 48px;
+  height: 48px;
   border-radius: 999px;
   background: var(--clay);
   color: var(--espresso);
@@ -983,7 +983,8 @@ body::after,
 }
 .vault-debt-card {
   border-radius: 26px;
-  padding: 26px 24px 24px;
+  margin-left: 24px;
+  padding: 22px 18px 20px;
   background: var(--clay);
   color: var(--espresso);
   cursor: pointer;
@@ -993,7 +994,7 @@ body::after,
    heading and meta start on one shared left edge. */
 .vault-debt-card .vault-debt-head,
 .vault-debt-card .vault-debt-meta,
-.vault-debt-card .vault-debt-actions { padding-left: 52px; }
+.vault-debt-card .vault-debt-actions { padding-left: 26px; }
 .vault-debt-card:active { transform: scale(0.995); }
 .vault-debt-card.is-paid {
   background: var(--vault-surface);
@@ -2416,3 +2417,25 @@ article.rounded-2xl {
   color: var(--taupe);
 }
 .vault-feature-arrow { flex: none; margin-top: 9px; color: var(--clay); opacity: .5; }
+
+/* Recap follows the existing sheet and quiet Story link vocabulary. */
+.vault-recap-link { display:flex; align-items:center; gap:10px; width:100%; padding:16px 0; margin-top:12px; color:var(--ink); text-align:left; font-size:13px; border-bottom:1px solid var(--rule); }
+.vault-recap-link span { flex:1; }
+.vault-recap-link > svg:first-child, .vault-recap-head > svg { color:var(--clay-ink); }
+.vault-recap-head { display:flex; align-items:center; justify-content:space-between; margin-bottom:14px; }
+.vault-recap-amount { font-family:var(--font-digits); font-size:clamp(24px,8vw,38px); font-weight:600; overflow-wrap:anywhere; margin:24px 0 4px; }
+.vault-recap-positive { display:flex; align-items:center; gap:10px; padding:14px 0; margin-top:12px; color:var(--ink); font-size:14px; }
+.vault-recap-positive svg { color:var(--sage-deep, #526044); }
+.pl-action-toast-button { display:inline-flex; align-items:center; justify-content:center; position:relative; width:32px; height:32px; min-height:32px; padding:0; }
+
+.pl-action-toast-button::after { content:""; position:absolute; inset:-6px; }
+
+.daily-reminder-setting { margin:20px 0; padding:16px 0; border-block:1px solid var(--rule); }
+.daily-reminder-row { display:flex; align-items:center; justify-content:space-between; gap:16px; }
+.daily-reminder-row strong { font-size:14px; font-weight:600; }
+.daily-reminder-time { display:flex; flex-wrap:wrap; align-items:center; gap:12px; margin-top:16px; font-size:13px; }
+.daily-reminder-time .form-input { width:auto; }
+.daily-reminder-time small { width:100%; color:var(--taupe); }
+.vault-receivables { padding-bottom:20px; }
+.vault-receivables .vault-chiprow { flex-wrap:wrap; }
+.pl-overview-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }

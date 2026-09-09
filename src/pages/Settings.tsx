@@ -1,3 +1,5 @@
+import { loadReceivables } from '../lib/receivables'
+import { DailyReminderSetting } from '../components/DailyReminderSetting'
 import { BarChart3, Bell, Calendar, Check, ChevronLeft, ChevronRight, CreditCard, DollarSign, Download, HelpCircle, LayoutGrid, LogOut, Sparkles, Sun } from 'lucide-react'
 import { useState, type ReactNode } from 'react'
 import { CURRENCIES, currencyMeta, setCurrency, useCurrency, type CurrencyCode } from '../lib/currency'
@@ -50,6 +52,18 @@ export function Settings(props: Props) {
   const [notifyNote, setNotifyNote] = useState<string>()
   const [currencyOpen, setCurrencyOpen] = useState(false)
   const [deleteOpen, setDeleteOpen] = useState(false)
+  const [backupNote, setBackupNote] = useState<string>()
+  const downloadBackup = async () => {
+    setBackupNote('Preparing backup…')
+    try {
+      const preview = import.meta.env.DEV && location.search.includes('vault-preview')
+      const receivables = preview ? [] : await loadReceivables()
+      const events = preview || !supabase ? { data: [], error: null } : await supabase.from('receivable_events').select('*')
+      if (events.error) throw events.error
+      exportLedgerJson({ accounts: props.accounts, transactions: props.transactions, budgets: props.budgets, goals: props.goals, debts: props.debts, upcomingExpenses: props.upcomingExpenses, expenseCategories: props.expenseCategories, incomeCategories: props.incomeCategories, receivables, receivableEvents: events.data ?? [] })
+      setBackupNote(undefined)
+    } catch { setBackupNote('Could not download the complete backup. Please try again.') }
+  }
 
   const expenseCount = props.categories.filter((category) => category.kind === 'expense').length
   const incomeCount = props.categories.filter((category) => category.kind === 'income').length
@@ -113,12 +127,14 @@ export function Settings(props: Props) {
         </div>
       </section>
 
+      <DailyReminderSetting />
+
       {/* Data & support */}
       <section className="mt-6">
         <p className="vault-settings-group-label">Data &amp; support</p>
         <div className="vault-settings-group">
           <Row icon={<Download size={18} strokeWidth={1.9} />} title="Export transactions" value="CSV" onPress={() => exportTransactionsCsv(props.transactions)} />
-          <Row icon={<Download size={18} strokeWidth={1.9} />} title="Download full backup" subtitle="Everything in your ledger, as JSON" value="JSON" onPress={() => exportLedgerJson({ accounts: props.accounts, transactions: props.transactions, budgets: props.budgets, goals: props.goals, debts: props.debts, upcomingExpenses: props.upcomingExpenses, expenseCategories: props.expenseCategories, incomeCategories: props.incomeCategories })} />
+          <Row icon={<Download size={18} strokeWidth={1.9} />} title="Download full backup" subtitle={backupNote ?? "Everything in your ledger, as JSON"} value="JSON" onPress={() => { void downloadBackup() }} />
           <Row icon={<Download size={18} strokeWidth={1.9} />} title="Install Pocket Ledger" subtitle="Add the app to this device" onPress={requestPwaInstall} />
           {/* Consent has to be withdrawable, so this is a real switch now —
               it previously rendered the state as plain text with no control. */}

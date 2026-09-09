@@ -2,7 +2,7 @@
  *  bottom of the desktop auth plane rather than sold with app screenshots.
  *  Desktop only — the mobile block hides it. */
 const CELLS: Array<{ id: string; value: string; prefix?: string; kicker: string; line: string }> = [
-  { id: 'safe', prefix: 'Rs', value: '4,280', kicker: 'Safe to spend', line: 'Balances, bills and goals, resolved into one number.' },
+  { id: 'safe', prefix: 'Rs', value: '4,280', kicker: 'Your balance', line: 'Your accounts and everyday entries, in one place.' },
   { id: 'record', value: 'Record', kicker: 'A few taps', line: 'Amount, category, done. Quick enough to keep up.' },
   { id: 'insights', value: 'Insights', kicker: 'By category and cycle', line: 'Months of transactions turned into clear patterns.' },
   { id: 'goals', value: 'Goals', kicker: 'And debts', line: 'Side by side, with the pace to stay on schedule.' },

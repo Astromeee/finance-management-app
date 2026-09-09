@@ -1,3 +1,4 @@
+import { WeeklyRecapLink } from '../components/WeeklyRecap'
 import { formatAmount, formatMoney } from '../lib/currency'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { motion } from 'framer-motion'
@@ -107,6 +108,7 @@ export function Reports({
       </header>
 
       <h1 className="vault-title">The <em>story.</em></h1>
+      <WeeklyRecapLink />
 
       <div className="vault-chiprow mt-6">
         {periodOptions.map((option) => (
@@ -487,6 +489,9 @@ function SplitChart({ data, total }: { data: Array<{ name: string; value: number
   }
   const focus = segments.find((segment) => segment.name === selected) ?? null
   const centerAmount = focus ? focus.value : total
+  const centerAmountText = money(centerAmount)
+  // Keep the currency and longer amounts inside the hole, including focused slices.
+  const centerAmountFontSize = Math.min(22, 116 / (centerAmountText.length * 0.7))
   const centerLabel = focus ? focus.name.toUpperCase() : 'SPENT'
 
   return (
@@ -524,7 +529,7 @@ function SplitChart({ data, total }: { data: Array<{ name: string; value: number
                   />
                 )
               })}
-              <text fill="var(--ink)" fontFamily="'Space Grotesk', sans-serif" fontSize={30} fontWeight={600} letterSpacing={-1} textAnchor="middle" x={MID} y={MID - 2}>{money(centerAmount)}</text>
+              <text fill="var(--ink)" fontFamily="'Space Grotesk', sans-serif" fontSize={centerAmountFontSize} fontWeight={600} textAnchor="middle" x={MID} y={MID - 2}>{centerAmountText}</text>
               <text fill="var(--taupe)" fontFamily="'Schibsted Grotesk', sans-serif" fontSize={11} letterSpacing={1.8} textAnchor="middle" x={MID} y={MID + 22}>{centerLabel.length > 18 ? `${centerLabel.slice(0, 17)}…` : centerLabel}</text>
             </svg>
           </div>

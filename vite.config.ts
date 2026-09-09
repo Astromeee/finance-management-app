@@ -15,6 +15,7 @@ export default defineConfig({
       includeAssets: ['favicon.svg', 'pocket-ledger-icon.png'],
       workbox: {
         cleanupOutdatedCaches: true,
+        importScripts: ['/push-handler.js'],
         navigateFallback: '/index.html',
         globPatterns: ['**/*.{js,css,html,svg,png,woff,woff2}'],
         runtimeCaching: [],

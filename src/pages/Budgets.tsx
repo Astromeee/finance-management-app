@@ -45,8 +45,6 @@ type DetailTarget =
 const sections: Array<{ key: PlanSection; label: string }> = [
   { key: 'limits', label: 'Limits' },
   { key: 'bills', label: 'Bills' },
-  { key: 'cooling', label: 'Cool-off' },
-  { key: 'quests', label: 'Quests' },
 ]
 
 /* Colour-coded section headers so the four parts of the plan read as distinct
@@ -54,7 +52,7 @@ const sections: Array<{ key: PlanSection; label: string }> = [
    word in the section's colour, matching the page-title pattern. */
 const sectionHeads: Record<PlanSection, { eyebrow: string; accent: string; lead: string; word: string; copy: string }> = {
   limits: { eyebrow: 'Spending limits', accent: '#C85A2A', lead: 'Caps for ', word: 'this month.', copy: 'Each category has a ceiling, so nothing quietly runs over.' },
-  bills: { eyebrow: 'Scheduled bills', accent: '#657355', lead: 'Set aside ', word: 'first.', copy: 'Known payments protected before your spending number is drawn.' },
+  bills: { eyebrow: 'Scheduled bills', accent: '#657355', lead: 'Set aside ', word: 'first.', copy: 'Keep track of what is due and when.' },
   cooling: { eyebrow: 'Cool-off list', accent: '#837661', lead: 'Sleep on ', word: 'it.', copy: 'Non-essential buys you’re pausing on before deciding.' },
   quests: { eyebrow: 'Weekly quests', accent: '#7C8A6B', lead: 'Small ', word: 'wins.', copy: 'Light money challenges, scored from your ledger for you.' },
 }
@@ -64,7 +62,7 @@ const sectionHeads: Record<PlanSection, { eyebrow: string; accent: string; lead:
    you, rather than repeating "add one". */
 const sectionEmpty: Record<PlanSection, { title: string; body: string }> = {
   limits: { title: 'No spending limits yet', body: 'Cap a category like Dining Out and you get warned as it fills up — not after it has run over.' },
-  bills: { title: 'No bills scheduled', body: 'Add rent or a subscription and it is set aside from your daily number before you can spend it.' },
+  bills: { title: 'No bills scheduled', body: 'Add rent or a subscription to keep its due date in view.' },
   cooling: { title: 'Nothing is cooling off', body: 'Park a tempting buy for 48 hours and decide with a clear head. Walking away is recorded as a win.' },
   quests: { title: 'No quests running', body: 'Pick a short challenge — three no-spend days, say — and Pocket Ledger scores it from your ledger for you.' },
 }
@@ -81,7 +79,6 @@ export function Budgets(props: PlanData & PlanActions) {
   const [listSection, setListSection] = useState<PlanSection | null>(null)
   const [historyOpen, setHistoryOpen] = useState(false)
   const [historyFilter, setHistoryFilter] = useState<PlanHistoryFilter>('all')
-  const [now] = useState(() => Date.now())
   const [limitEditor, setLimitEditor] = useState<Budget | 'new' | null>(null)
   const [addingBill, setAddingBill] = useState(false)
   const [editingBill, setEditingBill] = useState<UpcomingExpense | null>(null)
@@ -99,7 +96,6 @@ export function Budgets(props: PlanData & PlanActions) {
   const remaining = Math.max(0, totalLimit - totalUsed)
   const spentPct = totalLimit > 0 ? Math.min(100, Math.round((totalUsed / totalLimit) * 100)) : 0
   const dueSoon = activeBills.filter((bill) => daysUntil(bill.dueDate) <= 30).length
-  const readyItems = coolingItems.filter((item) => item.status === 'ready' || new Date(item.reconsiderAt).getTime() <= now).length
   const previousMonthLimits = budgetHistory.filter((budget) => !budget.archived).length
 
   useEffect(() => {
@@ -146,8 +142,6 @@ export function Budgets(props: PlanData & PlanActions) {
 
       <section className="pl-statstrip" aria-label="Plan at a glance">
         <div><span>Bills due</span><strong className="vault-digits" style={{ color: 'var(--clay-deep)' }}>{dueSoon}</strong></div>
-        <div><span>Decisions ready</span><strong className="vault-digits" style={{ color: '#657355' }}>{readyItems}</strong></div>
-        <div><span>Quests</span><strong className="vault-digits" style={{ color: '#7C8A6B' }}>{activeQuests.length} <small>/ 3</small></strong></div>
       </section>
 
       <div className="vault-chiprow pl-plan-chips sticky top-0 z-10 -mx-[26px] bg-[var(--bone)] px-[26px] py-2">
@@ -174,7 +168,7 @@ export function Budgets(props: PlanData & PlanActions) {
         </section>
       ))}
 
-      <button className="pl-history-link" type="button" onClick={() => setHistoryOpen(true)}><span><History size={18} /><span><strong>Plan history</strong><small>Past limits, bills, decisions and quests</small></span></span><ChevronRight size={18} /></button>
+      <button className="pl-history-link" type="button" onClick={() => setHistoryOpen(true)}><span><History size={18} /><span><strong>Plan history</strong><small>Past limits and bills</small></span></span><ChevronRight size={18} /></button>
       {listSection && <ListSheet title={sections.find((item) => item.key === listSection)?.label ?? 'Plan items'} onClose={() => setListSection(null)}>{previewFor(listSection).map((item) => <MobilePlanRow key={item.id} kind={listSection} item={item as never} transactions={transactions} onOpen={() => { setListSection(null); setDetail({ kind: listSection === 'quests' ? 'quests' : listSection === 'cooling' ? 'cooling' : listSection === 'bills' ? 'bill' : 'limit', item } as DetailTarget) }} />)}</ListSheet>}
       {historyOpen && <HistorySheet budgets={budgetHistory} bills={upcomingExpenses} wishlist={wishlistItems} quests={moneyQuests} filter={historyFilter} onFilter={setHistoryFilter} onClose={() => setHistoryOpen(false)} onRestoreBudget={onRestoreBudget} onRepeatQuest={(quest) => { setHistoryOpen(false); onSaveQuest(repeatQuest(quest)) }} />}
       {detail && <DetailSheet target={detail} accounts={accounts} categories={categories} goals={goals} transactions={transactions} onClose={() => setDetail(null)} onEdit={() => { if (detail.kind === 'limit') setLimitEditor(detail.item); if (detail.kind === 'bill') setEditingBill(detail.item); if (detail.kind === 'cooling') setEditingWish(detail.item); setDetail(null) }} onArchiveLimit={(budget) => { onArchiveBudget(budget); setDetail(null) }} onPayBill={(bill) => { setPayingBill(bill); setDetail(null) }} onCancelBill={(bill) => { onCancelUpcoming(bill); setDetail(null) }} onSaveWishlist={(item) => { onSaveWishlist(item); setDetail(null) }} onRemoveWishlist={(item) => { onRemoveWishlist(item); setDetail(null) }} onBuyWishlist={(item) => { onBuyWishlist(item); setDetail(null) }} onEndQuest={(quest) => { onEndQuest(quest); setDetail(null) }} onRepeatQuest={(quest) => { onSaveQuest(repeatQuest(quest)); setDetail(null) }} />}
@@ -297,14 +291,12 @@ function PlanDetailList({ items }: { items: Array<[string, ReactNode]> }) { retu
 
 function ListSheet({ title, onClose, children }: { title: string; onClose: () => void; children: ReactNode }) { return <VaultSheet open label={`All ${title}`} onClose={onClose}><div className="pl-sheet-head"><div><p className="vault-eyebrow">Your plan</p><h2 className="vault-sheet-title text-left">All {title.toLowerCase()}</h2></div><button aria-label="Close" type="button" onClick={onClose}><X size={18} /></button></div><div className="pl-mobile-list mt-4">{children}</div></VaultSheet> }
 
-function HistorySheet({ budgets, bills, wishlist, quests, filter, onFilter, onClose, onRestoreBudget, onRepeatQuest }: { budgets: Budget[]; bills: UpcomingExpense[]; wishlist: WishlistItem[]; quests: MoneyQuest[]; filter: PlanHistoryFilter; onFilter: (filter: PlanHistoryFilter) => void; onClose: () => void; onRestoreBudget: (budget: Budget) => void; onRepeatQuest: (quest: MoneyQuest) => void }) {
+function HistorySheet({ budgets, bills, filter, onFilter, onClose, onRestoreBudget }: { budgets: Budget[]; bills: UpcomingExpense[]; wishlist: WishlistItem[]; quests: MoneyQuest[]; filter: PlanHistoryFilter; onFilter: (filter: PlanHistoryFilter) => void; onClose: () => void; onRestoreBudget: (budget: Budget) => void; onRepeatQuest: (quest: MoneyQuest) => void }) {
   const entries: Array<{ kind: PlanSection; id: string; title: string; meta: string; date: string; action?: () => void; actionLabel?: string }> = [
     ...budgets.map((item) => ({ kind: 'limits' as const, id: `budget-${item.id}`, title: item.category, meta: `${item.archived ? 'Archived' : item.periodMonth?.slice(0, 7) ?? 'Past month'} · ${money(item.amount)}`, date: item.updatedAt ?? item.periodMonth ?? '', action: item.archived ? () => onRestoreBudget(item) : undefined, actionLabel: item.archived ? 'Restore' : undefined })),
     ...bills.filter((item) => !isBillActive(item)).map((item) => ({ kind: 'bills' as const, id: `bill-${item.id}`, title: item.title, meta: `${item.status} · ${money(item.amount)}`, date: item.dueDate })),
-    ...wishlist.filter((item) => !isWishlistActive(item)).map((item) => ({ kind: 'cooling' as const, id: `wish-${item.id}`, title: item.name, meta: `${item.status.replaceAll('_', ' ')} · ${money(item.amount)}`, date: item.updatedAt ?? item.createdAt ?? '' })),
-    ...quests.filter((item) => item.status !== 'active').map((item) => ({ kind: 'quests' as const, id: `quest-${item.id}`, title: item.title, meta: item.status, date: item.updatedAt ?? item.endsOn, action: () => onRepeatQuest(item), actionLabel: 'Repeat' })),
   ].filter((item) => filter === 'all' || item.kind === filter).sort((a, b) => b.date.localeCompare(a.date))
-  return <VaultSheet open label="Plan history" onClose={onClose}><div className="pl-sheet-head"><div><p className="vault-eyebrow">Past planning</p><h2 className="vault-sheet-title text-left">Plan history</h2></div><button aria-label="Close" type="button" onClick={onClose}><X size={18} /></button></div><div className="vault-chiprow mt-4 overflow-x-auto">{(['all', 'limits', 'bills', 'cooling', 'quests'] as PlanHistoryFilter[]).map((item) => <button key={item} className={cn('vault-chip', filter === item && 'is-active')} type="button" onClick={() => onFilter(item)}>{item === 'all' ? 'All' : item === 'cooling' ? 'Cool-off' : item[0].toUpperCase() + item.slice(1)}</button>)}</div><div className="pl-history-list">{entries.map((entry) => <div key={entry.id}><span className="pl-row-icon"><History size={16} /></span><p><strong>{entry.title}</strong><small>{entry.meta}</small></p>{entry.action && <button type="button" onClick={entry.action}>{entry.actionLabel}</button>}</div>)}{entries.length === 0 && <p className="pl-empty-copy">Nothing in this part of your history yet.</p>}</div></VaultSheet>
+  return <VaultSheet open label="Plan history" onClose={onClose}><div className="pl-sheet-head"><div><p className="vault-eyebrow">Past planning</p><h2 className="vault-sheet-title text-left">Plan history</h2></div><button aria-label="Close" type="button" onClick={onClose}><X size={18} /></button></div><div className="vault-chiprow mt-4 overflow-x-auto">{(['all', 'limits', 'bills'] as PlanHistoryFilter[]).map((item) => <button key={item} className={cn('vault-chip', filter === item && 'is-active')} type="button" onClick={() => onFilter(item)}>{item === 'all' ? 'All' : item === 'cooling' ? 'Cool-off' : item[0].toUpperCase() + item.slice(1)}</button>)}</div><div className="pl-history-list">{entries.map((entry) => <div key={entry.id}><span className="pl-row-icon"><History size={16} /></span><p><strong>{entry.title}</strong><small>{entry.meta}</small></p>{entry.action && <button type="button" onClick={entry.action}>{entry.actionLabel}</button>}</div>)}{entries.length === 0 && <p className="pl-empty-copy">Nothing in this part of your history yet.</p>}</div></VaultSheet>
 }
 
 function repeatQuest(quest: MoneyQuest): MoneyQuest {

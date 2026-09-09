@@ -1,13 +1,12 @@
+import { useBackDismiss } from '../lib/backNavigation'
 import { currencySymbol, formatAmount } from '../lib/currency'
-import { ArrowRight, ArrowUpRight, Bell, ClipboardList, Eye, EyeOff, Settings, Target, UserRound } from 'lucide-react'
+import { ArrowUpRight, Bell, ClipboardList, Eye, EyeOff, Settings, Target, UserRound } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState, type Dispatch, type SetStateAction } from 'react'
 import { firstNameOf, getProfile, initialsOf } from '../lib/profile'
 import { trackEvent } from '../lib/analytics'
 import type { Account, AccountType, Budget, Category, Goal, JourneySettings, Transaction, UpcomingExpense, WishlistItem } from '../types/finance'
-import { calculateSafeSpend } from '../utils/journeyCalculations'
 import { cn } from '../utils/ui'
 import { buildAttentionItems } from '../utils/attention'
-import { SafeSpendSheet } from '../components/sheets/SafeSpendSheet'
 import { AdjustBalanceModal } from './Accounts'
 
 const nf = (value: number) => formatAmount(value)
@@ -66,11 +65,8 @@ export function Dashboard({
   goals,
   budgets,
   upcomingExpenses,
-  categories,
-  journeySettings,
   wishlistItems = [],
   onNavigate,
-  onSetupJourney,
   setAccounts,
   setTransactions,
   onAdjustBalance,
@@ -92,18 +88,17 @@ export function Dashboard({
   onNotice: (message: string) => void
 }) {
   const [showBalance, setShowBalance] = useState(true)
-  const [breakdownOpen, setBreakdownOpen] = useState(false)
   const [adjusting, setAdjusting] = useState<Account | null>(null)
   const [menuOpen, setMenuOpen] = useState(false)
   const [noticesOpen, setNoticesOpen] = useState(false)
+  useBackDismiss(menuOpen, () => setMenuOpen(false))
+  useBackDismiss(noticesOpen, () => setNoticesOpen(false))
   const [activeBalanceIndex, setActiveBalanceIndex] = useState(0)
   const balanceRailRef = useRef<HTMLDivElement>(null)
   const balanceRailFrame = useRef<number | undefined>(undefined)
   const activeBalanceCard = useRef(0)
   const profile = getProfile()
-  const safeSpend = useMemo(() => calculateSafeSpend({ accounts, budgets, categories, upcomingExpenses, settings: journeySettings }), [accounts, budgets, categories, upcomingExpenses, journeySettings])
   const recent = useMemo(() => [...transactions].sort((a, b) => new Date(b.createdAt ?? `${b.date}T23:59:59`).getTime() - new Date(a.createdAt ?? `${a.date}T23:59:59`).getTime()).slice(0, 4), [transactions])
-  const needsSetup = safeSpend.state === 'needs_setup'
   const totalBalance = useMemo(() => accounts.reduce((sum, account) => sum + account.balance, 0), [accounts])
 
   const cards = useMemo(() => [
@@ -113,7 +108,7 @@ export function Dashboard({
       label: account.name,
       amount: account.balance,
       account,
-      foot: account.includeInSafeSpend === false ? 'Excluded from safe spend' : ACCOUNT_TYPE_LABEL[account.type],
+      foot: ACCOUNT_TYPE_LABEL[account.type],
     })),
   ], [accounts, totalBalance])
 
@@ -155,7 +150,6 @@ export function Dashboard({
   })), [attention])
   const nextAction = attention[0]
 
-  const daysToPayday = safeSpend.cycle?.daysRemaining
 
   return (
     <div className="vault-screen">
@@ -251,29 +245,6 @@ export function Dashboard({
           </div>
         )}
 
-        {/* The daily number rides under the hero as a quiet line rather than
-            competing for its own card. Setup is still reachable from here. */}
-        {needsSetup ? (
-          <button className="vault-hero-sub is-action" type="button" onClick={onSetupJourney}>
-            Set your income date to unlock your daily number
-            <ArrowRight size={13} strokeWidth={2.4} />
-          </button>
-        ) : (
-          /* Tapping opens the breakdown. Kept as a sentence with a dotted
-             underline on the figure — an affordance, not a button. */
-          <button
-            aria-label={`${currencySymbol()} ${nf(safeSpend.safeToSpendToday)} safe to spend today. See how this was worked out.`}
-            className="vault-hero-sub is-explained"
-            type="button"
-            onClick={() => { setBreakdownOpen(true); trackEvent('journey_breakdown_opened', { surface: 'home', state: safeSpend.state }) }}
-          >
-            <span className="vault-hero-sub-amount">{currencySymbol()} {showBalance ? nf(safeSpend.safeToSpendToday) : '••••'}</span>
-            <span>
-              {' safe to spend today'}
-              {daysToPayday !== undefined && ` · ${daysToPayday} ${daysToPayday === 1 ? 'day' : 'days'} to payday`}
-            </span>
-          </button>
-        )}
       </section>
 
       {/* Exactly one next step, taken from the same ranking the bell uses. */}
@@ -301,14 +272,6 @@ export function Dashboard({
         setTransactions={setTransactions}
       />
 
-      <SafeSpendSheet
-        open={breakdownOpen}
-        safeSpend={safeSpend}
-        onClose={() => setBreakdownOpen(false)}
-        onNavigate={onNavigate}
-        onSetupJourney={onSetupJourney}
-      />
-
       <section aria-label="Latest entries" className="vault-recent mt-8">
         <div className="flex items-baseline justify-between">
           <h2 className="vault-h2">Recent</h2>
@@ -325,7 +288,7 @@ export function Dashboard({
 }
 
 function EntryRow({ transaction, showAmounts }: { transaction: Transaction; showAmounts: boolean }) {
-  const isIncome = transaction.type === 'income'
+  const isIncome = (transaction.type === 'income' || transaction.type === 'receivable_payment')
   const isTransfer = transaction.type === 'transfer'
   return (
     <div className="vault-row">

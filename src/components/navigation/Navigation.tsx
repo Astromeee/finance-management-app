@@ -1,11 +1,12 @@
-import { ArrowDown, ArrowLeftRight, ArrowUpRight, Calculator, Hourglass, House, List, PieChart, Plus, Target } from 'lucide-react'
+import { useBackDismiss } from '../../lib/backNavigation'
+import { ArrowDown, ArrowLeftRight, ArrowUpRight, House, List, PieChart, Plus, Target } from 'lucide-react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { useEffect, useRef, useState } from 'react'
 import { useCurrency } from '../../lib/currency'
 import { navItems } from '../../data/navigation'
 import { cn } from '../../utils/ui'
 
-export type AddAction = 'expense' | 'income' | 'transfer' | 'cooloff' | 'simulator'
+export type AddAction = 'expense' | 'income' | 'transfer'
 
 function navigate(setActivePage: (page: string) => void, page: string) {
   setActivePage(page)
@@ -44,10 +45,6 @@ const FAB_ACTIONS: Array<{ action: AddAction; label: string; circle: string; ico
   { action: 'expense', label: 'Record spent', circle: 'is-bone', icon: ArrowUpRight },
   { action: 'income', label: 'Record received', circle: 'is-clay', icon: ArrowDown },
   { action: 'transfer', label: 'Move money', circle: 'is-espresso', icon: ArrowLeftRight },
-  { action: 'cooloff', label: 'Cool off a buy', circle: 'is-dashed', icon: Hourglass },
-  /* the affordability check shares the "about to spend" moment with cool-off.
-     It had no entry point on any surface until it was added here. */
-  { action: 'simulator', label: 'Can I afford it?', circle: 'is-dashed', icon: Calculator },
 ]
 
 /* "The Vault" dock (spec §5.7) — a floating espresso pill with exactly four
@@ -63,6 +60,7 @@ const DOCKLESS_PAGES = new Set(['settings', 'categories', 'profile', 'features']
 
 export function BottomNav({ activePage, setActivePage, onAdd }: { activePage: string; setActivePage: (page: string) => void; onAdd: (action: AddAction) => void }) {
   const [menuOpen, setMenuOpen] = useState(false)
+  useBackDismiss(menuOpen, () => setMenuOpen(false))
   const menuRef = useRef<HTMLDivElement>(null)
   const fabRef = useRef<HTMLButtonElement>(null)
 

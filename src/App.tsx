@@ -1,9 +1,13 @@
+import { createPortal } from 'react-dom'
+import { detachDailyReminder } from './lib/dailyReminder'
+import { refreshFinance } from './lib/receivables'
+import { WeeklyRecap } from './components/WeeklyRecap'
 import { formatMoney, useCurrency } from './lib/currency'
 import { notifyDueBills } from './lib/notifications'
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
-import { CircleCheck } from 'lucide-react'
+import { CircleCheck, Undo2 } from 'lucide-react'
 import { AppShell } from './components/layout/AppShell'
 import { LedgerLoader } from './components/SplashScreen'
 import { accounts as initialAccounts, budgets as initialBudgets, debts as initialDebts, expenseCategories as initialExpenseCategories, goals as initialGoals, incomeSources as initialIncomeSources, transactions as initialTransactions, upcomingExpenses as initialUpcomingExpenses } from './data/mockData'
@@ -19,15 +23,12 @@ import { isSupabaseConfigured, supabase } from './lib/supabase'
 import { AuthCallback, AuthPage } from './pages/Auth'
 import { LegalPage } from './pages/Legal'
 import type { Account, Budget, Category, Debt, DebtCategory, DebtStatus, Goal, JourneySettings, MoneyQuest, MoneyWin, RecurringFrequency, Transaction, UpcomingExpense, WishlistItem } from './types/finance'
-import { calculateSafeSpend, rollIncomeDateForward } from './utils/journeyCalculations'
-import { resolveQuestStatus } from './utils/retention'
+import { rollIncomeDateForward } from './utils/journeyCalculations'
 
 const AddGoalModal = lazy(() => import('./components/forms/FinanceActionModals').then((module) => ({ default: module.AddGoalModal })))
 const DebtPaymentModal = lazy(() => import('./components/forms/FinanceActionModals').then((module) => ({ default: module.DebtPaymentModal })))
 const RecordSheet = lazy(() => import('./components/sheets/RecordSheet').then((module) => ({ default: module.RecordSheet })))
 const MoveSheet = lazy(() => import('./components/sheets/MoveSheet').then((module) => ({ default: module.MoveSheet })))
-const CoolOffSheet = lazy(() => import('./components/sheets/CoolOffSheet').then((module) => ({ default: module.CoolOffSheet })))
-const PurchaseSimulator = lazy(() => import('./components/PurchaseSimulator').then((module) => ({ default: module.PurchaseSimulator })))
 const Accounts = lazy(() => import('./pages/Accounts').then((module) => ({ default: module.Accounts })))
 const Budgets = lazy(() => import('./pages/Budgets').then((module) => ({ default: module.Budgets })))
 const Dashboard = lazy(() => import('./pages/Dashboard').then((module) => ({ default: module.Dashboard })))
@@ -40,7 +41,7 @@ const Transactions = lazy(() => import('./pages/Transactions').then((module) => 
 const Onboarding = lazy(() => import('./pages/Onboarding').then((module) => ({ default: module.Onboarding })))
 const Features = lazy(() => import('./pages/Features').then((module) => ({ default: module.Features })))
 
-type ActionModal = 'income' | 'expense' | 'transfer' | 'cooloff' | 'goal' | 'debt' | 'simulator' | null
+type ActionModal = 'income' | 'expense' | 'transfer' | 'goal' | 'debt' | null
 type ToastState = { message: string; actionLabel?: string; onAction?: () => void | Promise<void> }
 
 const defaultJourneySettings: JourneySettings = {
@@ -227,29 +228,26 @@ function App() {
 
   const setActivePage = useCallback((page: string) => {
     const previewQuery = designPreview ? '?vault-preview' : ''
-    navigate(`${page === 'dashboard' ? '/app' : `/app/${page}`}${previewQuery}`)
-  }, [designPreview, navigate])
+    if (page === 'dashboard' && activePage !== 'dashboard') navigate(-1)
+    else navigate(`${page === 'dashboard' ? '/app' : `/app/${page}`}${previewQuery}`, { replace: activePage !== 'dashboard', state: { pocketHome: true } })
+  }, [activePage, designPreview, navigate])
 
+  useEffect(() => {
+    if (!location.pathname.startsWith('/app/') || (window.history.state?.pocketHome || window.history.state?.usr?.pocketHome)) return
+    const path = window.location.href
+    const state = window.history.state
+    window.history.replaceState({ ...state, pocketHome: true }, '', `/app${designPreview ? '?vault-preview' : ''}`)
+    window.history.pushState({ ...state, pocketHome: true, idx: (state?.idx ?? 0) + 1 }, '', path)
+  }, [designPreview, location.pathname])
+
+  useEffect(() => {
+    if (!financeUserId || designPreview) return
+    let live = true
+    const refresh = () => { void loadFinanceData().then((data) => { if (!live) return; setAccounts(applyAccountOrder(data.accounts)); setTransactions(data.transactions); setDebts(data.debts); setGoals(data.goals); setBudgets(data.budgets) }).catch(() => showToast('Could not refresh your ledger. Please reload.')) }
+    window.addEventListener('pocket-finance-refresh', refresh)
+    return () => { live = false; window.removeEventListener('pocket-finance-refresh', refresh) }
+  }, [financeUserId, designPreview, showToast])
   useEffect(() => onProfileChange(setProfileState), [])
-
-  const reconcileActiveQuest = useCallback((nextTransactions: Transaction[]) => {
-    const settled = moneyQuests.flatMap((quest) => {
-      if (quest.status !== 'active') return []
-      const status = resolveQuestStatus(quest, nextTransactions, localDateKey())
-      return status ? [{ previous: quest, next: { ...quest, status } }] : []
-    })
-    if (!settled.length) return
-    const byId = new Map(settled.map(({ next }) => [next.id, next]))
-    setMoneyQuests((current) => current.map((quest) => byId.get(quest.id) ?? quest))
-    settled.forEach(({ previous, next }) => {
-      void saveMoneyQuest(next).catch((error) => showToast(error instanceof Error ? error.message : 'Could not update your quest'))
-      if (next.status === 'completed') {
-        awardMoneyWin({ id: `quest-completed:${previous.id}`, type: 'quest_completed', title: 'Weekly quest completed', detail: previous.title, earnedAt: new Date().toISOString() })
-        trackEvent('quest_completed', { surface: 'plan', action: 'complete' })
-      } else trackEvent('quest_ended', { surface: 'plan', action: 'expire' })
-    })
-    showToast(settled.length === 1 ? 'Quest progress updated' : `${settled.length} quests updated`)
-  }, [awardMoneyWin, moneyQuests, showToast])
 
   useEffect(() => {
     if (!supabase) return
@@ -324,7 +322,6 @@ function App() {
   const addTransaction = (transaction: Transaction) => {
     const nextTransaction = { ...transaction, createdAt: new Date().toISOString() }
     setTransactions((current) => [nextTransaction, ...current])
-    reconcileActiveQuest([nextTransaction, ...transactions])
   }
 
   const updateAccountBalance = (accountId: string, delta: number) => {
@@ -354,6 +351,7 @@ function App() {
   }
 
   const applyTransactionEffect = (transaction: Transaction, direction: 1 | -1) => {
+    if (transaction.type === 'receivable_payment' && transaction.accountId) { updateAccountBalance(transaction.accountId, direction * transaction.amount); refreshFinance() }
     if (transaction.type === 'income' && transaction.accountId) {
       updateAccountBalance(transaction.accountId, direction * transaction.amount)
     }
@@ -443,6 +441,16 @@ function App() {
     })
   }
 
+  const signOut = async () => {
+    try { await detachDailyReminder(); await supabase?.auth.signOut() }
+    catch { showToast('Could not sign out safely. Check your connection and try again.') }
+  }
+  useEffect(() => {
+    if (!(financeUserId || designPreview) || !dataReady || !onboardingCompleted) return
+    if (new URLSearchParams(location.search).get('record') !== 'expense') return
+    const timer = window.setTimeout(() => { setActiveModal('expense'); navigate(`/app${designPreview ? '?vault-preview' : ''}`, { replace: true }) }, 0)
+    return () => clearTimeout(timer)
+  }, [financeUserId, designPreview, dataReady, onboardingCompleted, location.search, navigate])
   const accountsWithSavings = accounts
 
   const addUpcoming = (payload: UpcomingPayload) => {
@@ -459,11 +467,11 @@ function App() {
     showToast('Upcoming bill updated')
   }
 
-  const removeUpcoming = (expenseId: string) => {
+  const removeUpcoming = async (expenseId: string) => {
     const expense = upcomingExpenses.find((item) => item.id === expenseId)
     if (!expense) return
     const cancelled = { ...expense, status: 'cancelled' as const }
-    if (!designPreview) void saveUpcomingExpense(cancelled).catch((error) => showToast(error.message))
+    try { if (!designPreview) await saveUpcomingExpense(cancelled) } catch (error) { showToast(error instanceof Error ? error.message : "Could not remove bill"); return }
     setUpcomingExpenses((current) => current.map((item) => item.id === expenseId ? cancelled : item))
     showToast('Bill moved to history', {
       label: 'Undo',
@@ -520,11 +528,11 @@ function App() {
     showToast(`${copies.length} ${copies.length === 1 ? 'limit' : 'limits'} copied`)
   }
 
-  const removeGoal = (goalId: string) => {
+  const removeGoal = async (goalId: string) => {
     const goal = goals.find((item) => item.id === goalId)
     if (!goal) return
+    try { if (!designPreview) await deleteGoal(goalId) } catch (error) { showToast(error instanceof Error ? error.message : "Could not delete goal"); return }
     setGoals((current) => current.filter((item) => item.id !== goalId))
-    if (!designPreview) void deleteGoal(goalId).catch((error) => showToast(error.message))
     showToast('Goal deleted', {
       label: 'Undo',
       run: async () => {
@@ -537,6 +545,20 @@ function App() {
         }
       },
     })
+  }
+
+  const removeDebt = async (debtId: string) => {
+    const debt = debts.find((item) => item.id === debtId)
+    if (!debt) return
+    try { if (!designPreview) await deleteDebt(debtId) } catch (error) { showToast(error instanceof Error ? error.message : 'Could not delete debt'); return }
+    setDebts((current) => current.filter((item) => item.id !== debtId))
+    showToast('Debt deleted', { label: 'Undo', run: async () => {
+      try {
+        if (!designPreview) await saveDebt(debt)
+        setDebts((current) => current.some((item) => item.id === debt.id) ? current : [debt, ...current])
+        showToast('Debt restored')
+      } catch (error) { showToast(error instanceof Error ? error.message : 'Could not restore debt') }
+    } })
   }
 
   const payUpcoming = async (expense: UpcomingExpense, { accountId, paymentDate, notes }: { accountId: string; paymentDate: string; notes?: string }) => {
@@ -602,11 +624,7 @@ function App() {
             setDebts((current) => current.map((item) => item.id === debtId ? updateDebtFromPayload(item, payload) : item))
             showToast('Debt item updated')
           }}
-          onDeleteDebt={(debtId) => {
-            void deleteDebt(debtId).catch((error) => showToast(error.message))
-            setDebts((current) => current.filter((debt) => debt.id !== debtId))
-            showToast('Debt deleted')
-          }}
+          onDeleteDebt={removeDebt}
           onAddSavings={async ({ goalId, amount, accountId, date, notes }) => {
             const goal = goals.find((item) => item.id === goalId)
             const account = accountsWithSavings.find((item) => item.id === accountId)
@@ -703,7 +721,7 @@ function App() {
     },
     budgets: {
       title: 'Plan',
-      subtitle: 'Budgets, bills, and considered purchases',
+      subtitle: 'Budgets and bills',
       component: <Budgets
         budgets={budgets}
         budgetHistory={budgetHistory}
@@ -774,12 +792,12 @@ function App() {
         <Reports
           transactions={transactions}
           journeySettings={journeySettings}
-          moneyWins={moneyWins}
+          moneyWins={moneyWins.filter((win) => win.type !== 'quest_completed' && win.type !== 'wishlist_skipped')}
         />
       ),
     },
     categories: { title: 'Categories', subtitle: 'Manage your categories', component: <Categories categories={categories} transactions={transactions} onNavigate={setActivePage} onSaveCategory={async (category) => { if (!designPreview) await saveCategory(category); setCategories((current) => [...current.filter((item) => item.id !== category.id), category]) }} onArchiveCategory={async (id) => { if (!designPreview) await archiveCategory(id); setCategories((current) => current.filter((item) => item.id !== id)) }} /> },
-    settings: { title: 'Settings', subtitle: 'Preferences and data tools', component: <Settings accounts={accounts} authEmail={authEmail} authProvider={authProvider} budgets={budgets} categories={categories} debts={debts} expenseCategories={expenseCategoryNames} goals={goals} incomeCategories={incomeCategoryNames} profile={profile} transactions={transactions} upcomingExpenses={upcomingExpenses} journeySettings={journeySettings} analyticsConsent={journeySettings.analyticsConsent} onAnalyticsConsentChange={(analyticsConsent) => { const next = { ...journeySettings, analyticsConsent }; setJourneySettings(next); void saveJourneySettings(next, true) }} onNavigate={setActivePage} onRestartTour={() => navigate('/onboarding')} onProfileChange={(next) => { setProfile(next); setProfileState(next); void saveUserSettings(next, true) }} onSaveCategory={async (category) => { if (!designPreview) await saveCategory(category); setCategories((current) => [...current.filter((item) => item.id !== category.id), category]) }} onArchiveCategory={async (id) => { if (!designPreview) await archiveCategory(id); setCategories((current) => current.filter((item) => item.id !== id)) }} onSaveBudget={async (budget) => { await saveBudget(budget); setBudgets((current) => [...current.filter((item) => item.id !== budget.id), budget]) }} onDeleteBudget={async (id) => { await deleteBudget(id); setBudgets((current) => current.filter((item) => item.id !== id)) }} onSignOut={() => supabase?.auth.signOut()} /> },
+    settings: { title: 'Settings', subtitle: 'Preferences and data tools', component: <Settings accounts={accounts} authEmail={authEmail} authProvider={authProvider} budgets={budgets} categories={categories} debts={debts} expenseCategories={expenseCategoryNames} goals={goals} incomeCategories={incomeCategoryNames} profile={profile} transactions={transactions} upcomingExpenses={upcomingExpenses} journeySettings={journeySettings} analyticsConsent={journeySettings.analyticsConsent} onAnalyticsConsentChange={(analyticsConsent) => { const next = { ...journeySettings, analyticsConsent }; setJourneySettings(next); void saveJourneySettings(next, true) }} onNavigate={setActivePage} onRestartTour={() => navigate('/onboarding')} onProfileChange={(next) => { setProfile(next); setProfileState(next); void saveUserSettings(next, true) }} onSaveCategory={async (category) => { if (!designPreview) await saveCategory(category); setCategories((current) => [...current.filter((item) => item.id !== category.id), category]) }} onArchiveCategory={async (id) => { if (!designPreview) await archiveCategory(id); setCategories((current) => current.filter((item) => item.id !== id)) }} onSaveBudget={async (budget) => { await saveBudget(budget); setBudgets((current) => [...current.filter((item) => item.id !== budget.id), budget]) }} onDeleteBudget={async (id) => { await deleteBudget(id); setBudgets((current) => current.filter((item) => item.id !== id)) }} onSignOut={() => void signOut()} /> },
     profile: { title: 'Profile', subtitle: 'Your name and photo', component: <ProfilePage onBack={() => setActivePage('dashboard')} /> },
     features: { title: 'Guide', subtitle: 'What Pocket Ledger can do', component: <Features onNavigate={setActivePage} /> },
   }
@@ -795,9 +813,8 @@ function App() {
       onAdd={(action) => {
         setExpenseDraft(undefined)
         setActiveModal(action)
-        if (action === 'simulator') trackEvent('simulator_opened', { surface: 'home' })
       }}
-      onSignOut={() => { void supabase?.auth.signOut() }}
+      onSignOut={() => void signOut()}
       onRecordEntry={({ direction, amount, category, accountId, date, notes }) => {
         const account = accountsWithSavings.find((item) => item.id === accountId)
         if (!account || amount <= 0) return
@@ -912,11 +929,7 @@ function App() {
         if (!designPreview) void saveDebt(next).catch((error) => showToast(error.message))
         showToast('Debt updated')
       }}
-      onDeleteDebt={(debtId) => {
-        setDebts((current) => current.filter((item) => item.id !== debtId))
-        if (!designPreview) void deleteDebt(debtId).catch((error) => showToast(error.message))
-        showToast('Debt deleted')
-      }}
+      onDeleteDebt={removeDebt}
       onPayDebt={({ debtId, amount, accountId, date, notes }) => {
         const debt = debts.find((item) => item.id === debtId)
         const account = accountsWithSavings.find((item) => item.id === accountId)
@@ -1008,7 +1021,8 @@ function App() {
         wishlistItems,
       }}
     >
-      {toast && <div aria-live="polite" className="pl-action-toast" data-testid="action-toast" role="status"><CircleCheck aria-hidden="true" className="pl-action-toast-icon" size={18} strokeWidth={1.9} /><span>{toast.message}</span>{toast.onAction && <button className="pl-action-toast-button" type="button" onClick={() => { const action = toast.onAction; setToast(null); if (toastTimer.current !== undefined) window.clearTimeout(toastTimer.current); void action?.() }}>{toast.actionLabel}</button>}</div>}
+      {toast && createPortal(<div aria-live="polite" className="pl-action-toast" data-testid="action-toast" role="status"><CircleCheck aria-hidden="true" className="pl-action-toast-icon" size={18} strokeWidth={1.9} /><span>{toast.message}</span>{toast.onAction && <button className="pl-action-toast-button" type="button" onClick={() => { const action = toast.onAction; setToast(null); if (toastTimer.current !== undefined) window.clearTimeout(toastTimer.current); void action?.() }} aria-label={toast.actionLabel} title={toast.actionLabel}><Undo2 size={17} aria-hidden="true" /></button>}</div>, document.body)}
+      <WeeklyRecap transactions={transactions} userId={financeUserId ?? "preview"} enabled={(dataReady || designPreview) && (onboardingCompleted || designPreview)} />
       <div className="mobile-page-content"><Suspense fallback={<LedgerLoader label="Loading screen" />}>{(pages[activePage] ?? pages.dashboard).component}</Suspense></div>
       <Suspense fallback={null}>
       {(activeModal === 'income' || activeModal === 'expense') && <RecordSheet
@@ -1019,7 +1033,6 @@ function App() {
         expenseCategories={expenseCategoryNames}
         incomeCategories={incomeCategoryNames}
         transactions={transactions}
-        safeSpend={calculateSafeSpend({ accounts: accountsWithSavings, budgets, categories, upcomingExpenses, settings: journeySettings })}
         initialAmount={expenseDraft?.amount}
         initialCategory={expenseDraft?.category}
         onClose={() => { setActiveModal(null); setExpenseDraft(undefined) }}
@@ -1060,11 +1073,9 @@ function App() {
           setExpenseDraft(undefined)
         }}
       />}
-      {activeModal === 'simulator' && <PurchaseSimulator open safeSpend={calculateSafeSpend({ accounts, budgets, categories, upcomingExpenses, settings: journeySettings })} categories={categories} onClose={() => setActiveModal(null)} onManageCategories={() => { setActiveModal(null); setActivePage('settings'); trackEvent('category_management_opened', { surface: 'home' }) }} onRecordExpense={(draft) => { setExpenseDraft(draft); setActiveModal('expense'); trackEvent('simulator_expense_handoff', { surface: 'home' }) }} />}
       {activeModal === 'transfer' && <MoveSheet
         open
         accounts={accountsWithSavings}
-        safeSpend={calculateSafeSpend({ accounts: accountsWithSavings, budgets, categories, upcomingExpenses, settings: journeySettings })}
         onClose={() => setActiveModal(null)}
         onSubmit={async ({ amount, fromAccountId, toAccountId, date, notes }) => {
           const from = accountsWithSavings.find((item) => item.id === fromAccountId)
@@ -1081,16 +1092,6 @@ function App() {
           updateAccountBalance(toAccountId, amount)
           addTransaction({ id: transactionId, title: 'Transfer', type: 'transfer', amount, category: 'Transfer', account: `${from.name} to ${to.name}`, fromAccountId, toAccountId, date, notes })
           showToast('Transfer completed')
-        }}
-      />}
-      {activeModal === 'cooloff' && <CoolOffSheet
-        open
-        categories={categories}
-        onClose={() => setActiveModal(null)}
-        onSave={(item) => {
-          void saveWishlistItem(item).catch((error) => showToast(error.message))
-          setWishlistItems((current) => [item, ...current.filter((entry) => entry.id !== item.id)])
-          showToast('Parked in Cooling off')
         }}
       />}
       {activeModal === 'goal' && <AddGoalModal

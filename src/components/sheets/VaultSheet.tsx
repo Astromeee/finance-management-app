@@ -1,3 +1,5 @@
+import { createPortal } from 'react-dom'
+import { useBackDismiss } from '../../lib/backNavigation'
 import { animate, motion, useMotionValue } from 'framer-motion'
 import { useEffect, useRef, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react'
 import { hapticTap } from './numpad'
@@ -23,6 +25,7 @@ export function VaultSheet({
   onClose: () => void
   children: ReactNode
 }) {
+  useBackDismiss(open, onClose)
   const y = useMotionValue(0)
   const dialogRef = useRef<HTMLElement>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
@@ -101,7 +104,7 @@ export function VaultSheet({
     else animate(y, 0, { type: 'spring', stiffness: 420, damping: 38 })
   }
 
-  return (
+  return createPortal(
     <div className="vault-sheet-scrim" onPointerDown={onClose}>
       <motion.section
         ref={dialogRef}
@@ -124,7 +127,7 @@ export function VaultSheet({
           {children}
         </div>
       </motion.section>
-    </div>
+    </div>, document.body
   )
 }
 

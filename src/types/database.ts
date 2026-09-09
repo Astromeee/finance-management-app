@@ -1,3 +1,4 @@
+import type { Receivable } from './receivable'
 export type Json =
   | string
   | number
@@ -14,6 +15,24 @@ export type Database = {
   }
   public: {
     Tables: {
+      receivables: {
+        Row: Receivable & { user_id: string }
+        Insert: { user_id: string; id: string; person: string; amount: number; due_date?: string | null; notes?: string | null; archived?: boolean; created_at?: string }
+        Update: { person?: string; amount?: number; due_date?: string | null; notes?: string | null; archived?: boolean }
+        Relationships: []
+      }
+      receivable_events: {
+        Row: { user_id: string; id: string; receivable_id: string; kind: 'write_off' | 'repayment' | 'repayment_reversed'; amount: number; created_at: string }
+        Insert: never
+        Update: never
+        Relationships: []
+      }
+      push_subscriptions: {
+        Row: { user_id: string; endpoint: string; p256dh: string; auth: string; timezone: string; reminder_time: string; enabled: boolean; last_sent_date: string | null; created_at: string }
+        Insert: { user_id: string; endpoint: string; p256dh: string; auth: string; timezone: string; reminder_time: string; enabled: boolean }
+        Update: { p256dh?: string; auth?: string; timezone?: string; reminder_time?: string; enabled?: boolean }
+        Relationships: []
+      }
       accounts: {
         Row: {
           activity: string
@@ -751,6 +770,8 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      record_receivable_payment: { Args: { p_id: string; p_action: Json }; Returns: Json }
+      write_off_receivable: { Args: { p_id: string }; Returns: undefined }
       adjust_account_balance: {
         Args: { p_account: Json; p_action: Json }
         Returns: Json

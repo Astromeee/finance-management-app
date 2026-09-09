@@ -1,4 +1,4 @@
-import { ArrowRight, Calculator, CalendarDays, ChevronLeft, Clock3, CreditCard, Flag, List, PieChart, Target, Wallet } from 'lucide-react'
+import { ArrowRight, CalendarDays, ChevronLeft, CreditCard, List, PieChart, Target, Wallet } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
 /**
@@ -24,25 +24,23 @@ const GROUPS: Array<{ label: string; features: Feature[] }> = [
   {
     label: 'Every day',
     features: [
-      { id: 'safe', icon: Wallet, title: 'Safe to spend today', body: 'One number on Home, with bills and your safety reserve already taken out. Tap it to see exactly how it was worked out.', page: 'dashboard' },
       { id: 'record', icon: List, title: 'Record what you spend', body: 'Money in, money out, and transfers between your accounts. The + button opens it from any screen.', page: 'transactions' },
       { id: 'wallet', icon: CreditCard, title: 'Your wallet', body: 'Cash, bank and mobile wallet balances in one place. Tap a balance on Home to correct it.', page: 'accounts' },
     ],
   },
   {
-    label: 'Before you spend',
+    label: 'Your plan',
     features: [
-      { id: 'afford', icon: Calculator, title: 'Can I afford it?', body: 'Enter an amount and see what it does to today and to the rest of your cycle before you commit.', hint: 'Tap + on any screen' },
-      { id: 'cooloff', icon: Clock3, title: 'Cool off a buy', body: 'Park a tempting purchase for 48 hours and decide with a clear head. Walking away is recorded as a win.', page: 'budgets' },
       { id: 'limits', icon: PieChart, title: 'Spending limits', body: 'Cap a category like Dining Out and get warned as it fills up, not after it has run over.', page: 'budgets' },
     ],
   },
   {
     label: 'Staying ahead',
     features: [
-      { id: 'bills', icon: CalendarDays, title: 'Scheduled bills', body: 'Rent, subscriptions and instalments are set aside from your daily number before you can spend them.', page: 'budgets' },
+      { id: 'bills', icon: CalendarDays, title: 'Scheduled bills', body: 'Keep rent, subscriptions and instalment due dates in view.', page: 'budgets' },
       { id: 'paths', icon: Target, title: 'Paths', body: 'Savings goals and money you owe, with what each one still needs and by when.', page: 'goals' },
-      { id: 'quests', icon: Flag, title: 'Weekly quests', body: 'Pick a short challenge — three no-spend days, say — and it scores itself from your ledger.', page: 'budgets' },
+      { id: 'recap', icon: CalendarDays, title: 'Your Sunday recap', body: 'A small weekly summary, always available in Insights.', page: 'reports' },
+      { id: 'receivables', icon: Wallet, title: 'Owed to me', body: 'Track repayments and write off amounts you no longer expect to collect.', page: 'goals' },
       { id: 'insights', icon: PieChart, title: 'Insights', body: 'Where the money actually went, which category leads, and how this cycle compares with the last.', page: 'reports' },
     ],
   },
@@ -57,7 +55,7 @@ export function Features({ onNavigate }: { onNavigate: (page: string) => void })
       </header>
 
       <h1 className="vault-title">What Pocket Ledger <em>can do.</em></h1>
-      <p className="vault-sheet-note mt-3">Ten things the app does for you. Tap any of them to go straight there.</p>
+      <p className="vault-sheet-note mt-3">A few ways to keep track. Tap any of them to go straight there.</p>
 
       {GROUPS.map((group) => (
         <section key={group.label} className="mt-7">

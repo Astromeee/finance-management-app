@@ -89,7 +89,8 @@ describe('home screen', () => {
     expect(cards[0].textContent).toContain('Across 2 accounts')
     // the card foot no longer carries the meaningless "updated just now" tag
     expect(cards[0].textContent).not.toContain('updated just now')
-    expect(cards[2].textContent).toContain('Excluded from safe spend')
+    expect(cards[2].textContent).toContain('Bank')
+    expect(container.textContent).not.toContain('safe spend')
   })
 
   it('promotes only the single top-ranked attention item', async () => {
@@ -111,12 +112,11 @@ describe('home screen', () => {
     expect(container.querySelector('.vault-next')).toBeFalsy()
   })
 
-  it('offers the setup route when the income cycle is incomplete', async () => {
+  it('does not require allowance setup when the income cycle is incomplete', async () => {
     const { onSetupJourney } = await render()
     const sub = container.querySelector<HTMLButtonElement>('.vault-hero-sub.is-action')
-    expect(sub).toBeTruthy()
-    await act(async () => sub!.click())
-    expect(onSetupJourney).toHaveBeenCalled()
+    expect(sub).toBeNull()
+    expect(onSetupJourney).not.toHaveBeenCalled()
   })
 
   it('moves the pager dot as the carousel is swiped', async () => {

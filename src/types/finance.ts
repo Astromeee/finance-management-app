@@ -1,7 +1,7 @@
 import type { LucideIcon } from 'lucide-react'
 
 export type AccountType = 'cash' | 'bank' | 'wallet'
-export type TransactionType = 'income' | 'expense' | 'transfer' | 'goal' | 'debt' | 'goal_saving' | 'debt_payment'
+export type TransactionType = 'income' | 'expense' | 'transfer' | 'goal' | 'debt' | 'goal_saving' | 'debt_payment' | 'receivable_payment'
 export type Status = 'Active' | 'Completed' | 'Overdue'
 export type DebtCategory = 'Debt' | 'Overdue Payment' | 'Money I Owe' | 'Installment' | 'Other'
 export type DebtStatus = 'Active' | 'Due Soon' | 'Overdue' | 'Paid'
@@ -168,6 +168,7 @@ export interface Transaction {
   fromAccountId?: string
   toAccountId?: string
   goalId?: string
+  receivableId?: string
   debtId?: string
   paymentMethod?: string
   date: string

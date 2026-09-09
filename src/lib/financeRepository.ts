@@ -68,6 +68,7 @@ function transactionFromRow(row: Row): Transaction {
     toAccountId: row.to_account_id as string | undefined,
     goalId: row.goal_id as string | undefined,
     debtId: row.debt_id as string | undefined,
+    receivableId: row.receivable_id as string | undefined,
     paymentMethod: row.payment_method as string | undefined,
     date: value(row, 'transaction_date'),
     notes: row.notes as string | undefined,

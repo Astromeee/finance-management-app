@@ -1,7 +1,7 @@
 import { currencySymbol, formatMoney } from '../../lib/currency'
 import { ArrowDownUp, PencilLine } from 'lucide-react'
 import { useMemo, useState } from 'react'
-import type { Account, SafeSpendResult } from '../../types/finance'
+import type { Account } from '../../types/finance'
 import { cn } from '../../utils/ui'
 import { Numpad, VaultSheet } from './VaultSheet'
 import { formatAmount, hapticTap, pressKey } from './numpad'
@@ -48,13 +48,11 @@ function tileName(account: Account) {
 export function MoveSheet({
   open,
   accounts,
-  safeSpend,
   onClose,
   onSubmit,
 }: {
   open: boolean
   accounts: Account[]
-  safeSpend: SafeSpendResult
   onClose: () => void
   onSubmit: (payload: MovePayload) => void
 }) {
@@ -80,28 +78,7 @@ export function MoveSheet({
     ]
   }, [from])
 
-  /* Safe-spend note (18a §4): neutral when the pool doesn't change, clay
-     warning with the recomputed Safe today when money leaves it. */
-  const note = useMemo(() => {
-    if (!from || !to || safeSpend.state === 'needs_setup') return null
-    const fromIn = from.includeInSafeSpend !== false
-    const toIn = to.includeInSafeSpend !== false
-    const days = Math.max(1, safeSpend.cycle?.daysRemaining ?? 1)
-    if (fromIn === toIn) {
-      return {
-        warn: false,
-        text: fromIn
-          ? <>Both count toward safe spend — today&rsquo;s number doesn&rsquo;t move.</>
-          : <>Neither account counts toward safe spend — today&rsquo;s number doesn&rsquo;t move.</>,
-      }
-    }
-    if (!toIn) {
-      const after = Math.floor(Math.max(0, safeSpend.flexibleMoneyRemaining - amount) / days)
-      return { warn: true, text: <>{shortName(to)} is outside safe spend — Safe today drops to <strong>{money(after)}</strong>.</> }
-    }
-    const after = Math.floor(Math.max(0, safeSpend.flexibleMoneyRemaining + amount) / days)
-    return { warn: false, text: <>{shortName(from)} joins safe spend — Safe today grows to <strong>{money(after)}</strong>.</> }
-  }, [from, to, amount, safeSpend])
+
 
   const swap = () => {
     hapticTap()
@@ -166,7 +143,7 @@ export function MoveSheet({
         <div className="vault-outline mt-3 px-4 py-1" role="listbox" aria-label={picking === 'from' ? 'Move from which account?' : 'Move to which account?'}>
           {accounts.map((account) => (
             <button key={account.id} className="vault-row" role="option" aria-selected={account.id === (picking === 'from' ? fromId : toId)} type="button" onClick={() => pick(account.id)}>
-              <span className={cn('vault-row-dot', account.includeInSafeSpend === false ? 'is-paid' : 'is-in')} />
+              <span className="vault-row-dot is-in" />
               <span className="vault-row-main"><span className="vault-row-title block">{account.name}</span></span>
               <span className="vault-row-amount">{money(account.balance)}</span>
             </button>
@@ -188,7 +165,7 @@ export function MoveSheet({
       )}
       {insufficient
         ? <p className="vault-impact-note is-warn mt-1.5">That&rsquo;s more than {from ? shortName(from) : 'this account'} holds.</p>
-        : note && <p className={cn('vault-impact-note mt-1.5', note.warn && 'is-warn')}>{note.text}</p>}
+        : null}
 
       {/* Quick-amount chips */}
       <div className="mt-4 flex flex-wrap justify-center gap-2">

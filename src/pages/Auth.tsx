@@ -106,7 +106,7 @@ export function AuthPage({ mode }: { mode: AuthMode }) {
   }
 
   const copy = {
-    login: { kicker: 'Welcome back', lead: 'Good to see you', accent: 'again.', support: 'Today’s safe-to-spend is counted and waiting.', cta: 'Log in' },
+    login: { kicker: 'Welcome back', lead: 'Good to see you', accent: 'again.', support: 'Your ledger is ready when you are.', cta: 'Log in' },
     signup: { kicker: 'Two minutes, no card', lead: 'Start your', accent: 'ledger.', support: 'Know what is safe to spend, with your data kept private to your account.', cta: 'Create account' },
     forgot: { kicker: 'Reset your password', lead: 'Let us get you back', accent: 'in.', support: 'We will send a secure reset link to your email.', cta: 'Send reset link' },
     reset: { kicker: 'New password', lead: 'Choose something', accent: 'only you know.', support: 'Use a strong password you do not use anywhere else.', cta: 'Update password' },

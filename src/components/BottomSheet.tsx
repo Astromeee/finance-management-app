@@ -1,3 +1,4 @@
+import { useBackDismiss } from '../lib/backNavigation'
 import { X } from 'lucide-react'
 import { animate, motion, useMotionValue } from 'framer-motion'
 import { useEffect, useId, useRef, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react'
@@ -27,6 +28,7 @@ export function BottomSheet({
   onClose: () => void
   children: ReactNode
 }) {
+  useBackDismiss(open, onClose)
   const y = useMotionValue(0)
   const titleId = useId()
   const descriptionId = useId()

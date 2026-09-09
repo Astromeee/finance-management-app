@@ -8,8 +8,7 @@ import { StepTracker, type TrackerStep } from '../components/auth/StepTracker'
 import { localDateKey } from '../lib/date'
 import { trackEvent } from '../lib/analytics'
 import { parseWholePkr } from '../lib/money'
-import { BILL_CATEGORY_OPTIONS, billsToUpcomingExpenses, billsTotal, type OnboardingBill } from '../lib/onboardingBills'
-import { calculateSafeSpend } from '../utils/journeyCalculations'
+import { BILL_CATEGORY_OPTIONS, billsTotal, type OnboardingBill } from '../lib/onboardingBills'
 import type { Account, AccountType, IncomeSourceType, JourneySettings } from '../types/finance'
 import { cn } from '../utils/ui'
 
@@ -40,7 +39,7 @@ const TRACKER_STEPS: TrackerStep[] = [
   { title: 'Income source', detail: 'How money reaches you' },
   { title: 'Income timing', detail: 'When the next one lands' },
   { title: 'Fixed bills', detail: 'What must be paid' },
-  { title: 'All set', detail: 'Your first safe number' },
+  { title: 'All set', detail: 'Your ledger is ready' },
 ]
 
 const sourceOptions: Array<{ id: IncomeSourceType; title: string; detail: string; icon: typeof Landmark }> = [
@@ -388,38 +387,27 @@ function BillsStep({ bills, setBills }: { bills: OnboardingBill[]; setBills: (va
 }
 
 function RevealStep({ account, bills, name, settings }: { account: Account; bills: OnboardingBill[]; name: string; settings: JourneySettings }) {
-  const safeSpend = useMemo(() => calculateSafeSpend({
-    accounts: [account],
-    budgets: [],
-    categories: [],
-    upcomingExpenses: billsToUpcomingExpenses(bills),
-    settings,
-  }), [account, bills, settings])
-
   const total = billsTotal(bills)
-  const cycleDays = safeSpend.cycle?.totalDays ?? 30
-  const dailyFlow = Math.max(0, Math.floor((settings.typicalIncome - total) / Math.max(1, cycleDays)))
-  const ready = safeSpend.state !== 'needs_setup'
   // The stored default is a placeholder, not something to greet someone by.
   const greeting = name.trim() === 'Pocket Ledger user' ? '' : name.trim()
-  const counted = useCountUp(ready ? safeSpend.safeToSpendToday : 0, ready)
+  const counted = useCountUp(account.balance, true)
 
   return <div>
     <StepHeading
       kicker="You are all set"
-      lead={greeting ? 'You are all set,' : 'Here is your first'}
-      accent={greeting ? `${greeting}.` : 'safe number.'}
-      support="Here is the only number you need for today. It already sets aside every bill you added."
+      lead={greeting ? 'You are all set,' : 'Ready for your'}
+      accent={greeting ? `${greeting}.` : 'next chapter.'}
+      support="Your account and bills are ready. Record your first entry whenever you like."
     />
     <div className="ao-ink-card mt-7 text-center">
-      <p className="ao-ink-label">Safe to spend today</p>
-      <p className="ao-hero-figure"><small>{currencySymbol()}</small>{ready ? nf(counted) : '···'}</p>
-      <p className="ao-hero-note">{ready ? 'Bills, savings and your reserve are already protected.' : 'Add a balance and a future income date and this number appears right away.'}</p>
+      <p className="ao-ink-label">Your starting balance</p>
+      <p className="ao-hero-figure"><small>{currencySymbol()}</small>{nf(counted)}</p>
+      <p className="ao-hero-note">This is the balance you entered. Keep it up to date as you record.</p>
     </div>
     <div className="ao-summary">
       <div className="ao-summary-row"><span>Income</span><strong>{money(settings.typicalIncome)}</strong></div>
       <div className="ao-summary-row"><span>Fixed bills</span><strong>{money(total)}</strong></div>
-      <div className="ao-summary-row"><span>Daily flow</span><strong>{money(dailyFlow)}</strong></div>
+
     </div>
     <div className="ao-analytics-notice" role="note">
       <ShieldCheck aria-hidden="true" size={19} />

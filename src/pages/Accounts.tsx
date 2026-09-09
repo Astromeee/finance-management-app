@@ -1,5 +1,6 @@
+import { useBackDismiss } from '../lib/backNavigation'
 import { currencySymbol, formatMoney } from '../lib/currency'
-import { ArchiveRestore, ArrowRightLeft, GripVertical, PencilLine, Plus, RotateCcw, ShieldCheck, Trash2, WalletCards, X } from 'lucide-react'
+import { ArchiveRestore, ArrowRightLeft, GripVertical, PencilLine, Plus, RotateCcw, Trash2, WalletCards, X } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { useRef, useState, type Dispatch, type PointerEvent as ReactPointerEvent, type SetStateAction } from 'react'
 import type { Account, Transaction } from '../types/finance'
@@ -84,27 +85,12 @@ export function Accounts({ accounts, archivedAccounts, setAccounts, setTransacti
   const [selectedAccount, setSelectedAccount] = useState<Account | null>(null)
   const [editingAccount, setEditingAccount] = useState<Account | null>(null)
   const [menuAccount, setMenuAccount] = useState<Account | null>(null)
+  useBackDismiss(Boolean(menuAccount), () => setMenuAccount(null))
   const [notice, setNotice] = useState('')
   const [showArchived, setShowArchived] = useState(false)
 
   const total = totalBalance(accounts)
   const fallbacks = fallbackTreatments(accounts)
-  const safeSpendUses = accounts.filter((account) => account.includeInSafeSpend !== false).length
-  const hasCash = accounts.some((account) => account.type === 'cash' && account.includeInSafeSpend === false)
-
-  const toggleSafeSpend = async (account: Account) => {
-    const updated = { ...account, includeInSafeSpend: account.includeInSafeSpend === false }
-    try {
-      await onSaveAccount?.(updated)
-    } catch (error) {
-      setNotice(error instanceof Error ? error.message : 'Could not update account.')
-      return
-    }
-    setAccounts((current) => current.map((item) => item.id === account.id ? updated : item))
-    setNotice(updated.includeInSafeSpend ? `${account.name} now counts toward safe spend.` : `${account.name} excluded from safe spend.`)
-    setMenuAccount(null)
-  }
-
   /* Every reorder step gets a light haptic; the new order persists locally
      and flows straight into the Home carousel (same accounts state). */
   const reorder = (next: Account[]) => {
@@ -147,18 +133,12 @@ export function Accounts({ accounts, archivedAccounts, setAccounts, setTransacti
           <p className="vault-cell-value">{money(total)}</p>
         </div>
         <div className="vault-cell">
-          <p className="vault-cell-label">Safe spend uses</p>
-          <p className="vault-cell-value">{safeSpendUses} <span className="vault-sub">of {accounts.length}</span></p>
+          <p className="vault-cell-label">Accounts</p>
+          <p className="vault-cell-value">{accounts.length}</p>
         </div>
       </section>
 
       {archivedAccounts.length > 0 && <button className="vault-archived-link" type="button" onClick={() => setShowArchived(true)}><ArchiveRestore size={17}/><span>Archived accounts</span><small>{archivedAccounts.length}</small></button>}
-
-      {hasCash && (
-        <p className="mt-5 text-xs leading-5 text-[var(--taupe)]">
-          Cash stays out of your daily number — flip it on anytime from the card&rsquo;s settings.
-        </p>
-      )}
 
       {/* ---- Card action sheet ---- */}
       {menuAccount && (
@@ -183,12 +163,7 @@ export function Accounts({ accounts, archivedAccounts, setAccounts, setTransacti
               >
                 <WalletCards size={17} className="text-[var(--clay)]" /> Adjust balance
               </button>
-              <button
-                className="flex items-center gap-3 rounded-2xl border border-[var(--rule)] px-4 py-3.5 text-sm font-semibold text-[var(--ink)]"
-                onClick={() => void toggleSafeSpend(menuAccount)}
-              >
-                <ShieldCheck size={17} className="text-[var(--clay)]" /> {menuAccount.includeInSafeSpend === false ? 'Include in safe spend' : 'Exclude from safe spend'}
-              </button>
+
               <button
                 className="flex items-center gap-3 rounded-2xl border border-[var(--rule)] px-4 py-3.5 text-sm font-semibold text-[var(--ink)] disabled:cursor-not-allowed disabled:opacity-45"
                 disabled={accounts.length < 2}
@@ -354,7 +329,6 @@ function WalletList({ accounts, treatments, onOpen, onReorder }: {
   return (
     <div aria-label="Your accounts — drag the grip to reorder" className="mt-7 flex flex-col gap-3" role="list">
       {accounts.map((account, index) => {
-        const included = account.includeInSafeSpend !== false
         const isDragged = drag?.id === account.id
         return (
           <div
@@ -399,7 +373,7 @@ function WalletList({ accounts, treatments, onOpen, onReorder }: {
             )}
             <span className="vault-acct-foot">
               <span className="vault-acct-balance">{money(account.balance)}</span>
-              <span className="vault-acct-safe">{included ? 'In safe spend' : 'Excluded'}</span>
+
             </span>
           </div>
         )
@@ -425,6 +399,7 @@ function AddAccountModal({
   onSaveAccount?: (account: Account, openingBalance?: number) => Promise<void>
   setAccounts: Dispatch<SetStateAction<Account[]>>
 }) {
+  useBackDismiss(open, onClose)
   const [name, setName] = useState('')
   const [type, setType] = useState<Account['type']>('bank')
   const [balance, setBalance] = useState('')
@@ -520,6 +495,7 @@ function EditAccountModal({
   setAccounts: Dispatch<SetStateAction<Account[]>>
   setTransactions: Dispatch<SetStateAction<Transaction[]>>
 }) {
+  useBackDismiss(Boolean(account), onClose)
   const [name, setName] = useState(account?.name ?? '')
   const [type, setType] = useState<Account['type']>(account?.type ?? 'bank')
   const [balance, setBalance] = useState(account?.balance.toString() ?? '')
@@ -669,6 +645,7 @@ export function AdjustBalanceModal({
   setAccounts: Dispatch<SetStateAction<Account[]>>
   setTransactions: Dispatch<SetStateAction<Transaction[]>>
 }) {
+  useBackDismiss(Boolean(account), onClose)
   const [actualBalance, setActualBalance] = useState('')
   const [date, setDate] = useState(() => localDateKey())
   const [note, setNote] = useState('Balance adjusted manually')

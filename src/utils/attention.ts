@@ -34,7 +34,7 @@ function money(value: number) {
   return formatMoney(value)
 }
 
-export function buildAttentionItems({ accounts, budgets, goals, transactions, upcomingExpenses, wishlistItems = [], today = new Date() }: AttentionInput) {
+export function buildAttentionItems({ accounts, budgets, goals, transactions, upcomingExpenses, today = new Date() }: AttentionInput) {
   const items: AttentionItem[] = []
   const todayKey = dateKey(today)
 
@@ -102,17 +102,7 @@ export function buildAttentionItems({ accounts, budgets, goals, transactions, up
     })
   }
 
-  for (const item of wishlistItems) {
-    if (item.status !== 'ready' && !(item.status === 'waiting' && new Date(item.reconsiderAt).getTime() <= today.getTime())) continue
-    items.push({
-      id: `wishlist-${item.id}`,
-      priority: 'review',
-      title: `${item.name} is ready for a decision`,
-      detail: `The cooling-off period for ${money(item.amount)} has finished.`,
-      page: 'budgets',
-      action: 'Review purchase',
-    })
-  }
+
 
   const lowAccount = accounts
     .filter((account) => account.balance >= 0 && account.balance < 1_000)

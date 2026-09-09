@@ -1,3 +1,4 @@
+import { useBackDismiss } from '../lib/backNavigation'
 import { formatAmount, formatMoney } from '../lib/currency'
 import { PencilLine, Search, SlidersHorizontal, Trash2, X } from 'lucide-react'
 import { motion } from 'framer-motion'
@@ -32,13 +33,13 @@ function monthLabel(key: string) {
    Goal savings and debt payments are money out, so they read as "Spent". */
 function matchesChip(transaction: Transaction, chip: TransactionFilterChip) {
   if (chip === 'All') return true
-  if (chip === 'Received') return transaction.type === 'income'
+  if (chip === 'Received') return (transaction.type === 'income' || transaction.type === 'receivable_payment')
   if (chip === 'Moved') return transaction.type === 'transfer'
-  return transaction.type !== 'income' && transaction.type !== 'transfer'
+  return transaction.type !== 'income' && transaction.type !== 'receivable_payment' && transaction.type !== 'transfer'
 }
 
 function isMoneyOut(transaction: Transaction) {
-  return transaction.type !== 'income' && transaction.type !== 'transfer'
+  return transaction.type !== 'income' && transaction.type !== 'receivable_payment' && transaction.type !== 'transfer'
 }
 
 function groupLabel(date: string) {
@@ -81,6 +82,9 @@ export function Transactions({
   const [categoryFilter, setCategoryFilter] = useState('all')
   const [monthFilter, setMonthFilter] = useState('all')
   const [activeChip, setActiveChip] = useState<TransactionFilterChip>('All')
+  useBackDismiss(Boolean(viewing), () => setViewing(null))
+  useBackDismiss(Boolean(editing), () => setEditing(null))
+  useBackDismiss(filtersOpen, () => setFiltersOpen(false))
   const chips: TransactionFilterChip[] = ['All', 'Spent', 'Received', 'Moved']
 
   const categoryOptions = useMemo(() => {
@@ -128,7 +132,7 @@ export function Transactions({
       if (monthFilter !== 'all' && monthKey(transaction.date) !== monthFilter) return false
       return true
     })
-    const moneyIn = scope.filter((t) => t.type === 'income').reduce((sum, t) => sum + t.amount, 0)
+    const moneyIn = scope.filter((t) => (t.type === 'income' || t.type === 'receivable_payment')).reduce((sum, t) => sum + t.amount, 0)
     const moneyOut = scope.filter((t) => isMoneyOut(t)).reduce((sum, t) => sum + t.amount, 0)
     return { moneyIn, moneyOut, net: moneyIn - moneyOut }
   }, [transactions, monthFilter])
@@ -260,7 +264,7 @@ export function Transactions({
 }
 
 function LedgerRow({ transaction, onOpen }: { transaction: Transaction; onOpen: () => void }) {
-  const isIncome = transaction.type === 'income'
+  const isIncome = (transaction.type === 'income' || transaction.type === 'receivable_payment')
   const isTransfer = transaction.type === 'transfer'
   const time = timeOf(transaction)
   const meta = [transaction.account, time].filter(Boolean).join(' · ')
@@ -310,7 +314,7 @@ function TransactionDetailsModal({ transaction, onClose, onEdit, onDelete }: { t
         </div>
         {transaction.notes?.trim() && <p className="mt-3 text-sm text-[var(--ink-soft)]">{transaction.notes}</p>}
         <div className="mt-5 flex gap-2">
-          <button className="vault-chip is-active flex-1 justify-center" onClick={onEdit}><PencilLine className="mr-1.5" size={13} /> Edit</button>
+          {transaction.type !== 'receivable_payment' && <button className="vault-chip is-active flex-1 justify-center" onClick={onEdit}><PencilLine className="mr-1.5" size={13} /> Edit</button>}
           <button className="vault-chip flex-1 justify-center text-[var(--clay)]" onClick={onDelete}><Trash2 className="mr-1.5" size={13} /> Delete</button>
         </div>
       </motion.section>

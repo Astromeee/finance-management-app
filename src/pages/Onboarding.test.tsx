@@ -56,7 +56,7 @@ describe('four step onboarding', () => {
     expect(container.textContent).toContain('What must be')
     await click('Continue')
 
-    expect(container.textContent).toContain('Safe to spend today')
+    expect(container.textContent).toContain('Your starting balance')
     expect(container.textContent).toContain('Private usage analytics')
     expect(container.textContent).toContain('never your email, balances, amounts, transaction names, or notes')
     await click('Enter Pocket Ledger')

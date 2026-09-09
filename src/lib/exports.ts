@@ -1,4 +1,5 @@
 import type { Account, Budget, Debt, Goal, Transaction, UpcomingExpense } from '../types/finance'
+import type { Receivable } from '../types/receivable'
 import { localDateKey } from './date'
 
 const csvCell = (value: unknown) => `"${String(value ?? '').replaceAll('"', '""')}"`
@@ -19,6 +20,7 @@ export function exportTransactionsCsv(transactions: Transaction[]) {
 }
 
 export function exportLedgerJson(data: {
+  receivables?: Receivable[]; receivableEvents?: unknown[]
   accounts: Account[]; transactions: Transaction[]; budgets: Budget[]; goals: Goal[];
   debts: Debt[]; upcomingExpenses: UpcomingExpense[]; expenseCategories: string[]; incomeCategories: string[]
 }) {

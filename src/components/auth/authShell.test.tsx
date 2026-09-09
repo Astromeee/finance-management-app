@@ -40,7 +40,7 @@ describe('auth shell primitives', () => {
     expect(topbar?.querySelector('.ao-lockup.is-espresso')).toBeTruthy()
     expect(container.querySelector('.ao-topswitch')?.textContent).toContain('Create an account')
     expect(container.querySelectorAll('.ao-ribbon-cell').length).toBe(4)
-    expect(container.querySelector('.ao-ribbon')?.textContent).toContain('Safe to spend')
+    expect(container.querySelector('.ao-ribbon')?.textContent).toContain('Your balance')
   })
 
   it('omits the switch prompt when no mode swap applies', async () => {
