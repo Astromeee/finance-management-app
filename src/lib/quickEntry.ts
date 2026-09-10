@@ -5,6 +5,7 @@ export const isQuickEntry = Capacitor.isNativePlatform() && Capacitor.isPluginAv
 export const QuickEntry = registerPlugin<{
   context(): Promise<{ direction: EntryDirection; refreshOnly?: boolean }>
   close(options: { saved?: boolean }): Promise<void>
+  resize(options: { height: number }): Promise<void>
   openApp(): Promise<void>
 }>('QuickEntry')
 

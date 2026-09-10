@@ -22,6 +22,13 @@ public class QuickEntryPlugin extends Plugin {
             getActivity().finish();
         });
     }
+    @PluginMethod public void resize(PluginCall call) {
+        Double height = call.getDouble("height");
+        if (height != null && getActivity() instanceof QuickEntryActivity) {
+            ((QuickEntryActivity) getActivity()).resizeToContent(height);
+        }
+        call.resolve();
+    }
     @PluginMethod public void openApp(PluginCall call) {
         getActivity().startActivity(new Intent(getContext(), MainActivity.class).addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP));
         call.resolve();

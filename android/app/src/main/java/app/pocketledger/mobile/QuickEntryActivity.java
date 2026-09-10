@@ -17,7 +17,7 @@ public class QuickEntryActivity extends BridgeActivity {
         super.onCreate(state);
         float density = getResources().getDisplayMetrics().density;
         int width = Math.min((int) (400 * density), getResources().getDisplayMetrics().widthPixels - (int) (32 * density));
-        int height = Math.min((int) (510 * density), (int) (getResources().getDisplayMetrics().heightPixels * .82));
+        int height = Math.min((int) (420 * density), (int) (getResources().getDisplayMetrics().heightPixels * .82));
         getWindow().setLayout(width, height);
         getWindow().setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
         getWindow().setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE);
@@ -26,5 +26,16 @@ public class QuickEntryActivity extends BridgeActivity {
             bridge.getWebView().setBackgroundColor(Color.TRANSPARENT);
             bridge.getWebView().getSettings().setCacheMode(WebSettings.LOAD_DEFAULT);
         }
+    }
+
+    public void resizeToContent(double cssHeight) {
+        runOnUiThread(() -> {
+            float density = getResources().getDisplayMetrics().density;
+            int width = Math.min((int) (400 * density), getResources().getDisplayMetrics().widthPixels - (int) (32 * density));
+            int desired = (int) Math.ceil((cssHeight + 2) * density);
+            int minimum = (int) (220 * density);
+            int maximum = (int) (getResources().getDisplayMetrics().heightPixels * .82);
+            getWindow().setLayout(width, Math.max(minimum, Math.min(desired, maximum)));
+        });
     }
 }

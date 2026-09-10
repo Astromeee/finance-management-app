@@ -1,7 +1,7 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { Check } from 'lucide-react'
 import { syncMonthlyWidget } from '../lib/monthlyWidget'
-import { QuickEntry, validQuickAmount, type EntryDirection } from '../lib/quickEntry'
+import { isQuickEntry, QuickEntry, validQuickAmount, type EntryDirection } from '../lib/quickEntry'
 import { loadQuickEntryData, readQuickEntryCache, recordQuickFinanceAction, writeQuickEntryCache, type QuickEntryData } from '../lib/quickEntryData'
 import { currencySymbol } from '../lib/currency'
 import { localDateKey } from '../lib/date'
@@ -29,6 +29,7 @@ function orderedAccountsFor(data: QuickEntryData) {
 }
 
 export function QuickEntryWindow() {
+  const windowRef = useRef<HTMLElement>(null)
   const [direction, setDirection] = useState<EntryDirection>('expense')
   const [data, setData] = useState<QuickEntryData | null>(null)
   const userId = useRef('')
@@ -61,6 +62,15 @@ export function QuickEntryWindow() {
     : selectedAccount && !accountTop.some(account => account.id === selectedAccount.id)
       ? [...accountTop.slice(0, 2), selectedAccount]
       : accountTop
+
+  useLayoutEffect(() => {
+    if (!isQuickEntry || !windowRef.current) return
+    const frame = window.requestAnimationFrame(() => {
+      const height = Math.ceil(windowRef.current?.scrollHeight ?? 0)
+      if (height > 0) void QuickEntry.resize({ height }).catch(() => {})
+    })
+    return () => window.cancelAnimationFrame(frame)
+  }, [loading, saved, data, direction, showAllCategories, showAllAccounts, error])
 
   useEffect(() => {
     let live = true
@@ -163,7 +173,7 @@ export function QuickEntryWindow() {
     }
   }
 
-  return <main className="qe-window">
+  return <main ref={windowRef} className="qe-window">
     {loading ? <p role="status">Loading your accounts…</p> : saved ? <p role="status"><Check/> Saved to your ledger.</p> : data ? <form onSubmit={e => { e.preventDefault(); void save() }}>
       <fieldset disabled={saving}>
         <div className="qe-direction" role="group" aria-label="Transaction type">
