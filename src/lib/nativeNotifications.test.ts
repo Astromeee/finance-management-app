@@ -1,19 +1,19 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-const notifications = vi.hoisted(() => ({
+const nativeNotifications = vi.hoisted(() => ({
   cancel: vi.fn(),
-  checkPermissions: vi.fn(),
-  requestPermissions: vi.fn(),
-  areEnabled: vi.fn(),
+  getPermissionStatus: vi.fn(),
+  requestPermission: vi.fn(),
   schedule: vi.fn(),
-  getPending: vi.fn(),
+  sendTest: vi.fn(),
 }))
 const appSettings = vi.hoisted(() => ({ openNotificationSettings: vi.fn() }))
-vi.mock('@capacitor/local-notifications', () => ({ LocalNotifications: notifications }))
-vi.mock('@capacitor/core', () => ({ registerPlugin: () => appSettings }))
+vi.mock('@capacitor/core', () => ({
+  registerPlugin: (name: string) => name === 'PocketNotifications' ? nativeNotifications : appSettings,
+}))
 import { getStoredNativeDailyReminder, sendNativeTestNotification, setNativeDailyReminder, syncNativeBillReminders } from './nativeNotifications'
 
-describe('Android local reminders', () => {
+describe('Android native reminders', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     const values = new Map<string, string>()
@@ -23,14 +23,11 @@ describe('Android local reminders', () => {
       removeItem: (key: string) => values.delete(key),
       clear: () => values.clear(),
     })
-    notifications.cancel.mockResolvedValue(undefined)
-    notifications.checkPermissions.mockResolvedValue({ display: 'granted' })
-    notifications.requestPermissions.mockResolvedValue({ display: 'granted' })
-    notifications.areEnabled.mockResolvedValue({ value: true })
-    notifications.schedule.mockResolvedValue({ notifications: [] })
-    notifications.getPending.mockImplementation(async () => ({
-      notifications: (notifications.schedule.mock.calls.at(-1)?.[0].notifications ?? []).map(({ id }: { id: number }) => ({ id })),
-    }))
+    nativeNotifications.cancel.mockResolvedValue(undefined)
+    nativeNotifications.getPermissionStatus.mockResolvedValue({ permission: 'granted' })
+    nativeNotifications.requestPermission.mockResolvedValue({ permission: 'granted' })
+    nativeNotifications.schedule.mockImplementation(async ({ notifications }: { notifications: unknown[] }) => ({ count: notifications.length }))
+    nativeNotifications.sendTest.mockResolvedValue(undefined)
     appSettings.openNotificationSettings.mockResolvedValue(undefined)
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2026-09-10T12:00:00'))
@@ -38,25 +35,19 @@ describe('Android local reminders', () => {
 
   it('schedules and remembers a repeating daily reminder', async () => {
     await setNativeDailyReminder(true, '21:30')
-    expect(notifications.schedule).toHaveBeenCalledWith({ notifications: [expect.objectContaining({
+    expect(nativeNotifications.schedule).toHaveBeenCalledWith({ notifications: [expect.objectContaining({
       id: 73001,
-      schedule: expect.objectContaining({ on: { hour: 21, minute: 30 } }),
-      isExactNotification: false,
+      at: new Date('2026-09-10T21:30:00').getTime(),
+      daily: true,
     })] })
     await expect(getStoredNativeDailyReminder()).resolves.toEqual({ enabled: true, reminder_time: '21:30' })
   })
 
   it('does not save a reminder when notification permission is denied', async () => {
-    notifications.checkPermissions.mockResolvedValue({ display: 'denied' })
-    notifications.requestPermissions.mockResolvedValue({ display: 'denied' })
+    nativeNotifications.getPermissionStatus.mockResolvedValue({ permission: 'denied' })
+    nativeNotifications.requestPermission.mockResolvedValue({ permission: 'denied' })
     await expect(setNativeDailyReminder(true, '21:00')).rejects.toThrow('Allow notifications')
     await expect(getStoredNativeDailyReminder()).resolves.toBeNull()
-  })
-
-  it('rejects when Android has disabled notifications at the app level', async () => {
-    notifications.areEnabled.mockResolvedValue({ value: false })
-    await expect(setNativeDailyReminder(true, '21:00')).rejects.toThrow('Android settings')
-    expect(notifications.schedule).not.toHaveBeenCalled()
   })
 
   it('schedules unpaid bills and omits paid bills', async () => {
@@ -64,19 +55,13 @@ describe('Android local reminders', () => {
       { id: 'rent', title: 'Rent', amount: 50000, dueDate: '2026-09-11', status: 'upcoming' },
       { id: 'paid', title: 'Internet', amount: 5000, dueDate: '2026-09-11', status: 'paid' },
     ] as never)
-    const call = notifications.schedule.mock.calls[0][0]
+    const call = nativeNotifications.schedule.mock.calls[0][0]
     expect(call.notifications).toHaveLength(1)
-    expect(call.notifications[0]).toEqual(expect.objectContaining({ title: 'Rent is due', isExactNotification: false }))
+    expect(call.notifications[0]).toEqual(expect.objectContaining({ title: 'Rent is due', at: new Date('2026-09-11T09:00:00').getTime() }))
   })
 
-  it('schedules an immediate notification that confirms Android delivery', async () => {
+  it('uses the direct native test notification method', async () => {
     await sendNativeTestNotification()
-    const notification = notifications.schedule.mock.calls[0][0].notifications[0]
-    expect(notification).toEqual(expect.objectContaining({
-      id: 73003,
-      title: 'Pocket Ledger reminders are working',
-      isExactNotification: false,
-    }))
-    expect(notification.schedule.at.getTime()).toBe(Date.now() + 2_000)
+    expect(nativeNotifications.sendTest).toHaveBeenCalledOnce()
   })
 })

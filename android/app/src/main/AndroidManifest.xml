@@ -4,6 +4,7 @@
 
     <!-- These reminders deliberately use Android's inexact scheduler. -->
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" tools:node="remove" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
     <application
         android:allowBackup="false"
@@ -46,6 +47,8 @@
                 android:name="android.support.FILE_PROVIDER_PATHS"
                 android:resource="@xml/file_paths"></meta-data>
         </provider>
+
+        <receiver android:name=".PocketReminderReceiver" android:exported="false" />
     </application>
 
     <!-- Permissions -->
