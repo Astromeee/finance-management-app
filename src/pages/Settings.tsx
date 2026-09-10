@@ -147,7 +147,7 @@ export function Settings(props: Props) {
       </section>
 
       <button className="vault-signout mt-8" type="button" onClick={props.onSignOut}><LogOut size={17} strokeWidth={2} /> Sign out</button>
-      <p className="vault-version mt-4">Pocket Ledger · v0.1.0-beta.2</p>
+      <p className="vault-version mt-4">Pocket Ledger · v0.1.0-beta.3</p>
 
       {supabase && (
         <div className="mt-3 text-center">
