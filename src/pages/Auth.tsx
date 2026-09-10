@@ -7,7 +7,7 @@ import { BrandLockup } from '../components/auth/BrandLockup'
 import { passwordRequirements, passwordValidationMessage } from '../lib/password'
 import { supabase } from '../lib/supabase'
 import { clearQueuedAuthEvent, queueAuthEvent } from '../lib/analytics'
-import { authRedirectUrl, isNativeApp } from '../lib/platform'
+import { authRedirectUrl, isNativeApp, nativeAuthRedirectUrl } from '../lib/platform'
 import { nativeAuthCancelEvent, nativeAuthErrorEvent, startNativeGoogleSignIn } from '../lib/nativeAuth'
 
 type AuthMode = 'login' | 'signup' | 'forgot' | 'reset'
@@ -235,6 +235,14 @@ export function AuthPage({ mode }: { mode: AuthMode }) {
 
 export function AuthCallback() {
   const navigate = useNavigate()
+  const nativeBridgeUrl = useMemo(() => {
+    const params = new URLSearchParams(window.location.search)
+    if (params.get('native') !== 'android') return ''
+    params.delete('native')
+    const query = params.toString()
+    const hash = window.location.hash
+    return `${nativeAuthRedirectUrl}${query ? `?${query}` : ''}${hash}`
+  }, [])
   const [errorMessage, setErrorMessage] = useState(() => {
     const params = new URLSearchParams(window.location.search)
     const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ''))
@@ -243,7 +251,11 @@ export function AuthCallback() {
   const effectiveError = errorMessage || (!supabase ? 'Secure sign-in is not configured.' : '')
 
   useEffect(() => {
-    if (effectiveError || !supabase) return
+    if (nativeBridgeUrl) window.location.replace(nativeBridgeUrl)
+  }, [nativeBridgeUrl])
+
+  useEffect(() => {
+    if (nativeBridgeUrl || effectiveError || !supabase) return
 
     let mounted = true
     let timeoutId: number | undefined
@@ -270,14 +282,14 @@ export function AuthCallback() {
       if (timeoutId) window.clearTimeout(timeoutId)
       listener.subscription.unsubscribe()
     }
-  }, [effectiveError, navigate])
+  }, [effectiveError, nativeBridgeUrl, navigate])
 
   return (
     <AuthShell variant="login">
       <div className="ao-hero">
         <BrandLockup />
         <div className="ao-hero-copy">
-          {effectiveError ? <>
+          {nativeBridgeUrl ? <p className="ao-support" role="status">Returning to Pocket Ledger…</p> : effectiveError ? <>
             <p className="ao-kicker">Sign-in</p>
             <h1 className="ao-headline">We could not finish <em>signing you in.</em></h1>
             <p className="ao-support" role="alert">{effectiveError}</p>
