@@ -327,6 +327,7 @@ function App() {
           accounts: remoteState.accounts.map(({ id, name }) => ({ id, name })),
           categories: remoteState.categories.map(({ id, name, kind }) => ({ id, name, kind })),
           transactions: remoteState.transactions.filter(transaction => transaction.date.startsWith(localMonthKey())),
+          recentTransactions: remoteState.transactions.slice(0, 60),
         })
         setDataReady(true)
       } catch (error) {

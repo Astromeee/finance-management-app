@@ -18,7 +18,7 @@ beforeEach(() => {
   vi.stubGlobal('localStorage', { getItem: () => null, setItem: vi.fn() })
   mocks.context.mockResolvedValue({ direction: 'expense' })
   mocks.cache.mockResolvedValue({ userId: 'user-1', data: null })
-  mocks.load.mockResolvedValue({ transactions: [], accounts: [{ id: 'cash', name: 'Cash' }], categories: [{ id: 'food', name: 'Food', kind: 'expense' }, { id: 'salary', name: 'Salary', kind: 'income' }] })
+  mocks.load.mockResolvedValue({ transactions: [], recentTransactions: [], accounts: [{ id: 'cash', name: 'Cash' }], categories: [{ id: 'food', name: 'Food', kind: 'expense' }, { id: 'salary', name: 'Salary', kind: 'income' }] })
   mocks.existing.mockResolvedValue({ data: null })
   container = document.createElement('div'); document.body.append(container); root = createRoot(container)
 })
@@ -60,13 +60,14 @@ it('switches from expense to income in the popup', async () => {
 })
 it('uses selectable chips and expands additional categories', async () => {
   mocks.load.mockResolvedValue({
-    transactions: [{ type: 'expense', category: 'Transport' }, { type: 'expense', category: 'Transport' }],
-    accounts: [{ id: 'cash', name: 'Cash' }],
+    transactions: [],
+    recentTransactions: [{ type: 'expense', category: 'Transport', accountId: 'bank' }, { type: 'expense', category: 'Food', accountId: 'cash' }],
+    accounts: [{ id: 'cash', name: 'Cash' }, { id: 'wallet', name: 'Wallet' }, { id: 'bank', name: 'Bank' }, { id: 'savings', name: 'Savings' }],
     categories: ['Food', 'Transport', 'Bills', 'Shopping', 'Health'].map(name => ({ id: name.toLowerCase(), name, kind: 'expense' })),
   })
   await renderAndFill()
-  expect(container.querySelectorAll('.qe-choice:first-of-type .qe-chips button')).toHaveLength(4)
-  expect(container.querySelector('.qe-choice:first-of-type .qe-chips')?.textContent).toContain('Transport')
+  expect([...container.querySelectorAll('.qe-choice:first-of-type .qe-chips button')].map(button => button.textContent)).toEqual(['Transport', 'Food', 'Bills'])
+  expect([...container.querySelectorAll('.qe-account-chips button')].map(button => button.textContent)).toEqual(['Bank', 'Cash', 'Wallet'])
   const more = [...container.querySelectorAll<HTMLButtonElement>('.qe-choice-head button')].find(button => button.textContent === 'More')!
   await act(async () => more.click())
   expect(container.querySelectorAll('.qe-choice:first-of-type .qe-chips button')).toHaveLength(5)

@@ -17,11 +17,11 @@ public class QuickEntryActivity extends BridgeActivity {
         super.onCreate(state);
         float density = getResources().getDisplayMetrics().density;
         int width = Math.min((int) (400 * density), getResources().getDisplayMetrics().widthPixels - (int) (32 * density));
-        int height = Math.min((int) (430 * density), (int) (getResources().getDisplayMetrics().heightPixels * .72));
+        int height = Math.min((int) (510 * density), (int) (getResources().getDisplayMetrics().heightPixels * .82));
         getWindow().setLayout(width, height);
         getWindow().setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
         getWindow().setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE);
-        setFinishOnTouchOutside(false);
+        setFinishOnTouchOutside(true);
         if (bridge != null) {
             bridge.getWebView().setBackgroundColor(Color.TRANSPARENT);
             bridge.getWebView().getSettings().setCacheMode(WebSettings.LOAD_DEFAULT);

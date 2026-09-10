@@ -8,6 +8,26 @@ import { localDateKey } from '../lib/date'
 import { supabase } from '../lib/supabase'
 import './quick-entry.css'
 
+function orderedCategoriesFor(data: QuickEntryData, direction: EntryDirection) {
+  const recentNames = [...new Set(data.recentTransactions
+    .filter(transaction => transaction.type === direction)
+    .map(transaction => direction === 'income' ? transaction.source ?? transaction.category : transaction.category)
+    .filter((name): name is string => Boolean(name)))]
+  const rank = new Map(recentNames.map((name, index) => [name.toLocaleLowerCase(), index]))
+  return data.categories.filter(category => category.kind === direction)
+    .map((category, index) => ({ category, index }))
+    .sort((a, b) => (rank.get(a.category.name.toLocaleLowerCase()) ?? 10_000) - (rank.get(b.category.name.toLocaleLowerCase()) ?? 10_000) || a.index - b.index)
+    .map(({ category }) => category)
+}
+
+function orderedAccountsFor(data: QuickEntryData) {
+  const recentIds = [...new Set(data.recentTransactions.map(transaction => transaction.accountId).filter((id): id is string => Boolean(id)))]
+  const rank = new Map(recentIds.map((id, index) => [id, index]))
+  return data.accounts.map((account, index) => ({ account, index }))
+    .sort((a, b) => (rank.get(a.account.id) ?? 10_000) - (rank.get(b.account.id) ?? 10_000) || a.index - b.index)
+    .map(({ account }) => account)
+}
+
 export function QuickEntryWindow() {
   const [direction, setDirection] = useState<EntryDirection>('expense')
   const [data, setData] = useState<QuickEntryData | null>(null)
@@ -25,25 +45,19 @@ export function QuickEntryWindow() {
   const busy = useRef(false)
   const transactionId = useRef(crypto.randomUUID())
 
-  const categories = data?.categories.filter(category => category.kind === direction) ?? []
-  const categoryUsage = new Map<string, number>()
-  for (const transaction of data?.transactions ?? []) {
-    if (transaction.type !== direction) continue
-    const name = direction === 'income' ? transaction.source ?? transaction.category : transaction.category
-    if (name) categoryUsage.set(name, (categoryUsage.get(name) ?? 0) + 1)
-  }
-  const orderedCategories = [...categories].sort((a, b) => (categoryUsage.get(b.name) ?? 0) - (categoryUsage.get(a.name) ?? 0))
-  const categoryTop = orderedCategories.slice(0, 4)
+  const orderedCategories = data ? orderedCategoriesFor(data, direction) : []
+  const categoryTop = orderedCategories.slice(0, 3)
   const selectedCategory = orderedCategories.find(category => category.id === categoryId)
   const visibleCategories = showAllCategories
     ? orderedCategories
     : selectedCategory && !categoryTop.some(category => category.id === selectedCategory.id)
-      ? [...categoryTop.slice(0, 3), selectedCategory]
+      ? [...categoryTop.slice(0, 2), selectedCategory]
       : categoryTop
-  const accountTop = data?.accounts.slice(0, 3) ?? []
-  const selectedAccount = data?.accounts.find(account => account.id === accountId)
+  const orderedAccounts = data ? orderedAccountsFor(data) : []
+  const accountTop = orderedAccounts.slice(0, 3)
+  const selectedAccount = orderedAccounts.find(account => account.id === accountId)
   const visibleAccounts = showAllAccounts
-    ? data?.accounts ?? []
+    ? orderedAccounts
     : selectedAccount && !accountTop.some(account => account.id === selectedAccount.id)
       ? [...accountTop.slice(0, 2), selectedAccount]
       : accountTop
@@ -64,6 +78,7 @@ export function QuickEntryWindow() {
           { id: 'freelance', name: 'Freelance', kind: 'income' as const },
         ],
         transactions: [{ id: 'preview', title: 'Food', amount: 850, type: 'expense' as const, category: 'Food & Essentials', account: 'Cash', accountId: 'cash', date: localDateKey() }],
+        recentTransactions: [{ id: 'preview', title: 'Food', amount: 850, type: 'expense' as const, category: 'Food & Essentials', account: 'Cash', accountId: 'cash', date: localDateKey() }],
       } as QuickEntryData
       void Promise.resolve().then(() => {
         if (!live) return
@@ -91,18 +106,16 @@ export function QuickEntryWindow() {
       let finance = cached.data
       if (finance && live) {
         setData(finance)
-        const last = localStorage.getItem('pl-last-account')
-        setAccountId(finance.accounts.find(a => a.id === last)?.id ?? finance.accounts[0]?.id ?? '')
-        setCategoryId(finance.categories.find(c => c.kind === context.direction)?.id ?? '')
+        setAccountId(orderedAccountsFor(finance)[0]?.id ?? '')
+        setCategoryId(orderedCategoriesFor(finance, context.direction)[0]?.id ?? '')
         setLoading(false)
       }
       const fresh = await loadQuickEntryData(cached.userId)
       if (!live) return
       finance = fresh
       setData(fresh)
-      const last = localStorage.getItem('pl-last-account')
-      setAccountId(finance.accounts.find(a => a.id === last)?.id ?? finance.accounts[0]?.id ?? '')
-      setCategoryId(finance.categories.find(c => c.kind === context.direction)?.id ?? '')
+      setAccountId(orderedAccountsFor(finance)[0]?.id ?? '')
+      setCategoryId(orderedCategoriesFor(finance, context.direction)[0]?.id ?? '')
       setError('')
     }).catch(() => { if (live) setError('Could not load your ledger. Check your connection, or open Ledger to sign in.') })
       .finally(() => { clearTimeout(timer); if (live) setLoading(false) })
@@ -135,7 +148,8 @@ export function QuickEntryWindow() {
       localStorage.setItem('pl-widget-saved', String(Date.now()))
       const nextTransactions = [...data.transactions, { id: transactionId.current, type: direction, title: category.name,
         amount: Number(amount), category: category.name, accountId, account: account.name, date: localDateKey() }]
-      if (userId.current) writeQuickEntryCache(userId.current, { ...data, transactions: nextTransactions })
+      const savedTransaction = nextTransactions[nextTransactions.length - 1]
+      if (userId.current) writeQuickEntryCache(userId.current, { ...data, transactions: nextTransactions, recentTransactions: [savedTransaction, ...data.recentTransactions] })
       setSaved(true)
       setError('')
       await syncMonthlyWidget(nextTransactions).catch(() => {})
@@ -153,11 +167,11 @@ export function QuickEntryWindow() {
     {loading ? <p role="status">Loading your accounts…</p> : saved ? <p role="status"><Check/> Saved to your ledger.</p> : data ? <form onSubmit={e => { e.preventDefault(); void save() }}>
       <fieldset disabled={saving}>
         <div className="qe-direction" role="group" aria-label="Transaction type">
-          {(['expense', 'income'] as const).map(type => <button type="button" key={type} disabled={attempted} aria-pressed={direction === type} className={direction === type ? 'selected' : ''} onClick={() => { setDirection(type); setShowAllCategories(false); setCategoryId(data.categories.find(c => c.kind === type)?.id ?? '') }}>{type === 'expense' ? 'Expense' : 'Income'}</button>)}
+          {(['expense', 'income'] as const).map(type => <button type="button" key={type} disabled={attempted} aria-pressed={direction === type} className={direction === type ? 'selected' : ''} onClick={() => { setDirection(type); setShowAllCategories(false); setCategoryId(orderedCategoriesFor(data, type)[0]?.id ?? '') }}>{type === 'expense' ? 'Expense' : 'Income'}</button>)}
         </div>
         <label className="qe-amount">AMOUNT<div><span>{currencySymbol()}</span><input disabled={attempted} aria-label="Amount" inputMode="numeric" autoComplete="off" placeholder="0" value={amount} maxLength={12} onChange={e => setAmount(e.target.value.replace(/[^0-9]/g, ''))}/></div></label>
         <section className="qe-choice" aria-labelledby="qe-category-label">
-          <div className="qe-choice-head"><span id="qe-category-label">{direction === 'expense' ? 'Category' : 'Source'}</span>{orderedCategories.length > 4 && <button type="button" disabled={attempted} aria-expanded={showAllCategories} onClick={() => setShowAllCategories(current => !current)}>{showAllCategories ? 'Less' : 'More'}</button>}</div>
+          <div className="qe-choice-head"><span id="qe-category-label">{direction === 'expense' ? 'Category' : 'Source'}</span>{orderedCategories.length > 3 && <button type="button" disabled={attempted} aria-expanded={showAllCategories} onClick={() => setShowAllCategories(current => !current)}>{showAllCategories ? 'Less' : 'More'}</button>}</div>
           <div className="qe-chips">{visibleCategories.map(category => <button type="button" disabled={attempted} key={category.id} className={category.id === categoryId ? 'selected' : ''} aria-pressed={category.id === categoryId} onClick={() => setCategoryId(category.id)}>{category.name}</button>)}</div>
         </section>
         <section className="qe-choice" aria-labelledby="qe-account-label">

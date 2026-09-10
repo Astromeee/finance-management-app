@@ -9,10 +9,11 @@ export type QuickEntryData = {
   accounts: { id: string; name: string }[]
   categories: { id: string; name: string; kind: 'income' | 'expense' }[]
   transactions: Transaction[]
+  recentTransactions: Transaction[]
 }
 
 type Row = Record<string, unknown>
-const CACHE_KEY = 'pl-quick-entry-data-v1'
+const CACHE_KEY = 'pl-quick-entry-data-v2'
 
 function client() {
   if (!supabase) throw new Error('Supabase is not configured.')
@@ -76,19 +77,22 @@ export async function recordQuickFinanceAction(action: QuickFinanceAction, signa
   return data as { id: string; ok: boolean }
 }
 
-/** Fetch only the three small datasets used by quick entry. */
+/** Fetch only the small datasets used by quick entry and the monthly widget. */
 export async function loadQuickEntryData(userId: string): Promise<QuickEntryData> {
   const monthStart = `${localMonthKey()}-01`
-  const [accounts, categories, transactions] = await Promise.all([
+  const transactionColumns = 'id,title,amount,type,category,category_id,category_name_snapshot,source,account,account_id,transaction_date,created_at'
+  const [accounts, categories, transactions, recentTransactions] = await Promise.all([
     client().from('accounts').select('id,name').eq('archived', false).order('created_at'),
     client().from('categories').select('id,name,kind').eq('archived', false).order('kind').order('sort_order'),
-    client().from('transactions').select('id,title,amount,type,category,category_id,category_name_snapshot,source,account,account_id,transaction_date,created_at').gte('transaction_date', monthStart).order('transaction_date', { ascending: false }),
+    client().from('transactions').select(transactionColumns).gte('transaction_date', monthStart).order('transaction_date', { ascending: false }).order('created_at', { ascending: false }),
+    client().from('transactions').select(transactionColumns).order('created_at', { ascending: false }).limit(60),
   ])
-  for (const result of [accounts, categories, transactions]) if (result.error) throw result.error
+  for (const result of [accounts, categories, transactions, recentTransactions]) if (result.error) throw result.error
   const data = {
     accounts: (accounts.data as Row[]).map(mapAccount),
     categories: (categories.data as Row[]).map(mapCategory),
     transactions: (transactions.data as Row[]).map(mapTransaction),
+    recentTransactions: (recentTransactions.data as Row[]).map(mapTransaction),
   }
   writeQuickEntryCache(userId, data)
   return data
