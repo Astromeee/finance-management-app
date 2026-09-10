@@ -103,9 +103,7 @@ export function AppShell({ activePage, children, setActivePage, onAdd, desktopDa
         <div className="relative flex min-h-screen">
           <Sidebar activePage={activePage} setActivePage={setActivePage} />
           <main className={`w-full ${isVaultPage ? '' : 'pb-[calc(7rem+env(safe-area-inset-bottom))]'} lg:pb-0`}>
-            {/* keyed remount replays a lightweight CSS fade per page — no JS opacity
-                tween to stall the heavily-animated Goals/Analytics screens */}
-            <div key={activePage} className={`app-shell-page pl-page-enter mx-auto ${isVaultPage ? 'w-full' : 'max-w-7xl px-4 pt-[max(1.1rem,calc(env(safe-area-inset-top)+0.55rem))] pb-4 sm:px-6 sm:py-5 lg:px-8'}`}>
+            <div className={`app-shell-page mx-auto ${isVaultPage ? 'w-full' : 'max-w-7xl px-4 pt-[max(1.1rem,calc(env(safe-area-inset-top)+0.55rem))] pb-4 sm:px-6 sm:py-5 lg:px-8'}`}>
               {children}
             </div>
           </main>

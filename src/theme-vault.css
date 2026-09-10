@@ -712,26 +712,6 @@ body::after,
 .vault-hero + .vault-recent.mt-8,
 .vault-next + .vault-recent.mt-8 { margin-top: 27px; }
 
-/* Blocks rise in down the column on load. The header is deliberately left
-   out: an active transform would re-base its fixed-position dropdown scrims. */
-@keyframes vaultRise {
-  from { opacity: 0; transform: translateY(12px); }
-  to { opacity: 1; transform: none; }
-}
-[data-page='dashboard'] .vault-title,
-[data-page='dashboard'] .vault-hero,
-[data-page='dashboard'] .vault-next,
-[data-page='dashboard'] .vault-recent { animation: vaultRise .5s ease both; }
-[data-page='dashboard'] .vault-hero { animation-delay: .05s; }
-[data-page='dashboard'] .vault-next { animation-delay: .1s; }
-[data-page='dashboard'] .vault-recent { animation-delay: .15s; }
-@media (prefers-reduced-motion: reduce) {
-  [data-page='dashboard'] .vault-title,
-  [data-page='dashboard'] .vault-hero,
-  [data-page='dashboard'] .vault-next,
-  [data-page='dashboard'] .vault-recent { animation: none; }
-}
-
 /* 14b — wallet account cards. One shared height (the cash card has no
    masked-number line, so its content spreads to match the others). */
 .vault-wallet-card {
