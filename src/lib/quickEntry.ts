@@ -3,7 +3,7 @@ import { Capacitor, registerPlugin } from '@capacitor/core'
 export type EntryDirection = 'income' | 'expense'
 export const isQuickEntry = Capacitor.isNativePlatform() && Capacitor.isPluginAvailable('QuickEntry')
 export const QuickEntry = registerPlugin<{
-  context(): Promise<{ direction: EntryDirection }>
+  context(): Promise<{ direction: EntryDirection; refreshOnly?: boolean }>
   close(options: { saved?: boolean }): Promise<void>
   openApp(): Promise<void>
 }>('QuickEntry')

@@ -1,6 +1,7 @@
 import { createPortal } from 'react-dom'
 import { detachDailyReminder } from './lib/dailyReminder'
 import { refreshFinance } from './lib/receivables'
+import { syncMonthlyWidget } from './lib/monthlyWidget'
 import { WeeklyRecap } from './components/WeeklyRecap'
 import { formatMoney, useCurrency } from './lib/currency'
 import { notifyDueBills } from './lib/notifications'
@@ -147,6 +148,7 @@ function App() {
   // Never active in production builds.
   const [designPreview] = useState(() => import.meta.env.DEV && window.location.search.includes('vault-preview'))
   const [financeUserId, setFinanceUserId] = useState<string | null>(null)
+  const [widgetDataUserId, setWidgetDataUserId] = useState<string | null>(null)
   const [authEmail, setAuthEmail] = useState<string>()
   const [authDisplayName, setAuthDisplayName] = useState<string>()
   const [authProvider, setAuthProvider] = useState<string>()
@@ -189,6 +191,11 @@ function App() {
   useEffect(() => { document.documentElement.dataset.page = activePage }, [activePage])
   useEffect(() => { setAnalyticsConsent(journeySettings.analyticsConsent) }, [journeySettings.analyticsConsent])
   useEffect(() => { setAnalyticsUserId(financeUserId) }, [financeUserId])
+  useEffect(() => {
+    if (designPreview || !authReady) return
+    if (!financeUserId || widgetDataUserId !== financeUserId) { void syncMonthlyWidget(null).catch(() => {}); return }
+    if (dataReady) void syncMonthlyWidget(transactions).catch(() => {})
+  }, [transactions, currency, financeUserId, widgetDataUserId, dataReady, authReady, designPreview])
   useEffect(() => {
     if (!financeUserId) return
     void recordAppActivity('session')
@@ -298,6 +305,7 @@ function App() {
         setDataReady(false)
         const [remoteState, remoteArchivedAccounts] = await Promise.all([loadFinanceData(), loadArchivedAccounts()])
         if (cancelled) return
+        setWidgetDataUserId(financeUserId)
         setAccounts(applyAccountOrder(remoteState.accounts))
         setArchivedAccounts(remoteArchivedAccounts)
         setTransactions(remoteState.transactions)

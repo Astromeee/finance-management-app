@@ -9,6 +9,7 @@ import com.getcapacitor.annotation.CapacitorPlugin;
 public class QuickEntryPlugin extends Plugin {
     @PluginMethod public void context(PluginCall call) {
         JSObject result = new JSObject();
+        result.put("refreshOnly", getActivity().getIntent().getBooleanExtra("refreshOnly", false));
         result.put("direction", "income".equals(getActivity().getIntent().getStringExtra("direction")) ? "income" : "expense");
         call.resolve(result);
     }

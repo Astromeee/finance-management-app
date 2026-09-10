@@ -17,7 +17,7 @@ beforeEach(() => {
   vi.resetAllMocks()
   vi.stubGlobal('localStorage', { getItem: () => null, setItem: vi.fn() })
   mocks.context.mockResolvedValue({ direction: 'expense' })
-  mocks.load.mockResolvedValue({ accounts: [{ id: 'cash', name: 'Cash' }], categories: [{ id: 'food', name: 'Food', kind: 'expense' }, { id: 'salary', name: 'Salary', kind: 'income' }] })
+  mocks.load.mockResolvedValue({ transactions: [], accounts: [{ id: 'cash', name: 'Cash' }], categories: [{ id: 'food', name: 'Food', kind: 'expense' }, { id: 'salary', name: 'Salary', kind: 'income' }] })
   mocks.existing.mockResolvedValue({ data: null })
   container = document.createElement('div'); document.body.append(container); root = createRoot(container)
 })
@@ -44,6 +44,12 @@ it('opens income with income sources', async () => {
   mocks.context.mockResolvedValue({ direction: 'income' })
   await renderAndFill(); await submit()
   expect(mocks.save).toHaveBeenCalledWith(expect.objectContaining({ type: 'income', source: 'Salary', categoryId: undefined }), expect.any(AbortSignal))
+})
+it('switches from expense to income in the popup', async () => {
+  await renderAndFill()
+  await act(async () => { container.querySelectorAll<HTMLButtonElement>('.qe-direction button')[1].click() })
+  await submit()
+  expect(mocks.save).toHaveBeenCalledWith(expect.objectContaining({ type: 'income', source: 'Salary', amount: 850 }), expect.any(AbortSignal))
 })
 it('keeps failed entries and retries with the same transaction ID', async () => {
   mocks.save.mockRejectedValue(new Error('offline'))

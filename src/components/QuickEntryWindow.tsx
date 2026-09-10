@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
-import { ArrowDownLeft, ArrowUpRight, Check, X } from 'lucide-react'
+import { Check, X } from 'lucide-react'
+import { syncMonthlyWidget } from '../lib/monthlyWidget'
 import { QuickEntry, validQuickAmount, type EntryDirection } from '../lib/quickEntry'
 import { loadFinanceData, recordFinanceAction, type FinanceData } from '../lib/financeRepository'
 import { currencySymbol } from '../lib/currency'
@@ -24,8 +25,11 @@ export function QuickEntryWindow() {
   useEffect(() => {
     let live = true
     const timer = window.setTimeout(() => { if (live) { setLoading(false); setError('Connection is taking too long. Close this window and try again with internet access.') } }, 15000)
-    void Promise.all([QuickEntry.context(), loadFinanceData()]).then(([context, finance]) => {
+    void Promise.all([QuickEntry.context(), loadFinanceData()]).then(async ([context, finance]) => {
       if (!live) return
+      await syncMonthlyWidget(finance.transactions).catch(() => {})
+      if (!live) return
+      if (context.refreshOnly) { await QuickEntry.close({}); return }
       setDirection(context.direction)
       setData(finance)
       const last = localStorage.getItem('pl-last-account')
@@ -63,6 +67,8 @@ export function QuickEntryWindow() {
       localStorage.setItem('pl-widget-saved', String(Date.now()))
       setSaved(true)
       setError('')
+      await syncMonthlyWidget([...data.transactions, { id: transactionId.current, type: direction, title: category.name,
+        amount: Number(amount), category: category.name, accountId, account: account.name, date: localDateKey() }]).catch(() => {})
       await QuickEntry.close({ saved: true })
     } catch {
       setError('Could not confirm the save. Check your connection and retry here; your entry is kept.')
@@ -75,13 +81,15 @@ export function QuickEntryWindow() {
 
   return <main className="qe-window">
     <header><span className="qe-brand">Ledger <span>QUICK ADD</span></span><button aria-label="Close" disabled={saving} onClick={() => void QuickEntry.close({})}><X size={20}/></button></header>
-    <div className="qe-heading"><span className={`qe-symbol ${direction}`}>{direction === 'expense' ? <ArrowUpRight/> : <ArrowDownLeft/>}</span><h1>{direction === 'expense' ? 'Record spending' : 'Record money received'}</h1></div>
     {loading ? <p role="status">Loading your accounts…</p> : saved ? <p role="status"><Check/> Saved to your ledger.</p> : data ? <form onSubmit={e => { e.preventDefault(); void save() }}>
       <fieldset disabled={saving}>
+        <div className="qe-direction" role="group" aria-label="Transaction type">
+          {(['expense', 'income'] as const).map(type => <button type="button" key={type} disabled={attempted} aria-pressed={direction === type} className={direction === type ? 'selected' : ''} onClick={() => { setDirection(type); setCategoryId(data.categories.find(c => c.kind === type)?.id ?? '') }}>{type === 'expense' ? '− Expense' : '+ Income'}</button>)}
+        </div>
         <label className="qe-amount">AMOUNT<div><span>{currencySymbol()}</span><input disabled={attempted} aria-label="Amount" inputMode="numeric" autoComplete="off" placeholder="0" value={amount} maxLength={12} onChange={e => setAmount(e.target.value.replace(/[^0-9]/g, ''))}/></div></label>
         <label className="qe-select">{direction === 'expense' ? 'Category' : 'Source'}<select disabled={attempted} value={categoryId} onChange={e => setCategoryId(e.target.value)} aria-label={direction === 'expense' ? 'Category' : 'Source'}>{data.categories.filter(c => c.kind === direction).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select></label>
         <label className="qe-select">Account<select disabled={attempted} aria-label="Account" value={accountId} onChange={e => setAccountId(e.target.value)}>{data.accounts.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}</select></label>
-        <div className="qe-date">Today <span>{new Date().toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}</span></div>
+        <div className="qe-date">Recording for today</div>
         {(!accountId || !categoryId) && <p>Create an account and categories in Ledger first.</p>}
         <button className={`qe-save ${direction}`} disabled={!validQuickAmount(amount) || !accountId || !categoryId}>{saving ? 'Saving…' : direction === 'expense' ? 'Save expense' : 'Save income'}<Check size={19}/></button>
       </fieldset>

@@ -1,0 +1,4 @@
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android" android:layout_width="match_parent" android:layout_height="28dp" android:gravity="center_vertical">
+    <TextView android:id="@+id/monthly_category" android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:textColor="#625644" android:textSize="13sp" android:maxLines="1" android:ellipsize="end" android:layout_marginEnd="12dp" />
+    <TextView android:id="@+id/monthly_amount" android:layout_width="wrap_content" android:layout_height="wrap_content" android:textColor="#2B241D" android:textSize="14sp" android:fontFamily="sans-serif-medium" />
+</LinearLayout>

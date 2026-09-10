@@ -35,6 +35,7 @@ public class MainActivity extends BridgeActivity {
     @Override
     public void onCreate(Bundle savedInstanceState) {
         registerPlugin(AppSettingsPlugin.class);
+        registerPlugin(WidgetDataPlugin.class);
         registerPlugin(PocketNotificationsPlugin.class);
         super.onCreate(savedInstanceState);
         WindowCompat.setDecorFitsSystemWindows(getWindow(), false);
