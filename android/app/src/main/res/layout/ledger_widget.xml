@@ -4,9 +4,9 @@
     android:orientation="horizontal" android:gravity="center_vertical" android:padding="10dp" android:background="@drawable/widget_background">
     <LinearLayout android:layout_width="0dp" android:layout_weight="1" android:layout_height="match_parent" android:gravity="center_vertical" android:paddingStart="4dp" android:paddingEnd="8dp">
         <ImageView android:layout_width="34dp" android:layout_height="34dp" android:src="@mipmap/ic_launcher" android:contentDescription="@null" />
-        <LinearLayout android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginStart="8dp" android:orientation="vertical">
-            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Quick record" android:textColor="#2B241D" android:textSize="14sp" android:fontFamily="sans-serif-medium" android:maxLines="1" />
-            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="1dp" android:text="LEDGER" android:textColor="#867A68" android:textSize="8sp" android:letterSpacing="0.16" android:maxLines="1" />
+        <LinearLayout android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginStart="7dp" android:orientation="horizontal" android:gravity="center_vertical" android:baselineAligned="true">
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Pocket" android:textColor="#2B241D" android:textSize="13sp" android:fontFamily="sans-serif-medium" android:maxLines="1" />
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginStart="3dp" android:text="Ledger" android:textColor="#C65D35" android:textSize="17sp" android:fontFamily="@font/instrument_serif_italic" android:maxLines="1" />
         </LinearLayout>
     </LinearLayout>
     <TextView android:id="@+id/widget_expense" android:layout_width="68dp" android:layout_height="48dp" android:gravity="center" android:background="@drawable/widget_expense" android:text="Expense" android:textColor="#2B241D" android:textSize="12sp" android:fontFamily="sans-serif-medium" android:contentDescription="Add expense" />

@@ -1,4 +1,4 @@
-import { StrictMode } from 'react'
+import { StrictMode, Suspense, lazy } from 'react'
 import { createRoot } from 'react-dom/client'
 import { BrowserRouter } from 'react-router-dom'
 import '@fontsource/instrument-serif/400.css'
@@ -18,7 +18,6 @@ import './theme-v5.css' // ← V5 "Lifted Ink" patch (must come after theme.css)
 import './theme-vault.css' // ← "The Vault" layer (final authority — must come last)
 import './desktop-vault.css' // ← desktop redesign; scoped to 1280px and wider
 import './auth-onboarding.css' // ← auth + onboarding surfaces (namespaced .ao-*)
-import App from './App.tsx'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import { OfflineBanner } from './components/OfflineBanner'
 import { installClientErrorMonitoring } from './lib/errorMonitoring'
@@ -29,7 +28,12 @@ import { isNativeApp } from './lib/platform'
 import { installNativeNavigation } from './lib/nativeNavigation'
 import { installNativeAuth } from './lib/nativeAuth'
 import { isQuickEntry } from './lib/quickEntry'
-import { QuickEntryWindow } from './components/QuickEntryWindow'
+
+// Entry-point lazy modules intentionally live here so Android quick entry never downloads the main app chunk.
+// eslint-disable-next-line react-refresh/only-export-components
+const App = lazy(() => import('./App.tsx'))
+// eslint-disable-next-line react-refresh/only-export-components
+const QuickEntryWindow = lazy(() => import('./components/QuickEntryWindow').then(module => ({ default: module.QuickEntryWindow })))
 
 const quickEntryPreview = import.meta.env.DEV && new URLSearchParams(window.location.search).has('quick-entry-preview')
 initTheme() // apply saved dark/light theme before first paint
@@ -43,12 +47,14 @@ if (isNativeApp && !isQuickEntry) {
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <ErrorBoundary>
+      <Suspense fallback={isQuickEntry || quickEntryPreview ? <main className="qe-window" aria-label="Opening quick record" /> : null}>
       {isQuickEntry || quickEntryPreview ? <QuickEntryWindow /> : <BrowserRouter>
         <SplashScreen duration={900} />
         <OfflineBanner />
         {!isNativeApp && <PwaInstallPrompt />}
         <App />
       </BrowserRouter>}
+      </Suspense>
     </ErrorBoundary>
   </StrictMode>,
 )

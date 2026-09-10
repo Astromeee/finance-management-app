@@ -2,6 +2,7 @@ import { createPortal } from 'react-dom'
 import { detachDailyReminder } from './lib/dailyReminder'
 import { refreshFinance } from './lib/receivables'
 import { syncMonthlyWidget } from './lib/monthlyWidget'
+import { clearQuickEntryCache, writeQuickEntryCache } from './lib/quickEntryData'
 import { WeeklyRecap } from './components/WeeklyRecap'
 import { formatMoney, useCurrency } from './lib/currency'
 import { notifyDueBills } from './lib/notifications'
@@ -286,7 +287,7 @@ function App() {
       setAuthDisplayName((session?.user.user_metadata.display_name ?? session?.user.user_metadata.full_name) as string | undefined)
       setAuthProvider(session?.user.app_metadata.provider as string | undefined)
       setAuthReady(true)
-      if (!session?.user) setDataReady(false)
+      if (!session?.user) { setDataReady(false); clearQuickEntryCache() }
     })
 
     return () => {
@@ -322,6 +323,11 @@ function App() {
         setProfileState(remoteState.profile)
         setOnboardingCompleted(remoteState.onboardingCompleted)
         setJourneySettings(remoteState.journeySettings)
+        writeQuickEntryCache(financeUserId, {
+          accounts: remoteState.accounts.map(({ id, name }) => ({ id, name })),
+          categories: remoteState.categories.map(({ id, name, kind }) => ({ id, name, kind })),
+          transactions: remoteState.transactions.filter(transaction => transaction.date.startsWith(localMonthKey())),
+        })
         setDataReady(true)
       } catch (error) {
         console.warn('Supabase load failed:', error)

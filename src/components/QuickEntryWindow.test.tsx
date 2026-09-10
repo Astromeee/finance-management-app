@@ -4,9 +4,9 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { QuickEntryWindow } from './QuickEntryWindow'
 import { validQuickAmount } from '../lib/quickEntry'
 
-const mocks = vi.hoisted(() => ({ context: vi.fn(), close: vi.fn(), load: vi.fn(), save: vi.fn(), existing: vi.fn() }))
+const mocks = vi.hoisted(() => ({ context: vi.fn(), close: vi.fn(), load: vi.fn(), save: vi.fn(), existing: vi.fn(), cache: vi.fn(), writeCache: vi.fn() }))
 vi.mock('../lib/quickEntry', async importOriginal => ({ ...await importOriginal<typeof import('../lib/quickEntry')>(), QuickEntry: { context: mocks.context, close: mocks.close, openApp: vi.fn() } }))
-vi.mock('../lib/financeRepository', () => ({ loadFinanceData: mocks.load, recordFinanceAction: mocks.save }))
+vi.mock('../lib/quickEntryData', () => ({ loadQuickEntryData: mocks.load, readQuickEntryCache: mocks.cache, recordQuickFinanceAction: mocks.save, writeQuickEntryCache: mocks.writeCache }))
 vi.mock('../lib/supabase', () => ({ supabase: { from: () => ({ select: () => ({ eq: () => ({ abortSignal: () => ({ maybeSingle: mocks.existing }) }) }) }) } }))
 vi.mock('../lib/currency', () => ({ currencySymbol: () => 'Rs' }))
 
@@ -17,6 +17,7 @@ beforeEach(() => {
   vi.resetAllMocks()
   vi.stubGlobal('localStorage', { getItem: () => null, setItem: vi.fn() })
   mocks.context.mockResolvedValue({ direction: 'expense' })
+  mocks.cache.mockResolvedValue({ userId: 'user-1', data: null })
   mocks.load.mockResolvedValue({ transactions: [], accounts: [{ id: 'cash', name: 'Cash' }], categories: [{ id: 'food', name: 'Food', kind: 'expense' }, { id: 'salary', name: 'Salary', kind: 'income' }] })
   mocks.existing.mockResolvedValue({ data: null })
   container = document.createElement('div'); document.body.append(container); root = createRoot(container)
@@ -39,6 +40,12 @@ it('saves an expense with its category and account, then closes', async () => {
   await renderAndFill(); await submit()
   expect(mocks.save).toHaveBeenCalledWith(expect.objectContaining({ type: 'expense', amount: 850, accountId: 'cash', categoryId: 'food' }), expect.any(AbortSignal))
   expect(mocks.close).toHaveBeenCalledWith({ saved: true })
+})
+it('removes the title row and close control from the compact popup', async () => {
+  await renderAndFill()
+  expect(container.querySelector('header')).toBeNull()
+  expect(container.querySelector('[aria-label="Close"]')).toBeNull()
+  expect(container.textContent).not.toContain('Quick Add')
 })
 it('opens income with income sources', async () => {
   mocks.context.mockResolvedValue({ direction: 'income' })

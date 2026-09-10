@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
-import { Check, X } from 'lucide-react'
+import { Check } from 'lucide-react'
 import { syncMonthlyWidget } from '../lib/monthlyWidget'
 import { QuickEntry, validQuickAmount, type EntryDirection } from '../lib/quickEntry'
-import { loadFinanceData, recordFinanceAction, type FinanceData } from '../lib/financeRepository'
+import { loadQuickEntryData, readQuickEntryCache, recordQuickFinanceAction, writeQuickEntryCache, type QuickEntryData } from '../lib/quickEntryData'
 import { currencySymbol } from '../lib/currency'
 import { localDateKey } from '../lib/date'
 import { supabase } from '../lib/supabase'
@@ -10,7 +10,8 @@ import './quick-entry.css'
 
 export function QuickEntryWindow() {
   const [direction, setDirection] = useState<EntryDirection>('expense')
-  const [data, setData] = useState<FinanceData | null>(null)
+  const [data, setData] = useState<QuickEntryData | null>(null)
+  const userId = useRef('')
   const [amount, setAmount] = useState('')
   const [accountId, setAccountId] = useState('')
   const [categoryId, setCategoryId] = useState('')
@@ -63,7 +64,7 @@ export function QuickEntryWindow() {
           { id: 'freelance', name: 'Freelance', kind: 'income' as const },
         ],
         transactions: [{ id: 'preview', title: 'Food', amount: 850, type: 'expense' as const, category: 'Food & Essentials', account: 'Cash', accountId: 'cash', date: localDateKey() }],
-      } as FinanceData
+      } as QuickEntryData
       void Promise.resolve().then(() => {
         if (!live) return
         setDirection(previewDirection)
@@ -75,13 +76,30 @@ export function QuickEntryWindow() {
       return () => { live = false }
     }
     const timer = window.setTimeout(() => { if (live) { setLoading(false); setError('Connection is taking too long. Close this window and try again with internet access.') } }, 15000)
-    void Promise.all([QuickEntry.context(), loadFinanceData()]).then(async ([context, finance]) => {
+    void QuickEntry.context().then(async context => {
       if (!live) return
-      await syncMonthlyWidget(finance.transactions).catch(() => {})
-      if (!live) return
-      if (context.refreshOnly) { await QuickEntry.close({}); return }
       setDirection(context.direction)
-      setData(finance)
+      if (context.refreshOnly) {
+        const { loadFinanceData } = await import('../lib/financeRepository')
+        const finance = await loadFinanceData()
+        await syncMonthlyWidget(finance.transactions).catch(() => {})
+        await QuickEntry.close({})
+        return
+      }
+      const cached = await readQuickEntryCache()
+      userId.current = cached.userId
+      let finance = cached.data
+      if (finance && live) {
+        setData(finance)
+        const last = localStorage.getItem('pl-last-account')
+        setAccountId(finance.accounts.find(a => a.id === last)?.id ?? finance.accounts[0]?.id ?? '')
+        setCategoryId(finance.categories.find(c => c.kind === context.direction)?.id ?? '')
+        setLoading(false)
+      }
+      const fresh = await loadQuickEntryData(cached.userId)
+      if (!live) return
+      finance = fresh
+      setData(fresh)
       const last = localStorage.getItem('pl-last-account')
       setAccountId(finance.accounts.find(a => a.id === last)?.id ?? finance.accounts[0]?.id ?? '')
       setCategoryId(finance.categories.find(c => c.kind === context.direction)?.id ?? '')
@@ -105,7 +123,7 @@ export function QuickEntryWindow() {
     const timer = window.setTimeout(() => controller.abort(), 20000)
     try {
       try {
-        await recordFinanceAction({ id: transactionId.current, type: direction, title: category.name,
+        await recordQuickFinanceAction({ id: transactionId.current, type: direction, title: category.name,
           amount: Number(amount), category: category.name, categoryId: direction === 'expense' ? category.id : undefined,
           source: direction === 'income' ? category.name : undefined, accountId, account: account.name, date: localDateKey() }, controller.signal)
       } catch (cause) {
@@ -115,10 +133,12 @@ export function QuickEntryWindow() {
       }
       localStorage.setItem('pl-last-account', accountId)
       localStorage.setItem('pl-widget-saved', String(Date.now()))
+      const nextTransactions = [...data.transactions, { id: transactionId.current, type: direction, title: category.name,
+        amount: Number(amount), category: category.name, accountId, account: account.name, date: localDateKey() }]
+      if (userId.current) writeQuickEntryCache(userId.current, { ...data, transactions: nextTransactions })
       setSaved(true)
       setError('')
-      await syncMonthlyWidget([...data.transactions, { id: transactionId.current, type: direction, title: category.name,
-        amount: Number(amount), category: category.name, accountId, account: account.name, date: localDateKey() }]).catch(() => {})
+      await syncMonthlyWidget(nextTransactions).catch(() => {})
       await QuickEntry.close({ saved: true })
     } catch {
       setError('Could not confirm the save. Check your connection and retry here; your entry is kept.')
@@ -130,7 +150,6 @@ export function QuickEntryWindow() {
   }
 
   return <main className="qe-window">
-    <header><span className="qe-brand">Ledger <span>QUICK ADD</span></span><button aria-label="Close" disabled={saving} onClick={() => void QuickEntry.close({})}><X size={20}/></button></header>
     {loading ? <p role="status">Loading your accounts…</p> : saved ? <p role="status"><Check/> Saved to your ledger.</p> : data ? <form onSubmit={e => { e.preventDefault(); void save() }}>
       <fieldset disabled={saving}>
         <div className="qe-direction" role="group" aria-label="Transaction type">
