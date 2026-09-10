@@ -9,7 +9,7 @@ import { exportLedgerJson, exportTransactionsCsv } from '../lib/exports'
 import { supabase } from '../lib/supabase'
 import { requestPwaInstall } from '../lib/pwaInstall'
 import { isNativeApp } from '../lib/platform'
-import { openNativeNotificationSettings } from '../lib/nativeNotifications'
+import { NativeNotificationPermissionError, openNativeNotificationSettings, syncNativeBillReminders } from '../lib/nativeNotifications'
 import { initialsOf } from '../lib/profile'
 import type { Profile } from '../lib/profile'
 import type { Account, Budget, Category, Debt, Goal, JourneySettings, Transaction, UpcomingExpense } from '../types/finance'
@@ -52,6 +52,7 @@ export function Settings(props: Props) {
   const currency = useCurrency()
   const [notify, setNotify] = useState(notificationsEnabled)
   const [notifyNote, setNotifyNote] = useState<string>()
+  const [notifyBusy, setNotifyBusy] = useState(false)
   const [notificationSettingsNeeded, setNotificationSettingsNeeded] = useState(false)
   const [currencyOpen, setCurrencyOpen] = useState(false)
   const [deleteOpen, setDeleteOpen] = useState(false)
@@ -75,24 +76,34 @@ export function Settings(props: Props) {
   /* Asking the browser is the whole point: a stored "on" without permission is
      the silent lie this replaced. */
   const toggleNotifications = async () => {
+    if (notifyBusy) return
     const wanted = !notify
+    setNotifyBusy(true)
     setNotificationSettingsNeeded(false)
     try {
       const permission = await setNotificationsEnabled(wanted)
       const granted = wanted && permission === 'granted'
+      let scheduled: number | undefined
+      if (granted && isNativeApp) scheduled = await syncNativeBillReminders(props.upcomingExpenses)
+      else if (granted) notifyDueBills(props.upcomingExpenses)
       setNotify(granted)
-      if (granted && isNativeApp) notifyDueBills(props.upcomingExpenses)
       setNotifyNote(
-        !wanted ? undefined
-          : permission === 'granted' ? undefined
+        !wanted ? 'Off'
+          : permission === 'granted' ? isNativeApp
+            ? scheduled ? `On · ${scheduled} reminder${scheduled === 1 ? '' : 's'} scheduled` : 'On · New bills will be scheduled'
+            : 'On'
             : permission === 'denied' ? isNativeApp ? 'Blocked in Android notification settings.' : 'Blocked in your browser settings.'
               : permission === 'unsupported' ? 'This device cannot show reminders.'
                 : 'Permission was dismissed.',
       )
       setNotificationSettingsNeeded(wanted && permission === 'denied' && isNativeApp)
     } catch (error) {
+      await setNotificationsEnabled(false).catch(() => undefined)
       setNotify(false)
       setNotifyNote(error instanceof Error ? error.message : 'Could not enable bill reminders.')
+      setNotificationSettingsNeeded(isNativeApp && error instanceof NativeNotificationPermissionError)
+    } finally {
+      setNotifyBusy(false)
     }
   }
 
@@ -133,7 +144,7 @@ export function Settings(props: Props) {
       <section className="mt-6">
         <p className="vault-settings-group-label">Preferences</p>
         <div className="vault-settings-group">
-          <Row icon={<Bell size={18} strokeWidth={1.9} />} title="Bill reminders" subtitle={notifyNote ?? 'When a bill is due or overdue'} trailing={<button aria-checked={notify} aria-label="Bill reminders" className={`vault-toggle${notify ? ' is-on' : ''}`} role="switch" type="button" onClick={() => { void toggleNotifications() }} />} />
+          <Row icon={<Bell size={18} strokeWidth={1.9} />} title="Bill reminders" subtitle={notifyNote ?? 'When a bill is due or overdue'} trailing={<button aria-checked={notify} aria-label="Bill reminders" className={`vault-toggle${notify ? ' is-on' : ''}`} disabled={notifyBusy} role="switch" type="button" onClick={() => { void toggleNotifications() }} />} />
           <Row icon={<Sun size={18} strokeWidth={1.9} />} title="Appearance" value="Warm" />
         </div>
         {notificationSettingsNeeded && <button className="vault-link mt-2" type="button" onClick={() => { void openNativeNotificationSettings() }}>Open Android notification settings</button>}
@@ -157,7 +168,7 @@ export function Settings(props: Props) {
       </section>
 
       <button className="vault-signout mt-8" type="button" onClick={props.onSignOut}><LogOut size={17} strokeWidth={2} /> Sign out</button>
-      <p className="vault-version mt-4">Pocket Ledger · v0.1.0-beta.5</p>
+      <p className="vault-version mt-4">Pocket Ledger · v0.1.0-beta.6</p>
 
       {supabase && (
         <div className="mt-3 text-center">

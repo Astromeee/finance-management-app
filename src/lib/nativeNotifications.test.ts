@@ -6,8 +6,11 @@ const notifications = vi.hoisted(() => ({
   requestPermissions: vi.fn(),
   areEnabled: vi.fn(),
   schedule: vi.fn(),
+  getPending: vi.fn(),
 }))
+const appSettings = vi.hoisted(() => ({ openNotificationSettings: vi.fn() }))
 vi.mock('@capacitor/local-notifications', () => ({ LocalNotifications: notifications }))
+vi.mock('@capacitor/core', () => ({ registerPlugin: () => appSettings }))
 import { getStoredNativeDailyReminder, setNativeDailyReminder, syncNativeBillReminders } from './nativeNotifications'
 
 describe('Android local reminders', () => {
@@ -25,6 +28,10 @@ describe('Android local reminders', () => {
     notifications.requestPermissions.mockResolvedValue({ display: 'granted' })
     notifications.areEnabled.mockResolvedValue({ value: true })
     notifications.schedule.mockResolvedValue({ notifications: [] })
+    notifications.getPending.mockImplementation(async () => ({
+      notifications: (notifications.schedule.mock.calls.at(-1)?.[0].notifications ?? []).map(({ id }: { id: number }) => ({ id })),
+    }))
+    appSettings.openNotificationSettings.mockResolvedValue(undefined)
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2026-09-10T12:00:00'))
   })

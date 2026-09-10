@@ -35,6 +35,13 @@ export async function requestNativeNotificationPermission(): Promise<Permission>
     await notifications.requestPermissions()
     permission = await getNativeNotificationPermission()
   }
+  // Android stops showing its permission dialog after a denial. Taking the
+  // user to this app's notification page is the only recovery path, and the
+  // native method resolves after they return so we can finish the same tap.
+  if (permission === 'denied') {
+    await openNativeNotificationSettings()
+    permission = await getNativeNotificationPermission()
+  }
   return permission
 }
 
@@ -81,6 +88,10 @@ export async function setNativeDailyReminder(enabled: boolean, time: string) {
     schedule: { on: { hour, minute }, allowWhileIdle: true },
     isExactNotification: false,
   }] })
+  const pending = await notifications.getPending()
+  if (!pending.notifications.some(({ id }) => id === dailyReminderId)) {
+    throw new Error('Android did not save the daily reminder. Please try again.')
+  }
   localStorage.setItem(dailyStorageKey, JSON.stringify({ enabled: true, time }))
 }
 
@@ -104,7 +115,7 @@ export async function clearNativeBillReminders() {
 export async function syncNativeBillReminders(expenses: UpcomingExpense[]) {
   const notifications = await plugin()
   await clearNativeBillReminders()
-  if (await getNativeNotificationPermission() !== 'granted') return
+  if (await getNativeNotificationPermission() !== 'granted') throw new NativeNotificationPermissionError()
 
   const now = new Date()
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
@@ -131,7 +142,12 @@ export async function syncNativeBillReminders(expenses: UpcomingExpense[]) {
     schedule: { at: new Date(Date.now() + 3_000), allowWhileIdle: true },
     isExactNotification: false,
   })
-  if (!items.length) return
+  if (!items.length) return 0
   await notifications.schedule({ notifications: items })
+  const expectedIds = new Set(items.map(({ id }) => id))
+  const pending = await notifications.getPending()
+  const saved = pending.notifications.filter(({ id }) => expectedIds.has(id)).length
+  if (saved !== expectedIds.size) throw new Error('Android did not save all bill reminders. Please try again.')
   localStorage.setItem(billIdsStorageKey, JSON.stringify(items.map(({ id }) => id)))
+  return saved
 }

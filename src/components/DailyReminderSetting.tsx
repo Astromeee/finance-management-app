@@ -17,7 +17,7 @@ export function DailyReminderSetting() {
   const save = async (wanted: boolean) => {
     if (busy) return
     setBusy(true); setNote(null); setNotificationSettingsNeeded(false)
-    try { await setDailyReminder(wanted, time); setEnabled(wanted); setSavedTime(time) }
+    try { await setDailyReminder(wanted, time); setEnabled(wanted); setSavedTime(time); setNote(wanted ? `On · Every day at ${time}` : 'Off') }
     catch (error) { setNote(error instanceof Error ? error.message : 'Could not update reminders.'); setNotificationSettingsNeeded(isNativeApp && error instanceof NativeNotificationPermissionError) }
     finally { setBusy(false) }
   }
