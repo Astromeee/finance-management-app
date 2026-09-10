@@ -4,10 +4,16 @@
     android:viewportWidth="108"
     android:viewportHeight="108">
     <!-- Keep the complete mark inside the 66dp adaptive-icon safe circle. -->
-    <path
-        android:fillColor="#F3EEE4"
-        android:pathData="M32,32H76Q79,32 79,35V38Q79,41 76,41H32Q29,41 29,38V35Q29,32 32,32ZM32,50H76Q79,50 79,53V56Q79,59 76,59H32Q29,59 29,56V53Q29,50 32,50ZM32,67H58Q61,67 61,70V73Q61,76 58,76H32Q29,76 29,73V70Q29,67 32,67Z" />
-    <path
-        android:fillColor="#E2703A"
-        android:pathData="M67,67H70Q73,67 73,70V73Q73,76 70,76H67Q64,76 64,73V70Q64,67 67,67Z" />
+    <group
+        android:pivotX="54"
+        android:pivotY="54"
+        android:scaleX="0.84"
+        android:scaleY="0.84">
+        <path
+            android:fillColor="#F3EEE4"
+            android:pathData="M32,32H76Q79,32 79,35V38Q79,41 76,41H32Q29,41 29,38V35Q29,32 32,32ZM32,50H76Q79,50 79,53V56Q79,59 76,59H32Q29,59 29,56V53Q29,50 32,50ZM32,67H58Q61,67 61,70V73Q61,76 58,76H32Q29,76 29,73V70Q29,67 32,67Z" />
+        <path
+            android:fillColor="#E2703A"
+            android:pathData="M67,67H70Q73,67 73,70V73Q73,76 70,76H67Q64,76 64,73V70Q64,67 67,67Z" />
+    </group>
 </vector>

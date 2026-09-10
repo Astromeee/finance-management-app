@@ -9,6 +9,7 @@ import { exportLedgerJson, exportTransactionsCsv } from '../lib/exports'
 import { supabase } from '../lib/supabase'
 import { requestPwaInstall } from '../lib/pwaInstall'
 import { isNativeApp } from '../lib/platform'
+import { openNativeNotificationSettings } from '../lib/nativeNotifications'
 import { initialsOf } from '../lib/profile'
 import type { Profile } from '../lib/profile'
 import type { Account, Budget, Category, Debt, Goal, JourneySettings, Transaction, UpcomingExpense } from '../types/finance'
@@ -51,6 +52,7 @@ export function Settings(props: Props) {
   const currency = useCurrency()
   const [notify, setNotify] = useState(notificationsEnabled)
   const [notifyNote, setNotifyNote] = useState<string>()
+  const [notificationSettingsNeeded, setNotificationSettingsNeeded] = useState(false)
   const [currencyOpen, setCurrencyOpen] = useState(false)
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [backupNote, setBackupNote] = useState<string>()
@@ -74,17 +76,24 @@ export function Settings(props: Props) {
      the silent lie this replaced. */
   const toggleNotifications = async () => {
     const wanted = !notify
-    const permission = await setNotificationsEnabled(wanted)
-    const granted = wanted && permission === 'granted'
-    setNotify(granted)
-    if (granted && isNativeApp) notifyDueBills(props.upcomingExpenses)
-    setNotifyNote(
-      !wanted ? undefined
-        : permission === 'granted' ? undefined
-          : permission === 'denied' ? 'Blocked in your browser settings.'
-            : permission === 'unsupported' ? 'This device cannot show reminders.'
-              : 'Permission was dismissed.',
-    )
+    setNotificationSettingsNeeded(false)
+    try {
+      const permission = await setNotificationsEnabled(wanted)
+      const granted = wanted && permission === 'granted'
+      setNotify(granted)
+      if (granted && isNativeApp) notifyDueBills(props.upcomingExpenses)
+      setNotifyNote(
+        !wanted ? undefined
+          : permission === 'granted' ? undefined
+            : permission === 'denied' ? isNativeApp ? 'Blocked in Android notification settings.' : 'Blocked in your browser settings.'
+              : permission === 'unsupported' ? 'This device cannot show reminders.'
+                : 'Permission was dismissed.',
+      )
+      setNotificationSettingsNeeded(wanted && permission === 'denied' && isNativeApp)
+    } catch (error) {
+      setNotify(false)
+      setNotifyNote(error instanceof Error ? error.message : 'Could not enable bill reminders.')
+    }
   }
 
   return (
@@ -127,6 +136,7 @@ export function Settings(props: Props) {
           <Row icon={<Bell size={18} strokeWidth={1.9} />} title="Bill reminders" subtitle={notifyNote ?? 'When a bill is due or overdue'} trailing={<button aria-checked={notify} aria-label="Bill reminders" className={`vault-toggle${notify ? ' is-on' : ''}`} role="switch" type="button" onClick={() => { void toggleNotifications() }} />} />
           <Row icon={<Sun size={18} strokeWidth={1.9} />} title="Appearance" value="Warm" />
         </div>
+        {notificationSettingsNeeded && <button className="vault-link mt-2" type="button" onClick={() => { void openNativeNotificationSettings() }}>Open Android notification settings</button>}
       </section>
 
       <DailyReminderSetting />
@@ -147,7 +157,7 @@ export function Settings(props: Props) {
       </section>
 
       <button className="vault-signout mt-8" type="button" onClick={props.onSignOut}><LogOut size={17} strokeWidth={2} /> Sign out</button>
-      <p className="vault-version mt-4">Pocket Ledger · v0.1.0-beta.4</p>
+      <p className="vault-version mt-4">Pocket Ledger · v0.1.0-beta.5</p>
 
       {supabase && (
         <div className="mt-3 text-center">

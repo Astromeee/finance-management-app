@@ -1,4 +1,5 @@
 import type { UpcomingExpense } from '../types/finance'
+import { registerPlugin } from '@capacitor/core'
 import { formatMoney } from './currency'
 import { localDateKey } from './date'
 
@@ -7,6 +8,15 @@ const dailyStorageKey = 'pl-native-daily-reminder'
 const billIdsStorageKey = 'pl-native-bill-reminder-ids'
 
 type Permission = 'unsupported' | 'default' | 'granted' | 'denied'
+
+const AppSettings = registerPlugin<{ openNotificationSettings: () => Promise<void> }>('AppSettings')
+
+export class NativeNotificationPermissionError extends Error {
+  constructor() {
+    super('Allow notifications in Android settings, then return and try again.')
+    this.name = 'NativeNotificationPermissionError'
+  }
+}
 
 async function plugin() {
   return (await import('@capacitor/local-notifications')).LocalNotifications
@@ -20,16 +30,30 @@ function mapPermission(display: string): Permission {
 
 export async function requestNativeNotificationPermission(): Promise<Permission> {
   const notifications = await plugin()
-  let status = await notifications.checkPermissions()
-  if (status.display !== 'granted') status = await notifications.requestPermissions()
-  return mapPermission(status.display)
+  let permission = await getNativeNotificationPermission()
+  if (permission !== 'granted') {
+    await notifications.requestPermissions()
+    permission = await getNativeNotificationPermission()
+  }
+  return permission
+}
+
+export async function getNativeNotificationPermission(): Promise<Permission> {
+  const notifications = await plugin()
+  const permission = mapPermission((await notifications.checkPermissions()).display)
+  if (permission !== 'granted') return permission
+  return (await notifications.areEnabled()).value ? 'granted' : 'denied'
+}
+
+export async function openNativeNotificationSettings() {
+  await AppSettings.openNotificationSettings()
 }
 
 export async function getStoredNativeDailyReminder() {
   try {
     const saved = JSON.parse(localStorage.getItem(dailyStorageKey) ?? 'null') as { enabled?: boolean; time?: string } | null
     if (!saved?.enabled || !saved.time) return null
-    if (mapPermission((await (await plugin()).checkPermissions()).display) !== 'granted') {
+    if (await getNativeNotificationPermission() !== 'granted') {
       localStorage.removeItem(dailyStorageKey)
       return null
     }
@@ -47,17 +71,14 @@ export async function setNativeDailyReminder(enabled: boolean, time: string) {
     return
   }
   if (await requestNativeNotificationPermission() !== 'granted') {
-    throw new Error('Allow notifications in Android settings to enable reminders.')
+    throw new NativeNotificationPermissionError()
   }
   const [hour, minute] = time.split(':').map(Number)
-  const at = new Date()
-  at.setHours(hour, minute, 0, 0)
-  if (at.getTime() <= Date.now()) at.setDate(at.getDate() + 1)
   await notifications.schedule({ notifications: [{
     id: dailyReminderId,
     title: 'A minute for your money',
     body: 'Open Pocket Ledger and record anything that changed today.',
-    schedule: { at, repeats: true, every: 'day', allowWhileIdle: true },
+    schedule: { on: { hour, minute }, allowWhileIdle: true },
     isExactNotification: false,
   }] })
   localStorage.setItem(dailyStorageKey, JSON.stringify({ enabled: true, time }))
@@ -83,7 +104,7 @@ export async function clearNativeBillReminders() {
 export async function syncNativeBillReminders(expenses: UpcomingExpense[]) {
   const notifications = await plugin()
   await clearNativeBillReminders()
-  if (await requestNativeNotificationPermission() !== 'granted') return
+  if (await getNativeNotificationPermission() !== 'granted') return
 
   const now = new Date()
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())

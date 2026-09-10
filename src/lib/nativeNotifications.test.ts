@@ -4,6 +4,7 @@ const notifications = vi.hoisted(() => ({
   cancel: vi.fn(),
   checkPermissions: vi.fn(),
   requestPermissions: vi.fn(),
+  areEnabled: vi.fn(),
   schedule: vi.fn(),
 }))
 vi.mock('@capacitor/local-notifications', () => ({ LocalNotifications: notifications }))
@@ -22,6 +23,7 @@ describe('Android local reminders', () => {
     notifications.cancel.mockResolvedValue(undefined)
     notifications.checkPermissions.mockResolvedValue({ display: 'granted' })
     notifications.requestPermissions.mockResolvedValue({ display: 'granted' })
+    notifications.areEnabled.mockResolvedValue({ value: true })
     notifications.schedule.mockResolvedValue({ notifications: [] })
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2026-09-10T12:00:00'))
@@ -31,7 +33,7 @@ describe('Android local reminders', () => {
     await setNativeDailyReminder(true, '21:30')
     expect(notifications.schedule).toHaveBeenCalledWith({ notifications: [expect.objectContaining({
       id: 73001,
-      schedule: expect.objectContaining({ every: 'day', repeats: true }),
+      schedule: expect.objectContaining({ on: { hour: 21, minute: 30 } }),
       isExactNotification: false,
     })] })
     await expect(getStoredNativeDailyReminder()).resolves.toEqual({ enabled: true, reminder_time: '21:30' })
@@ -42,6 +44,12 @@ describe('Android local reminders', () => {
     notifications.requestPermissions.mockResolvedValue({ display: 'denied' })
     await expect(setNativeDailyReminder(true, '21:00')).rejects.toThrow('Allow notifications')
     await expect(getStoredNativeDailyReminder()).resolves.toBeNull()
+  })
+
+  it('rejects when Android has disabled notifications at the app level', async () => {
+    notifications.areEnabled.mockResolvedValue({ value: false })
+    await expect(setNativeDailyReminder(true, '21:00')).rejects.toThrow('Android settings')
+    expect(notifications.schedule).not.toHaveBeenCalled()
   })
 
   it('schedules unpaid bills and omits paid bills', async () => {
