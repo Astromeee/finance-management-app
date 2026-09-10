@@ -19,11 +19,61 @@ export function QuickEntryWindow() {
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [attempted, setAttempted] = useState(false)
+  const [showAllCategories, setShowAllCategories] = useState(false)
+  const [showAllAccounts, setShowAllAccounts] = useState(false)
   const busy = useRef(false)
   const transactionId = useRef(crypto.randomUUID())
 
+  const categories = data?.categories.filter(category => category.kind === direction) ?? []
+  const categoryUsage = new Map<string, number>()
+  for (const transaction of data?.transactions ?? []) {
+    if (transaction.type !== direction) continue
+    const name = direction === 'income' ? transaction.source ?? transaction.category : transaction.category
+    if (name) categoryUsage.set(name, (categoryUsage.get(name) ?? 0) + 1)
+  }
+  const orderedCategories = [...categories].sort((a, b) => (categoryUsage.get(b.name) ?? 0) - (categoryUsage.get(a.name) ?? 0))
+  const categoryTop = orderedCategories.slice(0, 4)
+  const selectedCategory = orderedCategories.find(category => category.id === categoryId)
+  const visibleCategories = showAllCategories
+    ? orderedCategories
+    : selectedCategory && !categoryTop.some(category => category.id === selectedCategory.id)
+      ? [...categoryTop.slice(0, 3), selectedCategory]
+      : categoryTop
+  const accountTop = data?.accounts.slice(0, 3) ?? []
+  const selectedAccount = data?.accounts.find(account => account.id === accountId)
+  const visibleAccounts = showAllAccounts
+    ? data?.accounts ?? []
+    : selectedAccount && !accountTop.some(account => account.id === selectedAccount.id)
+      ? [...accountTop.slice(0, 2), selectedAccount]
+      : accountTop
+
   useEffect(() => {
     let live = true
+    const previewDirection = import.meta.env.DEV ? new URLSearchParams(window.location.search).get('quick-entry-preview') : null
+    if (previewDirection === 'expense' || previewDirection === 'income') {
+      const preview = {
+        accounts: [{ id: 'cash', name: 'Cash' }, { id: 'bank', name: 'ABL Account' }, { id: 'wallet', name: 'Wallet' }],
+        categories: [
+          { id: 'food', name: 'Food & Essentials', kind: 'expense' as const },
+          { id: 'transport', name: 'Transport', kind: 'expense' as const },
+          { id: 'shopping', name: 'Shopping', kind: 'expense' as const },
+          { id: 'bills', name: 'Bills', kind: 'expense' as const },
+          { id: 'health', name: 'Health', kind: 'expense' as const },
+          { id: 'salary', name: 'Salary', kind: 'income' as const },
+          { id: 'freelance', name: 'Freelance', kind: 'income' as const },
+        ],
+        transactions: [{ id: 'preview', title: 'Food', amount: 850, type: 'expense' as const, category: 'Food & Essentials', account: 'Cash', accountId: 'cash', date: localDateKey() }],
+      } as FinanceData
+      void Promise.resolve().then(() => {
+        if (!live) return
+        setDirection(previewDirection)
+        setData(preview)
+        setAccountId('cash')
+        setCategoryId(previewDirection === 'expense' ? 'food' : 'salary')
+        setLoading(false)
+      })
+      return () => { live = false }
+    }
     const timer = window.setTimeout(() => { if (live) { setLoading(false); setError('Connection is taking too long. Close this window and try again with internet access.') } }, 15000)
     void Promise.all([QuickEntry.context(), loadFinanceData()]).then(async ([context, finance]) => {
       if (!live) return
@@ -84,12 +134,17 @@ export function QuickEntryWindow() {
     {loading ? <p role="status">Loading your accounts…</p> : saved ? <p role="status"><Check/> Saved to your ledger.</p> : data ? <form onSubmit={e => { e.preventDefault(); void save() }}>
       <fieldset disabled={saving}>
         <div className="qe-direction" role="group" aria-label="Transaction type">
-          {(['expense', 'income'] as const).map(type => <button type="button" key={type} disabled={attempted} aria-pressed={direction === type} className={direction === type ? 'selected' : ''} onClick={() => { setDirection(type); setCategoryId(data.categories.find(c => c.kind === type)?.id ?? '') }}>{type === 'expense' ? '− Expense' : '+ Income'}</button>)}
+          {(['expense', 'income'] as const).map(type => <button type="button" key={type} disabled={attempted} aria-pressed={direction === type} className={direction === type ? 'selected' : ''} onClick={() => { setDirection(type); setShowAllCategories(false); setCategoryId(data.categories.find(c => c.kind === type)?.id ?? '') }}>{type === 'expense' ? 'Expense' : 'Income'}</button>)}
         </div>
         <label className="qe-amount">AMOUNT<div><span>{currencySymbol()}</span><input disabled={attempted} aria-label="Amount" inputMode="numeric" autoComplete="off" placeholder="0" value={amount} maxLength={12} onChange={e => setAmount(e.target.value.replace(/[^0-9]/g, ''))}/></div></label>
-        <label className="qe-select">{direction === 'expense' ? 'Category' : 'Source'}<select disabled={attempted} value={categoryId} onChange={e => setCategoryId(e.target.value)} aria-label={direction === 'expense' ? 'Category' : 'Source'}>{data.categories.filter(c => c.kind === direction).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select></label>
-        <label className="qe-select">Account<select disabled={attempted} aria-label="Account" value={accountId} onChange={e => setAccountId(e.target.value)}>{data.accounts.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}</select></label>
-        <div className="qe-date">Recording for today</div>
+        <section className="qe-choice" aria-labelledby="qe-category-label">
+          <div className="qe-choice-head"><span id="qe-category-label">{direction === 'expense' ? 'Category' : 'Source'}</span>{orderedCategories.length > 4 && <button type="button" disabled={attempted} aria-expanded={showAllCategories} onClick={() => setShowAllCategories(current => !current)}>{showAllCategories ? 'Less' : 'More'}</button>}</div>
+          <div className="qe-chips">{visibleCategories.map(category => <button type="button" disabled={attempted} key={category.id} className={category.id === categoryId ? 'selected' : ''} aria-pressed={category.id === categoryId} onClick={() => setCategoryId(category.id)}>{category.name}</button>)}</div>
+        </section>
+        <section className="qe-choice" aria-labelledby="qe-account-label">
+          <div className="qe-choice-head"><span id="qe-account-label">Account</span>{data.accounts.length > 3 && <button type="button" disabled={attempted} aria-expanded={showAllAccounts} onClick={() => setShowAllAccounts(current => !current)}>{showAllAccounts ? 'Less' : 'More'}</button>}</div>
+          <div className="qe-chips qe-account-chips">{visibleAccounts.map(account => <button type="button" disabled={attempted} key={account.id} className={account.id === accountId ? 'selected' : ''} aria-pressed={account.id === accountId} onClick={() => setAccountId(account.id)}>{account.name}</button>)}</div>
+        </section>
         {(!accountId || !categoryId) && <p>Create an account and categories in Ledger first.</p>}
         <button className={`qe-save ${direction}`} disabled={!validQuickAmount(amount) || !accountId || !categoryId}>{saving ? 'Saving…' : direction === 'expense' ? 'Save expense' : 'Save income'}<Check size={19}/></button>
       </fieldset>

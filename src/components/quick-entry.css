@@ -1,28 +1,33 @@
 html.quick-entry, html.quick-entry body, html.quick-entry #root { background: transparent !important; min-height: 0; height: 100%; margin: 0; }
-.qe-window { box-sizing: border-box; height: 100%; overflow: auto; background: #f3eee4; color: #2b241d; border-radius: 26px; padding: 20px 24px; font-family: 'Schibsted Grotesk', sans-serif; }
+.qe-window { box-sizing: border-box; height: 100%; overflow: auto; overscroll-behavior: contain; background: #f3eee4; color: #2b241d; border-radius: 28px; padding: 16px 20px 18px; font-family: 'Schibsted Grotesk', sans-serif; box-shadow: 0 18px 60px rgba(43, 36, 29, .18); }
 .qe-window header { display: flex; align-items: center; justify-content: space-between; }
-.qe-brand { font: 27px 'Instrument Serif', serif; }
-.qe-brand span { margin-left: 12px; font: 9px 'Schibsted Grotesk', sans-serif; letter-spacing: 1.8px; color: #756956; }
-.qe-window header button { display: grid; place-items: center; width: 44px; height: 44px; border: 1px solid #ded4c3; border-radius: 50%; background: transparent; color: inherit; }
+.qe-brand { font: 25px 'Instrument Serif', serif; }
+.qe-brand span { margin-left: 10px; font: 8px 'Schibsted Grotesk', sans-serif; letter-spacing: 1.7px; color: #756956; }
+.qe-window header button { display: grid; place-items: center; width: 40px; height: 40px; border: 1px solid #ded4c3; border-radius: 50%; background: #f8f4ed; color: inherit; }
 .qe-heading { display: flex; align-items: center; gap: 12px; margin: 17px 0; }
 .qe-heading h1 { flex: 1; min-width: 0; font: 27px/1.12 'Instrument Serif', serif; text-wrap: wrap; margin: 0; }
 .qe-symbol { display: grid; place-items: center; width: 38px; height: 38px; flex-shrink: 0; border-radius: 50%; background: #eadbc8; }
 .qe-symbol.expense { color: #ad4416; }
 .qe-window fieldset { border: 0; padding: 0; margin: 0; min-width: 0; }
-.qe-amount { display: block; color: #756956; font-size: 10px; letter-spacing: 1.8px; }
-.qe-amount div { display: flex; align-items: baseline; gap: 10px; border-bottom: 1px solid #cfc2ac; padding-bottom: 10px; margin-bottom: 8px; }
-.qe-amount span { font-size: 21px; letter-spacing: 0; }
-.qe-amount input { width: 100%; min-width: 0; border: 0; outline: 0; background: transparent; color: #2b241d; font: 42px/1.2 'Schibsted Grotesk', sans-serif; letter-spacing: -2px; }
-.qe-select { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 51px; border-bottom: 1px solid #ded4c3; font-size: 13px; color: #756956; }
-.qe-select select { max-width: 68%; min-height: 44px; border: 0; background: transparent; color: #2b241d; font: 500 14px 'Schibsted Grotesk', sans-serif; text-align: right; }
-.qe-date { display: flex; justify-content: space-between; padding: 10px 0; font-size: 12px; color: #756956; }
-.qe-save { display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%; min-height: 52px; border: 0; border-radius: 18px; background: #2b241d; color: #f3eee4; font: 600 15px 'Schibsted Grotesk', sans-serif; }
+.qe-amount { display: block; color: #756956; font-size: 9px; letter-spacing: 1.7px; }
+.qe-amount div { display: flex; align-items: baseline; gap: 9px; border-bottom: 1px solid #cfc2ac; padding: 0 2px 7px; margin-bottom: 13px; }
+.qe-amount span { font-size: 18px; letter-spacing: 0; }
+.qe-amount input { width: 100%; min-width: 0; border: 0; outline: 0; background: transparent; color: #2b241d; font: 38px/1.1 'Schibsted Grotesk', sans-serif; letter-spacing: -1.5px; }
+.qe-choice { margin-top: 11px; }
+.qe-choice-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 7px; color: #756956; font-size: 10px; letter-spacing: .7px; text-transform: uppercase; }
+.qe-choice-head button { min-width: 44px; min-height: 30px; border: 0; background: transparent; color: #ad4416; font: 700 10px 'Schibsted Grotesk', sans-serif; text-transform: uppercase; letter-spacing: .5px; }
+.qe-chips { display: flex; flex-wrap: wrap; gap: 7px; }
+.qe-chips button { min-height: 35px; max-width: 100%; padding: 7px 12px; border: 1px solid #d8cdbb; border-radius: 999px; background: #f8f4ed; color: #625644; font: 500 12px 'Schibsted Grotesk', sans-serif; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.qe-chips button.selected { border-color: #2b241d; background: #2b241d; color: #f3eee4; }
+.qe-account-chips button { background: #eadfcd; border-color: transparent; }
+.qe-account-chips button.selected { background: #e8793e; color: #2b241d; }
+.qe-save { display: flex; align-items: center; justify-content: center; gap: 9px; width: 100%; min-height: 48px; margin-top: 16px; border: 0; border-radius: 16px; background: #2b241d; color: #f3eee4; font: 600 14px 'Schibsted Grotesk', sans-serif; }
 .qe-save.expense { background: #e8793e; color: #2b241d; }
 .qe-save:disabled { opacity: .5; }
 .qe-window :focus-visible { outline: 2px solid #ad4416; outline-offset: 2px; }
 .qe-amount input:focus-visible { outline: none; }
 .qe-amount div:focus-within { border-bottom: 2px solid #ad4416; }
-.qe-error { color: #9c351c; font-size: 12px; line-height: 1.5; margin: 12px 0 0; }
-.qe-direction { display: flex; padding: 4px; gap: 4px; background: #e8dfd0; border-radius: 14px; margin: 12px 0; }
-.qe-direction button { flex: 1; border: 0; border-radius: 11px; min-height: 40px; background: transparent; color: #625644; font: 500 14px 'Schibsted Grotesk', sans-serif; }
-.qe-direction button.selected { background: #2b241d; color: #f3eee4; }
+.qe-error { color: #9c351c; font-size: 12px; line-height: 1.45; margin: 10px 0 0; }
+.qe-direction { display: flex; padding: 4px; gap: 4px; background: #e8dfd0; border-radius: 14px; margin: 12px 0 14px; }
+.qe-direction button { flex: 1; border: 0; border-radius: 11px; min-height: 38px; background: transparent; color: #625644; font: 600 13px 'Schibsted Grotesk', sans-serif; }
+.qe-direction button.selected { background: #2b241d; color: #f3eee4; box-shadow: 0 3px 10px rgba(43, 36, 29, .14); }

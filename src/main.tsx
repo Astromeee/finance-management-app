@@ -31,8 +31,9 @@ import { installNativeAuth } from './lib/nativeAuth'
 import { isQuickEntry } from './lib/quickEntry'
 import { QuickEntryWindow } from './components/QuickEntryWindow'
 
+const quickEntryPreview = import.meta.env.DEV && new URLSearchParams(window.location.search).has('quick-entry-preview')
 initTheme() // apply saved dark/light theme before first paint
-if (isQuickEntry) document.documentElement.classList.add('quick-entry')
+if (isQuickEntry || quickEntryPreview) document.documentElement.classList.add('quick-entry')
 if (isNativeApp && !isQuickEntry) {
   document.documentElement.classList.add('native-app')
   void installNativeNavigation().catch(() => console.warn('Android navigation could not be initialized.'))
@@ -42,7 +43,7 @@ if (isNativeApp && !isQuickEntry) {
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <ErrorBoundary>
-      {isQuickEntry ? <QuickEntryWindow /> : <BrowserRouter>
+      {isQuickEntry || quickEntryPreview ? <QuickEntryWindow /> : <BrowserRouter>
         <SplashScreen duration={900} />
         <OfflineBanner />
         {!isNativeApp && <PwaInstallPrompt />}

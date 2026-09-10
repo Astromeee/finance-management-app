@@ -51,6 +51,20 @@ it('switches from expense to income in the popup', async () => {
   await submit()
   expect(mocks.save).toHaveBeenCalledWith(expect.objectContaining({ type: 'income', source: 'Salary', amount: 850 }), expect.any(AbortSignal))
 })
+it('uses selectable chips and expands additional categories', async () => {
+  mocks.load.mockResolvedValue({
+    transactions: [{ type: 'expense', category: 'Transport' }, { type: 'expense', category: 'Transport' }],
+    accounts: [{ id: 'cash', name: 'Cash' }],
+    categories: ['Food', 'Transport', 'Bills', 'Shopping', 'Health'].map(name => ({ id: name.toLowerCase(), name, kind: 'expense' })),
+  })
+  await renderAndFill()
+  expect(container.querySelectorAll('.qe-choice:first-of-type .qe-chips button')).toHaveLength(4)
+  expect(container.querySelector('.qe-choice:first-of-type .qe-chips')?.textContent).toContain('Transport')
+  const more = [...container.querySelectorAll<HTMLButtonElement>('.qe-choice-head button')].find(button => button.textContent === 'More')!
+  await act(async () => more.click())
+  expect(container.querySelectorAll('.qe-choice:first-of-type .qe-chips button')).toHaveLength(5)
+  expect(container.querySelector('select')).toBeNull()
+})
 it('keeps failed entries and retries with the same transaction ID', async () => {
   mocks.save.mockRejectedValue(new Error('offline'))
   await renderAndFill(); await submit()

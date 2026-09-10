@@ -1,5 +1,9 @@
 # Ledger quick-add widget
 
+## Beta.11: compact quick record
+
+The quick-add widget now occupies one home-screen row. Its two 48dp action targets sit beside a compact Ledger identity block. The floating Quick Record window no longer shows a date row; entries still use today's local date internally. Native select menus were replaced with the same pill-style choices used in Ledger. The four most-used categories appear first and **More** expands the complete category list. Accounts use the same compact selection pattern.
+
 ## Beta.10: monthly spending and Pixel Quick Tap
 
 Install beta.10 over the existing APK and open Ledger once to populate the monthly widget. In the home-screen widget picker, add **Ledger · Monthly spending**. It shows month-to-date expenses, highest categories first, with remaining categories combined into Other categories when needed. Income, transfers and future-dated expenses are excluded.
