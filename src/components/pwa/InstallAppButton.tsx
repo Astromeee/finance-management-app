@@ -1,6 +1,7 @@
 import { Download } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import type { BeforeInstallPromptEvent } from '../../types/pwa'
+import { isNativeApp } from '../../lib/platform'
 
 function isStandaloneDisplay() {
   const nav = navigator as Navigator & { standalone?: boolean }
@@ -51,7 +52,7 @@ export function InstallAppButton() {
     }
   }, [])
 
-  if (!shouldShow) return null
+  if (isNativeApp || !shouldShow) return null
 
   const installApp = async () => {
     if (!installPrompt) {

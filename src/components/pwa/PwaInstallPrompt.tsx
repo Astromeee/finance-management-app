@@ -53,6 +53,12 @@ export function PwaInstallPrompt() {
     }
   }, [dismiss])
 
+  useEffect(() => {
+    if (!visible) return
+    const timeout = window.setTimeout(dismiss, 4_000)
+    return () => window.clearTimeout(timeout)
+  }, [dismiss, visible])
+
   if (!visible || isStandaloneDisplay()) return null
 
   const instructions = isMobileSafari()

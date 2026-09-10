@@ -1,5 +1,11 @@
 # React + TypeScript + Vite
 
+## Android testing
+
+Run `npm run android:apk` to build an installable debug APK from the same React
+source. Setup, installation without a USB cable, and the phone testing checklist
+are in [docs/android-testing.md](docs/android-testing.md).
+
 ## Product analytics
 
 Production setup, exact DAU/WAU/MAU queries, and GA4 dashboard instructions are documented in [`docs/analytics-operations.md`](docs/analytics-operations.md).

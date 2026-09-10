@@ -4,11 +4,13 @@ import tailwindcss from '@tailwindcss/vite'
 import { VitePWA } from 'vite-plugin-pwa'
 
 // https://vite.dev/config/
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
+  build: { outDir: mode === 'native' ? 'dist-native' : 'dist' },
   plugins: [
     react(),
     tailwindcss(),
     VitePWA({
+      disable: mode === 'native',
       registerType: 'autoUpdate',
       injectRegister: 'auto',
       manifest: false,
@@ -22,4 +24,4 @@ export default defineConfig({
       },
     }),
   ],
-})
+}))

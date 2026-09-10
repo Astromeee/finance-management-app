@@ -25,8 +25,16 @@ import { installClientErrorMonitoring } from './lib/errorMonitoring'
 import { SplashScreen } from './components/SplashScreen'
 import { PwaInstallPrompt } from './components/pwa/PwaInstallPrompt'
 import { initTheme } from './lib/theme'
+import { isNativeApp } from './lib/platform'
+import { installNativeNavigation } from './lib/nativeNavigation'
+import { installNativeAuth } from './lib/nativeAuth'
 
 initTheme() // apply saved dark/light theme before first paint
+if (isNativeApp) {
+  document.documentElement.classList.add('native-app')
+  void installNativeNavigation().catch(() => console.warn('Android navigation could not be initialized.'))
+  void installNativeAuth().catch(() => console.warn('Native sign-in could not be initialized.'))
+}
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
@@ -34,7 +42,7 @@ createRoot(document.getElementById('root')!).render(
       <BrowserRouter>
         <SplashScreen duration={900} />
         <OfflineBanner />
-        <PwaInstallPrompt />
+        {!isNativeApp && <PwaInstallPrompt />}
         <App />
       </BrowserRouter>
     </ErrorBoundary>

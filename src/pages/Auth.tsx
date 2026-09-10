@@ -7,6 +7,8 @@ import { BrandLockup } from '../components/auth/BrandLockup'
 import { passwordRequirements, passwordValidationMessage } from '../lib/password'
 import { supabase } from '../lib/supabase'
 import { clearQueuedAuthEvent, queueAuthEvent } from '../lib/analytics'
+import { authRedirectUrl, isNativeApp } from '../lib/platform'
+import { nativeAuthCancelEvent, nativeAuthErrorEvent, startNativeGoogleSignIn } from '../lib/nativeAuth'
 
 type AuthMode = 'login' | 'signup' | 'forgot' | 'reset'
 
@@ -37,7 +39,23 @@ export function AuthPage({ mode }: { mode: AuthMode }) {
   const [success, setSuccess] = useState(false)
   const turnstileSiteKey = import.meta.env.VITE_TURNSTILE_SITE_KEY as string | undefined
   const signupEnabled = import.meta.env.VITE_PUBLIC_SIGNUP_ENABLED === 'true'
-  const googleEnabled = import.meta.env.VITE_GOOGLE_AUTH_ENABLED === 'true'
+  const googleEnabled = isNativeApp || import.meta.env.VITE_GOOGLE_AUTH_ENABLED === 'true'
+
+  useEffect(() => {
+    if (!isNativeApp) return
+    const onError = (event: Event) => {
+      clearQueuedAuthEvent()
+      setMessage((event as CustomEvent<string>).detail || 'Google sign-in failed.')
+      setLoading(false)
+    }
+    const onCancel = () => setLoading(false)
+    window.addEventListener(nativeAuthErrorEvent, onError)
+    window.addEventListener(nativeAuthCancelEvent, onCancel)
+    return () => {
+      window.removeEventListener(nativeAuthErrorEvent, onError)
+      window.removeEventListener(nativeAuthCancelEvent, onCancel)
+    }
+  }, [])
 
   const submit = async (event: FormEvent) => {
     event.preventDefault()
@@ -63,7 +81,7 @@ export function AuthPage({ mode }: { mode: AuthMode }) {
           email: email.trim(), password,
           options: {
             data: { display_name: name.trim() },
-            emailRedirectTo: `${window.location.origin}/auth/callback`,
+            emailRedirectTo: authRedirectUrl('/auth/callback'),
             captchaToken,
           },
         })
@@ -73,7 +91,7 @@ export function AuthPage({ mode }: { mode: AuthMode }) {
         setMessage('Check your email to verify your account, then return to Pocket Ledger.')
       } else if (mode === 'forgot') {
         const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
-          redirectTo: `${window.location.origin}/reset-password`, captchaToken,
+          redirectTo: authRedirectUrl('/reset-password'), captchaToken,
         })
         if (error) throw error
         setSuccess(true)
@@ -95,12 +113,18 @@ export function AuthPage({ mode }: { mode: AuthMode }) {
     if (!supabase) return
     setLoading(true)
     queueAuthEvent(mode === 'signup' ? 'sign_up' : 'login', 'google')
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: 'google', options: { redirectTo: `${window.location.origin}/auth/callback` },
-    })
-    if (error) {
+    try {
+      if (isNativeApp) {
+        await startNativeGoogleSignIn()
+        return
+      }
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google', options: { redirectTo: `${window.location.origin}/auth/callback` },
+      })
+      if (error) throw error
+    } catch (error) {
       clearQueuedAuthEvent()
-      setMessage(error.message)
+      setMessage(error instanceof Error ? error.message : 'Google sign-in failed.')
       setLoading(false)
     }
   }

@@ -1,6 +1,9 @@
 import { supabase } from './supabase'
+import { isNativeApp } from './platform'
+import { getStoredNativeDailyReminder, setNativeDailyReminder } from './nativeNotifications'
 
 export function reminderSupport() {
+  if (isNativeApp) return null
   if (!window.isSecureContext || !('serviceWorker' in navigator) || !('PushManager' in window)) {
     return /iPad|iPhone|iPod/.test(navigator.userAgent)
       ? 'On iPhone or iPad, add Pocket Ledger to your Home Screen, then enable reminders there.'
@@ -14,6 +17,7 @@ async function registration() {
   return existing
 }
 export async function getDailyReminder() {
+  if (isNativeApp) return getStoredNativeDailyReminder()
   if (!supabase || reminderSupport()) return null
   const reg = await navigator.serviceWorker.getRegistration()
   const subscription = await reg?.pushManager.getSubscription()
@@ -23,10 +27,11 @@ export async function getDailyReminder() {
   return data && Notification.permission === 'granted' ? data : null
 }
 export async function setDailyReminder(enabled: boolean, time: string) {
+  if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(time)) throw new Error('Choose a valid reminder time.')
+  if (isNativeApp) return setNativeDailyReminder(enabled, time)
   if (!supabase) throw new Error('Sign in to enable reminders.')
   const unsupported = reminderSupport()
   if (unsupported) throw new Error(unsupported)
-  if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(time)) throw new Error('Choose a valid reminder time.')
   // Request permission immediately in the user's click event (required on iOS).
   if (enabled && await Notification.requestPermission() !== 'granted') throw new Error('Allow notifications in your browser or device settings to enable reminders.')
   const reg = await registration()
@@ -58,6 +63,7 @@ export async function setDailyReminder(enabled: boolean, time: string) {
 }
 
 export async function detachDailyReminder() {
+  if (isNativeApp) return
   if (!supabase || !('serviceWorker' in navigator)) return
   const reg = await navigator.serviceWorker.getRegistration()
   const subscription = await reg?.pushManager.getSubscription()

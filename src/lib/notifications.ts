@@ -13,6 +13,8 @@
 import type { UpcomingExpense } from '../types/finance'
 import { formatMoney } from './currency'
 import { localDateKey } from './date'
+import { isNativeApp } from './platform'
+import { clearNativeBillReminders, requestNativeNotificationPermission, syncNativeBillReminders } from './nativeNotifications'
 
 const ENABLED_KEY = 'pl-notifications'
 const SENT_KEY = 'pl-notifications-sent'
@@ -20,10 +22,11 @@ const SENT_KEY = 'pl-notifications-sent'
 export type NotificationPermissionState = 'unsupported' | 'default' | 'granted' | 'denied'
 
 export function notificationsSupported() {
-  return typeof window !== 'undefined' && 'Notification' in window
+  return isNativeApp || (typeof window !== 'undefined' && 'Notification' in window)
 }
 
 export function notificationPermission(): NotificationPermissionState {
+  if (isNativeApp) return notificationsEnabled() ? 'granted' : 'default'
   if (!notificationsSupported()) return 'unsupported'
   return Notification.permission as NotificationPermissionState
 }
@@ -52,7 +55,13 @@ function setEnabledFlag(enabled: boolean) {
 export async function setNotificationsEnabled(enabled: boolean): Promise<NotificationPermissionState> {
   if (!enabled) {
     setEnabledFlag(false)
+    if (isNativeApp) await clearNativeBillReminders()
     return notificationPermission()
+  }
+  if (isNativeApp) {
+    const permission = await requestNativeNotificationPermission()
+    setEnabledFlag(permission === 'granted')
+    return permission
   }
   if (!notificationsSupported()) return 'unsupported'
   let permission = notificationPermission()
@@ -85,6 +94,10 @@ function alreadySentToday(key: string) {
 
 /** Remind once per day about bills that are due today or already overdue. */
 export function notifyDueBills(upcomingExpenses: UpcomingExpense[]) {
+  if (isNativeApp) {
+    if (notificationsEnabled()) void syncNativeBillReminders(upcomingExpenses).catch(() => undefined)
+    return
+  }
   if (!notificationsEnabled() || notificationPermission() !== 'granted') return
   const today = localDateKey()
   const due = upcomingExpenses.filter((bill) => bill.status !== 'paid' && bill.status !== 'cancelled' && bill.dueDate <= today)
