@@ -145,6 +145,10 @@ export function Dashboard({
   return (
     <div className="vault-screen">
       <header className="vault-topbar home-topbar">
+        <h1 className="vault-title home-greeting">
+          {greetingWord()}<br />
+          <em>{firstNameOf(profile.name) || 'friend'}.</em>
+        </h1>
         <div className="vault-topbar-actions">
           <div className="relative">
             <button aria-expanded={noticesOpen} aria-haspopup="menu" aria-label={notices.length ? `Notifications — ${notices.length} waiting` : 'Notifications'} className="vault-iconbtn relative" type="button" onClick={() => { setMenuOpen(false); setNoticesOpen((current) => !current) }}>
@@ -190,11 +194,6 @@ export function Dashboard({
           </div>
         </div>
       </header>
-
-      <h1 className="vault-title mt-8">
-        {greetingWord()}<br />
-        <em>{firstNameOf(profile.name) || 'friend'}.</em>
-      </h1>
 
       <section aria-label="Your balances" className="vault-hero mt-7">
         <div ref={balanceRailRef} aria-label="Balances. Swipe to view each account." className="vault-carousel" onScroll={handleBalanceRailScroll} role="region">

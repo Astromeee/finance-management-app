@@ -6,7 +6,9 @@
 .profile-light .btn-primary { background:#2b241d; color:#f8f3ea; }
 .vault-dock { box-shadow:0 6px 18px rgba(43,36,29,.16)!important; }
 .home-quick-links { display:flex; gap:10px; margin-top:22px; }
-.home-topbar { justify-content:flex-end; }
+.home-topbar { align-items:center; justify-content:space-between; }
+.home-greeting { margin:0; font-size:32px; line-height:1.02; }
+.home-topbar + .vault-hero.mt-7 { margin-top:24px; }
 .home-quick-links button { flex:1; padding:12px 15px; border:1px solid #d6cbb8; border-radius:16px; background:#f8f4ed; text-align:left; color:#2b241d; font-weight:650; font-size:14px; }
 .home-quick-links span { display:block; margin-top:4px; font-size:11px; color:#6d6050; font-weight:500; }
 .vault-chiprow { flex-wrap:wrap; overflow:visible; gap:8px; }
