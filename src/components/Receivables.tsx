@@ -23,7 +23,11 @@ export function Receivables({ accounts, createSignal = 0 }: { accounts: Account[
     window.addEventListener('pocket-finance-refresh', refresh)
     return () => { live = false; window.removeEventListener('pocket-finance-refresh', refresh) }
   }, [preview])
-  useEffect(() => { if (createSignal > 0) setEditing('new') }, [createSignal])
+  useEffect(() => {
+    if (createSignal <= 0) return
+    const timer = window.setTimeout(() => setEditing('new'), 0)
+    return () => window.clearTimeout(timer)
+  }, [createSignal])
   const shown = items.filter((item) => !item.archived && (filter === 'bad' ? item.written_off > 0 : filter === 'settled' ? item.received >= item.amount : outstanding(item) > 0))
   return <section id="receivables" className="vault-receivables mt-8" aria-label="Owed to me">
     <div className="flex items-center justify-between"><h2 className="vault-h2">Owed to <em>me.</em></h2><button className="vault-iconbtn" type="button" aria-label="Add receivable" onClick={() => setEditing('new')}><Plus size={17} /></button></div>
