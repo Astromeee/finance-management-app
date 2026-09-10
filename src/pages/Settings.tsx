@@ -9,7 +9,7 @@ import { exportLedgerJson, exportTransactionsCsv } from '../lib/exports'
 import { supabase } from '../lib/supabase'
 import { requestPwaInstall } from '../lib/pwaInstall'
 import { isNativeApp } from '../lib/platform'
-import { NativeNotificationPermissionError, openNativeNotificationSettings, syncNativeBillReminders } from '../lib/nativeNotifications'
+import { NativeNotificationPermissionError, openNativeNotificationSettings, sendNativeTestNotification, syncNativeBillReminders } from '../lib/nativeNotifications'
 import { initialsOf } from '../lib/profile'
 import type { Profile } from '../lib/profile'
 import type { Account, Budget, Category, Debt, Goal, JourneySettings, Transaction, UpcomingExpense } from '../types/finance'
@@ -53,6 +53,8 @@ export function Settings(props: Props) {
   const [notify, setNotify] = useState(notificationsEnabled)
   const [notifyNote, setNotifyNote] = useState<string>()
   const [notifyBusy, setNotifyBusy] = useState(false)
+  const [testNotificationBusy, setTestNotificationBusy] = useState(false)
+  const [testNotificationNote, setTestNotificationNote] = useState<string>()
   const [notificationSettingsNeeded, setNotificationSettingsNeeded] = useState(false)
   const [currencyOpen, setCurrencyOpen] = useState(false)
   const [deleteOpen, setDeleteOpen] = useState(false)
@@ -79,6 +81,7 @@ export function Settings(props: Props) {
     if (notifyBusy) return
     const wanted = !notify
     setNotifyBusy(true)
+    setNotifyNote(wanted ? 'Checking Android notification access…' : 'Turning reminders off…')
     setNotificationSettingsNeeded(false)
     try {
       const permission = await setNotificationsEnabled(wanted)
@@ -144,13 +147,21 @@ export function Settings(props: Props) {
       <section className="mt-6">
         <p className="vault-settings-group-label">Preferences</p>
         <div className="vault-settings-group">
-          <Row icon={<Bell size={18} strokeWidth={1.9} />} title="Bill reminders" subtitle={notifyNote ?? 'When a bill is due or overdue'} trailing={<button aria-checked={notify} aria-label="Bill reminders" className={`vault-toggle${notify ? ' is-on' : ''}`} disabled={notifyBusy} role="switch" type="button" onClick={() => { void toggleNotifications() }} />} />
+          <Row icon={<Bell size={18} strokeWidth={1.9} />} title="Bill reminders" subtitle={notifyNote ?? 'When a bill is due or overdue'} trailing={<button aria-checked={notify} aria-label="Bill reminders" className={`vault-toggle${notify ? ' is-on' : ''}`} role="switch" type="button" onClick={() => { void toggleNotifications() }} />} />
           <Row icon={<Sun size={18} strokeWidth={1.9} />} title="Appearance" value="Warm" />
         </div>
         {notificationSettingsNeeded && <button className="vault-link mt-2" type="button" onClick={() => { void openNativeNotificationSettings() }}>Open Android notification settings</button>}
       </section>
 
       <DailyReminderSetting />
+      {isNativeApp && <div className="text-center"><button className="vault-link" type="button" onClick={() => {
+        if (testNotificationBusy) return
+        setTestNotificationBusy(true); setTestNotificationNote('Scheduling test…')
+        void sendNativeTestNotification()
+          .then(() => setTestNotificationNote('Test sent · It should appear in a few seconds'))
+          .catch((error) => setTestNotificationNote(error instanceof Error ? error.message : 'Could not send a test notification.'))
+          .finally(() => setTestNotificationBusy(false))
+      }}>Send a test notification</button>{testNotificationNote && <p className="vault-sheet-note mt-2" role="status">{testNotificationNote}</p>}</div>}
 
       {/* Data & support */}
       <section className="mt-6">
@@ -168,7 +179,7 @@ export function Settings(props: Props) {
       </section>
 
       <button className="vault-signout mt-8" type="button" onClick={props.onSignOut}><LogOut size={17} strokeWidth={2} /> Sign out</button>
-      <p className="vault-version mt-4">Pocket Ledger · v0.1.0-beta.6</p>
+      <p className="vault-version mt-4">Pocket Ledger · v0.1.0-beta.7</p>
 
       {supabase && (
         <div className="mt-3 text-center">

@@ -11,7 +11,7 @@ const notifications = vi.hoisted(() => ({
 const appSettings = vi.hoisted(() => ({ openNotificationSettings: vi.fn() }))
 vi.mock('@capacitor/local-notifications', () => ({ LocalNotifications: notifications }))
 vi.mock('@capacitor/core', () => ({ registerPlugin: () => appSettings }))
-import { getStoredNativeDailyReminder, setNativeDailyReminder, syncNativeBillReminders } from './nativeNotifications'
+import { getStoredNativeDailyReminder, sendNativeTestNotification, setNativeDailyReminder, syncNativeBillReminders } from './nativeNotifications'
 
 describe('Android local reminders', () => {
   beforeEach(() => {
@@ -67,5 +67,16 @@ describe('Android local reminders', () => {
     const call = notifications.schedule.mock.calls[0][0]
     expect(call.notifications).toHaveLength(1)
     expect(call.notifications[0]).toEqual(expect.objectContaining({ title: 'Rent is due', isExactNotification: false }))
+  })
+
+  it('schedules an immediate notification that confirms Android delivery', async () => {
+    await sendNativeTestNotification()
+    const notification = notifications.schedule.mock.calls[0][0].notifications[0]
+    expect(notification).toEqual(expect.objectContaining({
+      id: 73003,
+      title: 'Pocket Ledger reminders are working',
+      isExactNotification: false,
+    }))
+    expect(notification.schedule.at.getTime()).toBe(Date.now() + 2_000)
   })
 })

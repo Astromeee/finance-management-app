@@ -4,11 +4,9 @@ import android.content.Intent;
 import android.net.Uri;
 import android.os.Build;
 import android.provider.Settings;
-import androidx.activity.result.ActivityResult;
 import com.getcapacitor.Plugin;
 import com.getcapacitor.PluginCall;
 import com.getcapacitor.PluginMethod;
-import com.getcapacitor.annotation.ActivityCallback;
 import com.getcapacitor.annotation.CapacitorPlugin;
 
 @CapacitorPlugin(name = "AppSettings")
@@ -23,11 +21,7 @@ public class AppSettingsPlugin extends Plugin {
             intent.setAction(Settings.ACTION_APPLICATION_DETAILS_SETTINGS);
             intent.setData(Uri.parse("package:" + getContext().getPackageName()));
         }
-        startActivityForResult(call, intent, "notificationSettingsResult");
-    }
-
-    @ActivityCallback
-    private void notificationSettingsResult(PluginCall call, ActivityResult result) {
+        getActivity().startActivity(intent);
         call.resolve();
     }
 }

@@ -6,6 +6,7 @@ import { localDateKey } from './date'
 const dailyReminderId = 73_001
 const dailyStorageKey = 'pl-native-daily-reminder'
 const billIdsStorageKey = 'pl-native-bill-reminder-ids'
+const nativeCallTimeoutMs = 10_000
 
 type Permission = 'unsupported' | 'default' | 'granted' | 'denied'
 
@@ -22,6 +23,13 @@ async function plugin() {
   return (await import('@capacitor/local-notifications')).LocalNotifications
 }
 
+function nativeCall<T>(promise: Promise<T>, message: string): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timer = window.setTimeout(() => reject(new Error(message)), nativeCallTimeoutMs)
+    promise.then((value) => { window.clearTimeout(timer); resolve(value) }, (error) => { window.clearTimeout(timer); reject(error) })
+  })
+}
+
 function mapPermission(display: string): Permission {
   if (display === 'granted') return 'granted'
   if (display === 'denied') return 'denied'
@@ -32,14 +40,7 @@ export async function requestNativeNotificationPermission(): Promise<Permission>
   const notifications = await plugin()
   let permission = await getNativeNotificationPermission()
   if (permission !== 'granted') {
-    await notifications.requestPermissions()
-    permission = await getNativeNotificationPermission()
-  }
-  // Android stops showing its permission dialog after a denial. Taking the
-  // user to this app's notification page is the only recovery path, and the
-  // native method resolves after they return so we can finish the same tap.
-  if (permission === 'denied') {
-    await openNativeNotificationSettings()
+    await nativeCall(notifications.requestPermissions(), 'Android did not finish the notification permission request. Please try again.')
     permission = await getNativeNotificationPermission()
   }
   return permission
@@ -47,13 +48,27 @@ export async function requestNativeNotificationPermission(): Promise<Permission>
 
 export async function getNativeNotificationPermission(): Promise<Permission> {
   const notifications = await plugin()
-  const permission = mapPermission((await notifications.checkPermissions()).display)
+  const permission = mapPermission((await nativeCall(notifications.checkPermissions(), 'Could not read Android notification permission.')).display)
   if (permission !== 'granted') return permission
-  return (await notifications.areEnabled()).value ? 'granted' : 'denied'
+  return (await nativeCall(notifications.areEnabled(), 'Could not read Android notification settings.')).value ? 'granted' : 'denied'
 }
 
 export async function openNativeNotificationSettings() {
   await AppSettings.openNotificationSettings()
+}
+
+export async function sendNativeTestNotification() {
+  if (await requestNativeNotificationPermission() !== 'granted') throw new NativeNotificationPermissionError()
+  const notifications = await plugin()
+  const id = 73_003
+  await notifications.cancel({ notifications: [{ id }] })
+  await nativeCall(notifications.schedule({ notifications: [{
+    id,
+    title: 'Pocket Ledger reminders are working',
+    body: 'You will receive bill and daily logging reminders from this app.',
+    schedule: { at: new Date(Date.now() + 2_000), allowWhileIdle: true },
+    isExactNotification: false,
+  }] }), 'Android did not schedule the test notification.')
 }
 
 export async function getStoredNativeDailyReminder() {

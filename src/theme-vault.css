@@ -1778,6 +1778,8 @@ body::after,
   background: #DCD3C1;
   position: relative;
   transition: background .15s ease;
+  cursor: pointer;
+  touch-action: manipulation;
 }
 .vault-toggle.is-on { background: var(--clay); }
 .vault-toggle::after {
