@@ -110,7 +110,10 @@ export function AuthPage({ mode }: { mode: AuthMode }) {
   }
 
   const google = async () => {
-    if (!supabase) return
+    if (!supabase) {
+      setMessage('Google sign-in is not configured in this app build. Please install the latest APK.')
+      return
+    }
     setLoading(true)
     queueAuthEvent(mode === 'signup' ? 'sign_up' : 'login', 'google')
     try {

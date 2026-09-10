@@ -1,7 +1,7 @@
 {
   "name": "finance-management-app",
   "private": true,
-  "version": "0.1.0-beta.17",
+  "version": "0.1.0-beta.18",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -12,7 +12,7 @@
     "test:e2e": "playwright test",
     "check": "npm run lint && npm run test && npm run build",
     "preview": "vite preview",
-    "build:native": "tsc -b && vite build --mode native",
+    "build:native": "node scripts/check-native-env.mjs && tsc -b && vite build --mode native",
     "android:sync": "npm run build:native && cap sync android",
     "android:open": "cap open android",
     "android:apk": "npm run android:sync && node scripts/build-android.mjs"
