@@ -36,15 +36,6 @@ function relativeDay(date: string) {
   return then.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
 }
 
-/** "WED · 23 JULY" — the Home top-bar eyebrow. */
-function todayEyebrow() {
-  const now = new Date()
-  const weekday = now.toLocaleDateString('en-GB', { weekday: 'short' })
-  const day = now.getDate()
-  const month = now.toLocaleDateString('en-GB', { month: 'long' })
-  return `${weekday} · ${day} ${month}`.toUpperCase()
-}
-
 function greetingWord() {
   const hour = new Date().getHours()
   if (hour < 12) return 'Good morning,'
@@ -153,8 +144,7 @@ export function Dashboard({
 
   return (
     <div className="vault-screen">
-      <header className="vault-topbar">
-        <p className="vault-eyebrow">{todayEyebrow()}</p>
+      <header className="vault-topbar home-topbar">
         <div className="vault-topbar-actions">
           <div className="relative">
             <button aria-expanded={noticesOpen} aria-haspopup="menu" aria-label={notices.length ? `Notifications — ${notices.length} waiting` : 'Notifications'} className="vault-iconbtn relative" type="button" onClick={() => { setMenuOpen(false); setNoticesOpen((current) => !current) }}>
@@ -206,7 +196,6 @@ export function Dashboard({
         <em>{firstNameOf(profile.name) || 'friend'}.</em>
       </h1>
 
-      <div className="home-quick-links"><button type="button" onClick={() => onNavigate('accounts')}>Wallet <span>View accounts ↗</span></button><button type="button" onClick={() => onNavigate('budgets')}>Plan <span>Bills & limits ↗</span></button></div>
       <section aria-label="Your balances" className="vault-hero mt-7">
         <div ref={balanceRailRef} aria-label="Balances. Swipe to view each account." className="vault-carousel" onScroll={handleBalanceRailScroll} role="region">
           {cards.map((card, index) => (
@@ -272,6 +261,8 @@ export function Dashboard({
         setAccounts={setAccounts}
         setTransactions={setTransactions}
       />
+
+      <div className="home-quick-links"><button type="button" onClick={() => onNavigate('accounts')}>Wallet <span>View accounts ↗</span></button><button type="button" onClick={() => onNavigate('budgets')}>Plan <span>Bills & limits ↗</span></button></div>
 
       <section aria-label="Latest entries" className="vault-recent mt-8">
         <div className="flex items-baseline justify-between">

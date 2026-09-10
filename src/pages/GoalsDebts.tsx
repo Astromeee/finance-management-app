@@ -85,6 +85,7 @@ export function GoalsDebts({
   const [editingDebt, setEditingDebt] = useState<Debt | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<DeleteTarget | null>(null)
   const [chooserOpen, setChooserOpen] = useState(false)
+  const [receivableCreateSignal, setReceivableCreateSignal] = useState(0)
 
   useBackDismiss(chooserOpen, () => setChooserOpen(false))
   const totalSavings = goals.reduce((sum, goal) => sum + goal.saved, 0)
@@ -105,9 +106,9 @@ export function GoalsDebts({
         </div>
       </header>
 
-      <h1 className="vault-title">Your <em>paths.</em></h1><a className="vault-chip mt-4 inline-flex" href="#receivables">Owed to me ↗</a>
+      <h1 className="vault-title">Your <em>paths.</em></h1>
 
-      <section aria-label="Progress across all paths" className="vault-strip mt-7">
+      <section aria-label="Progress across all paths" className="vault-strip path-summary mt-7">
         <div className="vault-cell">
           <p className="vault-cell-label">Saved so far</p>
           <p className="vault-cell-value">{money(totalSavings)}</p>
@@ -179,12 +180,19 @@ export function GoalsDebts({
                   <span className="vault-row-meta block">Installments, borrowed money, overdue payments</span>
                 </span>
               </button>
+              <button className="vault-row" type="button" onClick={() => { setChooserOpen(false); setReceivableCreateSignal((value) => value + 1) }}>
+                <span className="vault-row-dot is-move" />
+                <span className="vault-row-main">
+                  <span className="vault-row-title block">Money owed to me</span>
+                  <span className="vault-row-meta block">Track money someone needs to pay back</span>
+                </span>
+              </button>
             </div>
           </div>
         </div>
       )}
 
-      <Receivables accounts={accounts} />
+      <Receivables accounts={accounts} createSignal={receivableCreateSignal} />
       <AddDebtModal
         open={showAddDebt}
         onClose={() => setShowAddDebt(false)}

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Check, ChevronRight, Sun, X } from 'lucide-react'
+import { Check, ChevronRight, Sun } from 'lucide-react'
 import { VaultSheet } from './sheets/VaultSheet'
 import { weeklyRecap, openWeeklyRecap } from '../lib/weeklyRecap'
 import { formatMoney } from '../lib/currency'
@@ -36,7 +36,7 @@ export function WeeklyRecap({ transactions, userId, enabled }: { transactions: T
     return () => clearTimeout(timer)
   }, [enabled, now, recap.hasEntries, recap.id, seenKey])
   return <VaultSheet open={open && enabled} label="Your Sunday recap" onClose={() => setOpen(false)}>
-    <div className="vault-recap-head"><Sun size={24} /><button className="vault-iconbtn" type="button" aria-label="Close weekly recap" onClick={() => setOpen(false)}><X size={18} /></button></div>
+    <div className="vault-recap-head"><Sun size={24} /></div>
     <p className="vault-eyebrow">Your Sunday recap</p>
     <h2 className="vault-sheet-title text-left">A little look <em>back.</em></h2>
     <p className="vault-sheet-note">{recap.label}</p>

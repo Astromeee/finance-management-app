@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef, type FormEvent } from 'react'
-import { ArrowDownLeft, ChevronRight, Plus, X } from 'lucide-react'
+import { ArrowDownLeft, ChevronRight, Plus } from 'lucide-react'
 import { VaultSheet } from './sheets/VaultSheet'
 import { formatMoney } from '../lib/currency'
 import { localDateKey } from '../lib/date'
@@ -7,7 +7,7 @@ import { loadReceivables, receivePayment, saveReceivable, writeOffReceivable } f
 import { outstanding, type Receivable } from '../types/receivable'
 import type { Account } from '../types/finance'
 
-export function Receivables({ accounts }: { accounts: Account[] }) {
+export function Receivables({ accounts, createSignal = 0 }: { accounts: Account[]; createSignal?: number }) {
   const preview = import.meta.env.DEV && window.location.search.includes('vault-preview')
   const [items, setItems] = useState<Receivable[]>([])
   const [filter, setFilter] = useState<'outstanding' | 'bad' | 'settled'>('outstanding')
@@ -23,6 +23,7 @@ export function Receivables({ accounts }: { accounts: Account[] }) {
     window.addEventListener('pocket-finance-refresh', refresh)
     return () => { live = false; window.removeEventListener('pocket-finance-refresh', refresh) }
   }, [preview])
+  useEffect(() => { if (createSignal > 0) setEditing('new') }, [createSignal])
   const shown = items.filter((item) => !item.archived && (filter === 'bad' ? item.written_off > 0 : filter === 'settled' ? item.received >= item.amount : outstanding(item) > 0))
   return <section id="receivables" className="vault-receivables mt-8" aria-label="Owed to me">
     <div className="flex items-center justify-between"><h2 className="vault-h2">Owed to <em>me.</em></h2><button className="vault-iconbtn" type="button" aria-label="Add receivable" onClick={() => setEditing('new')}><Plus size={17} /></button></div>
@@ -69,7 +70,7 @@ function ReceivableDetail({ item, accounts, onClose, onEdit, onPayment, onWriteO
   const run = async (action: () => Promise<void>) => { if (busy) return; setBusy(true); setError(''); try { await action(); setMode('view'); setAmount('') } catch (err) { setError(err instanceof Error ? err.message : 'Could not save. Please retry.') } finally { setBusy(false) } }
   const account = accounts.find((entry) => entry.id === accountId)
   const valid = account && date && Number.isSafeInteger(Number(amount)) && Number(amount) > 0 && Number(amount) <= item.amount - item.received
-  return <VaultSheet open label={`Owed by ${item.person}`} onClose={onClose}><div className="vault-recap-head"><h2 className="vault-sheet-title text-left">{item.person}</h2><button className="vault-iconbtn" aria-label="Close receivable" type="button" onClick={onClose}><X size={18} /></button></div>
+  return <VaultSheet open label={`Owed by ${item.person}`} onClose={onClose}><div className="vault-recap-head"><h2 className="vault-sheet-title text-left">{item.person}</h2></div>
     <p className="vault-recap-amount">{formatMoney(outstanding(item))}</p><p className="vault-sheet-note">Outstanding · {formatMoney(item.received)} repaid of {formatMoney(item.amount)}</p>
     {item.written_off > 0 && <p className="vault-sheet-note mt-3">{formatMoney(item.written_off)} written off. You can still record a recovery.</p>}
     {item.notes && <p className="vault-sheet-note mt-3">{item.notes}</p>}

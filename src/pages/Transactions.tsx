@@ -1,6 +1,6 @@
 import { useBackDismiss } from '../lib/backNavigation'
 import { formatAmount, formatMoney } from '../lib/currency'
-import { PencilLine, Search, SlidersHorizontal, Trash2, X } from 'lucide-react'
+import { ChevronDown, PencilLine, Search, SlidersHorizontal, Trash2, X } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { useMemo, useState } from 'react'
 import { cn } from '../utils/ui'
@@ -186,14 +186,8 @@ export function Transactions({
       )}
       {filtersOpen && (
         <div className="mt-5 flex gap-2">
-          <select aria-label="Transaction category" className="min-w-0 flex-1 rounded-full border border-[var(--rule)] bg-[var(--vault-surface)] px-4 py-2.5 text-sm text-[var(--ink)]" value={categoryFilter} onChange={(event) => setCategoryFilter(event.target.value)}>
-            <option value="all">All categories</option>
-            {categoryOptions.map((category) => <option key={category} value={category}>{category}</option>)}
-          </select>
-          <select aria-label="Transaction month" className="min-w-0 flex-1 rounded-full border border-[var(--rule)] bg-[var(--vault-surface)] px-4 py-2.5 text-sm text-[var(--ink)]" value={monthFilter} onChange={(event) => setMonthFilter(event.target.value)}>
-            <option value="all">All months</option>
-            {monthOptions.map((month) => <option key={month.value} value={month.value}>{month.label}</option>)}
-          </select>
+          <div className="ledger-filter-field"><select aria-label="Transaction category" className="ledger-filter-select" value={categoryFilter} onChange={(event) => setCategoryFilter(event.target.value)}><option value="all">All categories</option>{categoryOptions.map((category) => <option key={category} value={category}>{category}</option>)}</select><ChevronDown aria-hidden size={15} /></div>
+          <div className="ledger-filter-field"><select aria-label="Transaction month" className="ledger-filter-select" value={monthFilter} onChange={(event) => setMonthFilter(event.target.value)}><option value="all">All months</option>{monthOptions.map((month) => <option key={month.value} value={month.value}>{month.label}</option>)}</select><ChevronDown aria-hidden size={15} /></div>
         </div>
       )}
 

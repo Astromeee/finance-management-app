@@ -6,6 +6,7 @@
 .profile-light .btn-primary { background:#2b241d; color:#f8f3ea; }
 .vault-dock { box-shadow:0 6px 18px rgba(43,36,29,.16)!important; }
 .home-quick-links { display:flex; gap:10px; margin-top:22px; }
+.home-topbar { justify-content:flex-end; }
 .home-quick-links button { flex:1; padding:12px 15px; border:1px solid #d6cbb8; border-radius:16px; background:#f8f4ed; text-align:left; color:#2b241d; font-weight:650; font-size:14px; }
 .home-quick-links span { display:block; margin-top:4px; font-size:11px; color:#6d6050; font-weight:500; }
 .vault-chiprow { flex-wrap:wrap; overflow:visible; gap:8px; }
@@ -32,7 +33,14 @@
 .daily-reminder-row>div { flex:1; min-width:0; }
 .daily-reminder-row strong { font-size:14px; font-weight:600; }
 .daily-reminder-row p { font-size:12px; margin-top:4px; line-height:1.5; }
-.daily-reminder-time { padding:0 16px 14px; }
+.daily-reminder-time { padding:14px 22px; margin-top:0!important; border-top:1px solid var(--rule-soft); }
+.daily-reminder-status { display:block; margin:0!important; padding:0 22px 14px; overflow-wrap:anywhere; }
+.ledger-filter-field { position:relative; min-width:0; flex:1; }
+.ledger-filter-select { width:100%; min-width:0; appearance:none; border:1px solid var(--rule); border-radius:999px; background:var(--vault-surface); padding:10px 42px 10px 16px!important; color:var(--ink); font-size:14px; line-height:1.4; white-space:nowrap; text-overflow:ellipsis; }
+.ledger-filter-field>svg { position:absolute; right:15px; top:50%; transform:translateY(-50%); pointer-events:none; color:var(--ink); }
+.path-summary .vault-cell { padding-right:6px; }
+.path-summary .vault-cell+.vault-cell { padding-left:10px; }
+.path-summary .vault-cell-value { font-size:clamp(17px,4.8vw,21px); letter-spacing:-.7px; }
 .android-download { display:flex; align-items:center; gap:12px; padding:16px; margin:12px 0; background:#f8f3e9; border:1px solid #d6cbb8; border-radius:18px; color:#2b241d; text-decoration:none; }
 .android-download>span:nth-child(2) { flex:1; }
 .android-download strong,.android-download small { display:block; }

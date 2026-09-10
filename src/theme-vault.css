@@ -923,21 +923,24 @@ body::after,
 
 /* 15b — goal trail */
 .vault-trail { position: relative; }
-.vault-trail::before {
-  content: '';
-  position: absolute;
-  left: 23px;
-  top: 24px;
-  bottom: 24px;
-  width: 2px;
-  background: var(--track-alt);
-}
+.vault-trail::before { display: none; }
 .vault-trail-node {
   position: relative;
   display: flex;
   gap: 18px;
-  padding: 18px 0;
+  padding: 12px 0;
 }
+.vault-trail-node::before {
+  content: '';
+  position: absolute;
+  left: 23px;
+  top: -12px;
+  bottom: -12px;
+  width: 2px;
+  background: var(--track-alt);
+}
+.vault-trail-node:first-child::before { top: 24px; }
+.vault-trail-node .vault-ring { z-index: 1; }
 .vault-ring {
   flex: none;
   width: 48px;
@@ -973,7 +976,7 @@ body::after,
    clay shapes visually distinct where they meet. */
 .vault-debt-node {
   position: relative;
-  padding: 18px 0;
+  padding: 8px 0;
 }
 .vault-debt-node .vault-debt-badge {
   position: absolute;
@@ -983,7 +986,7 @@ body::after,
 }
 .vault-debt-card {
   border-radius: 26px;
-  margin-left: 24px;
+  margin-left: 18px;
   padding: 22px 18px 20px;
   background: var(--clay);
   color: var(--espresso);
