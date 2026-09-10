@@ -1,62 +1,25 @@
 import { useEffect, useState } from 'react'
 
-/* Shared animated mark — espresso tile, bone ledger bars, clay cursor,
-   wordmark, and the sweep loader. Used by both the boot splash and the
-   in-app loader so every "loading" state looks identical. */
-function LedgerMark() {
-  const bar = (width: string, delay: string) => ({
-    display: 'block',
-    width,
-    height: 9,
-    borderRadius: 2.5,
-    background: '#F3EEE4',
-    transformOrigin: 'left center',
-    animation: `pl-bar-grow 3.4s ease-in-out ${delay} infinite`,
-  } as const)
-
+/* The real Pocket Ledger geometry, animated as if each ledger line is being
+   written. This one mark is shared by startup, route and widget-popup waits. */
+export function LedgerMark({ compact = false, showCopy = true }: { compact?: boolean; showCopy?: boolean }) {
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 26 }}>
+    <div className={`pl-loader-mark${compact ? ' is-compact' : ''}`}>
       <style>{`
-        @keyframes pl-bar-grow { 0%{transform:scaleX(0)} 18%{transform:scaleX(1)} 82%{transform:scaleX(1)} 94%,100%{transform:scaleX(0)} }
-        @keyframes pl-cursor { 0%,100%{opacity:1} 50%{opacity:0} }
-        @keyframes pl-sweep { 0%{left:0} 100%{left:138px} }
+        .pl-loader-mark{display:flex;flex-direction:column;align-items:center;gap:20px;color:#2B241D}
+        .pl-loader-logo{width:100px;height:100px;filter:drop-shadow(0 20px 20px rgba(43,36,29,.2))}
+        .pl-loader-line{transform-box:fill-box;transform-origin:left center;animation:pl-line-write 2.8s cubic-bezier(.3,0,.2,1) infinite}
+        .pl-loader-line:nth-child(2){animation-delay:.18s}.pl-loader-line:nth-child(3){animation-delay:.36s}
+        .pl-loader-cursor{animation:pl-cursor-ink 2.8s ease infinite}
+        .pl-loader-wordmark{margin:0;font-family:'Instrument Serif',Georgia,serif;font-size:24px;letter-spacing:-.5px}
+        .pl-loader-wordmark em{color:#E2703A}.pl-loader-label{margin:5px 0 0;font:600 10px 'Schibsted Grotesk',sans-serif;letter-spacing:1.8px;text-transform:uppercase;color:#9A8F7D;text-align:center}
+        .pl-loader-mark.is-compact{gap:10px;min-height:112px;justify-content:center}.pl-loader-mark.is-compact .pl-loader-logo{width:54px;height:54px;filter:drop-shadow(0 10px 12px rgba(43,36,29,.16))}.pl-loader-mark.is-compact .pl-loader-wordmark{font-size:18px}.pl-loader-mark.is-compact .pl-loader-label{font-size:8px;letter-spacing:1.2px}
+        @keyframes pl-line-write{0%,8%{transform:scaleX(.08);opacity:.25}35%,78%{transform:scaleX(1);opacity:1}100%{transform:scaleX(.08);opacity:.25}}
+        @keyframes pl-cursor-ink{0%,30%,100%{opacity:.4}45%,85%{opacity:1}}
+        @media(prefers-reduced-motion:reduce){.pl-loader-line,.pl-loader-cursor{animation:none!important}}
       `}</style>
-
-      {/* Logo tile */}
-      <div
-        style={{
-          width: 100,
-          height: 100,
-          borderRadius: 24,
-          background: '#2B241D',
-          display: 'flex',
-          flexDirection: 'column',
-          justifyContent: 'center',
-          alignItems: 'center',
-          boxShadow: '0 20px 40px rgba(43,36,29,.35)',
-        }}
-      >
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 11, width: 52 }}>
-          <span style={bar('52px', '0s')} />
-          <span style={bar('52px', '0.35s')} />
-          <div style={{ display: 'flex', gap: 5, alignItems: 'center' }}>
-            <span style={bar('30px', '0.7s')} />
-            <span style={{ display: 'block', width: 9, height: 9, borderRadius: 2.5, background: '#E2703A', animation: 'pl-cursor 1.1s steps(1) infinite' }} />
-          </div>
-        </div>
-      </div>
-
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
-        <p style={{ margin: 0, fontFamily: "'Instrument Serif',Georgia,serif", fontSize: 24, fontWeight: 400, letterSpacing: '-0.5px', color: '#2B241D' }}>
-          Pocket <em style={{ color: '#E2703A' }}>ledger.</em>
-        </p>
-        <p style={{ margin: 0, fontFamily: "'Schibsted Grotesk',sans-serif", fontSize: 11, fontWeight: 600, letterSpacing: 2.2, textTransform: 'uppercase', color: '#9A8F7D' }}>Every rupee, written</p>
-      </div>
-
-      {/* sweep loader */}
-      <div style={{ position: 'relative', width: 148, height: 4, borderRadius: 2, background: '#E6DECD' }}>
-        <span style={{ position: 'absolute', top: -3, left: 0, width: 10, height: 10, borderRadius: 3, background: '#E2703A', animation: 'pl-sweep 1.6s ease-in-out infinite alternate' }} />
-      </div>
+      <svg className="pl-loader-logo" viewBox="0 0 512 512" aria-hidden="true"><rect width="512" height="512" rx="114" fill="#2B241D"/><g fill="#F3EEE4"><rect className="pl-loader-line" x="136" y="153" width="240" height="42" rx="13"/><rect className="pl-loader-line" x="136" y="235" width="240" height="42" rx="13"/><rect className="pl-loader-line" x="136" y="317" width="150" height="42" rx="13"/></g><rect className="pl-loader-cursor" x="304" y="317" width="42" height="42" rx="13" fill="#E2703A"/></svg>
+      {showCopy && <div><p className="pl-loader-wordmark">Pocket <em>ledger.</em></p><p className="pl-loader-label">Every rupee, written</p></div>}
     </div>
   )
 }
@@ -103,7 +66,7 @@ export function SplashScreen({ duration = 2000 }: { duration?: number }) {
  * just the mark, matching the boot splash exactly. `fill` sits inside a
  * container; the default overlays the viewport (bone canvas over the app).
  */
-export function LedgerLoader({ fill = false, label = 'Loading' }: { fill?: boolean; label?: string }) {
+export function LedgerLoader({ fill = false, compact = false, label = 'Loading' }: { fill?: boolean; compact?: boolean; label?: string }) {
   return (
     <div
       aria-label={label}
@@ -118,7 +81,7 @@ export function LedgerLoader({ fill = false, label = 'Loading' }: { fill?: boole
         background: '#F3EEE4',
       }}
     >
-      <LedgerMark />
+      <LedgerMark compact={compact} />
     </div>
   )
 }

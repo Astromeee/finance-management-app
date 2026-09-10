@@ -22,7 +22,7 @@ import './auth-onboarding.css' // ← auth + onboarding surfaces (namespaced .ao
 import { ErrorBoundary } from './components/ErrorBoundary'
 import { OfflineBanner } from './components/OfflineBanner'
 import { installClientErrorMonitoring } from './lib/errorMonitoring'
-import { SplashScreen } from './components/SplashScreen'
+import { LedgerLoader, SplashScreen } from './components/SplashScreen'
 import { PwaInstallPrompt } from './components/pwa/PwaInstallPrompt'
 import { initTheme } from './lib/theme'
 import { isNativeApp } from './lib/platform'
@@ -48,7 +48,7 @@ if (isNativeApp && !isQuickEntry) {
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <ErrorBoundary>
-      <Suspense fallback={isQuickEntry || quickEntryPreview ? <main className="qe-window" aria-label="Opening quick record" /> : null}>
+      <Suspense fallback={isQuickEntry || quickEntryPreview ? <main className="qe-window qe-loading-shell"><LedgerLoader compact fill label="Opening quick record" /></main> : <LedgerLoader label="Opening Pocket Ledger" />}>
       {isQuickEntry || quickEntryPreview ? <QuickEntryWindow /> : <BrowserRouter>
         <SplashScreen duration={900} />
         <OfflineBanner />

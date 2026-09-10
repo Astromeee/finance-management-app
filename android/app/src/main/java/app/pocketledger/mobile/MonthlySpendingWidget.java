@@ -12,6 +12,22 @@ import java.text.*;
 import java.util.*;
 
 public class MonthlySpendingWidget extends AppWidgetProvider {
+    private static final String ACTION_REFRESH = "app.pocketledger.mobile.REFRESH_MONTHLY_WIDGET";
+    @Override public void onReceive(Context context, Intent intent) {
+        if (ACTION_REFRESH.equals(intent.getAction())) {
+            AppWidgetManager manager = AppWidgetManager.getInstance(context);
+            int[] ids = manager.getAppWidgetIds(new ComponentName(context, MonthlySpendingWidget.class));
+            for (int id : ids) {
+                RemoteViews loading = new RemoteViews(context.getPackageName(), R.layout.monthly_widget);
+                loading.setTextViewText(R.id.monthly_updated, "Writing your ledger…");
+                manager.partiallyUpdateAppWidget(id, loading);
+            }
+            Intent refresh = new Intent(context, QuickEntryActivity.class).putExtra("refreshOnly", true).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            context.startActivity(refresh);
+            return;
+        }
+        super.onReceive(context, intent);
+    }
     public static void refreshAll(Context context) {
         AppWidgetManager manager = AppWidgetManager.getInstance(context);
         new MonthlySpendingWidget().onUpdate(context, manager, manager.getAppWidgetIds(new ComponentName(context, MonthlySpendingWidget.class)));
@@ -42,8 +58,8 @@ public class MonthlySpendingWidget extends AppWidgetProvider {
                     views.setTextViewText(R.id.monthly_updated, (rows == null || rows.length() == 0 ? "No spending yet · " : "") + "Updated " + new SimpleDateFormat("d MMM, HH:mm", Locale.getDefault()).format(new Date(snapshot.optLong("updatedAt"))));
                 } else views.setTextViewText(R.id.monthly_updated, "New month · tap refresh");
             } catch (JSONException ignored) { }
-            Intent refresh = new Intent(context, QuickEntryActivity.class).putExtra("refreshOnly", true).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-            views.setOnClickPendingIntent(R.id.monthly_refresh, PendingIntent.getActivity(context, 20, refresh, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE));
+            Intent refresh = new Intent(context, MonthlySpendingWidget.class).setAction(ACTION_REFRESH);
+            views.setOnClickPendingIntent(R.id.monthly_refresh, PendingIntent.getBroadcast(context, 20, refresh, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE));
             manager.updateAppWidget(id, views);
         }
     }

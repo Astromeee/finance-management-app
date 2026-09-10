@@ -6,6 +6,7 @@ import { loadQuickEntryData, readQuickEntryCache, recordQuickFinanceAction, writ
 import { currencySymbol } from '../lib/currency'
 import { localDateKey } from '../lib/date'
 import { supabase } from '../lib/supabase'
+import { LedgerLoader, LedgerMark } from './SplashScreen'
 import './quick-entry.css'
 
 function orderedCategoriesFor(data: QuickEntryData, direction: EntryDirection) {
@@ -174,7 +175,7 @@ export function QuickEntryWindow() {
   }
 
   return <main ref={windowRef} className="qe-window">
-    {loading ? <p role="status">Loading your accounts…</p> : saved ? <p role="status"><Check/> Saved to your ledger.</p> : data ? <form onSubmit={e => { e.preventDefault(); void save() }}>
+    {loading ? <LedgerLoader compact fill label="Loading your accounts" /> : saved ? <p role="status"><Check/> Saved to your ledger.</p> : data ? <form onSubmit={e => { e.preventDefault(); void save() }}>
       <fieldset disabled={saving}>
         <div className="qe-direction" role="group" aria-label="Transaction type">
           {(['expense', 'income'] as const).map(type => <button type="button" key={type} disabled={attempted} aria-pressed={direction === type} className={direction === type ? 'selected' : ''} onClick={() => { setDirection(type); setShowAllCategories(false); setCategoryId(orderedCategoriesFor(data, type)[0]?.id ?? '') }}>{type === 'expense' ? 'Expense' : 'Income'}</button>)}
@@ -189,7 +190,7 @@ export function QuickEntryWindow() {
           <div className="qe-chips qe-account-chips">{visibleAccounts.map(account => <button type="button" disabled={attempted} key={account.id} className={account.id === accountId ? 'selected' : ''} aria-pressed={account.id === accountId} onClick={() => setAccountId(account.id)}>{account.name}</button>)}</div>
         </section>
         {(!accountId || !categoryId) && <p>Create an account and categories in Ledger first.</p>}
-        <button className={`qe-save ${direction}`} disabled={!validQuickAmount(amount) || !accountId || !categoryId}>{saving ? 'Saving…' : direction === 'expense' ? 'Save expense' : 'Save income'}<Check size={19}/></button>
+        <button className={`qe-save ${direction}`} disabled={!validQuickAmount(amount) || !accountId || !categoryId}>{saving ? <><span className="qe-saving-mark"><LedgerMark compact showCopy={false}/></span>Writing to your ledger…</> : <>{direction === 'expense' ? 'Save expense' : 'Save income'}<Check size={19}/></>}</button>
       </fieldset>
     </form> : <button className="qe-save" onClick={() => void QuickEntry.openApp()}>Open Ledger to sign in</button>}
     {error && <p className="qe-error" role="alert">{error}</p>}
