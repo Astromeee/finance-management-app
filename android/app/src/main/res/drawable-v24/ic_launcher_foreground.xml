@@ -5,9 +5,9 @@
     android:viewportHeight="108">
     <!-- Keep the complete mark inside the 66dp adaptive-icon safe circle. -->
     <path
-        android:fillColor="#F7F1E7"
-        android:pathData="M34,34H74Q79,34 79,39V41Q79,46 74,46H34Q29,46 29,41V39Q29,34 34,34ZM34,48H74Q79,48 79,53V55Q79,60 74,60H34Q29,60 29,55V53Q29,48 34,48ZM34,62H58Q63,62 63,67V69Q63,74 58,74H34Q29,74 29,69V67Q29,62 34,62Z" />
+        android:fillColor="#F3EEE4"
+        android:pathData="M32,32H76Q79,32 79,35V38Q79,41 76,41H32Q29,41 29,38V35Q29,32 32,32ZM32,50H76Q79,50 79,53V56Q79,59 76,59H32Q29,59 29,56V53Q29,50 32,50ZM32,67H58Q61,67 61,70V73Q61,76 58,76H32Q29,76 29,73V70Q29,67 32,67Z" />
     <path
-        android:fillColor="#F17635"
-        android:pathData="M70,62H73Q78,62 78,67V69Q78,74 73,74H70Q66,74 66,70V66Q66,62 70,62Z" />
+        android:fillColor="#E2703A"
+        android:pathData="M67,67H70Q73,67 73,70V73Q73,76 70,76H67Q64,76 64,73V70Q64,67 67,67Z" />
 </vector>
