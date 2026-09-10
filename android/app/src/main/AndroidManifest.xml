@@ -48,6 +48,15 @@
                 android:resource="@xml/file_paths"></meta-data>
         </provider>
 
+        <activity android:name=".QuickEntryActivity" android:theme="@style/QuickEntryTheme"
+            android:launchMode="singleTask"
+            android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|screenLayout|uiMode|density"
+            android:exported="false" android:excludeFromRecents="true"
+            android:taskAffinity="app.pocketledger.mobile.quickentry" android:windowSoftInputMode="adjustResize" />
+        <receiver android:name=".LedgerWidget" android:exported="false" android:label="Ledger · Quick add">
+            <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/ledger_widget_info" />
+        </receiver>
         <receiver android:name=".PocketReminderReceiver" android:exported="false" />
     </application>
 

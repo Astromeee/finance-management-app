@@ -244,8 +244,17 @@ function App() {
     if (!financeUserId || designPreview) return
     let live = true
     const refresh = () => { void loadFinanceData().then((data) => { if (!live) return; setAccounts(applyAccountOrder(data.accounts)); setTransactions(data.transactions); setDebts(data.debts); setGoals(data.goals); setBudgets(data.budgets) }).catch(() => showToast('Could not refresh your ledger. Please reload.')) }
+    let widgetRevision = localStorage.getItem('pl-widget-saved')
+    const checkWidget = () => {
+      const revision = localStorage.getItem('pl-widget-saved')
+      if (revision !== widgetRevision) { widgetRevision = revision; refresh() }
+    }
+    const widgetSaved = (event: StorageEvent) => { if (event.key === 'pl-widget-saved') checkWidget() }
+    window.addEventListener('focus', checkWidget)
+    document.addEventListener('visibilitychange', checkWidget)
+    window.addEventListener('storage', widgetSaved)
     window.addEventListener('pocket-finance-refresh', refresh)
-    return () => { live = false; window.removeEventListener('pocket-finance-refresh', refresh) }
+    return () => { live = false; window.removeEventListener('focus', checkWidget); document.removeEventListener('visibilitychange', checkWidget); window.removeEventListener('storage', widgetSaved); window.removeEventListener('pocket-finance-refresh', refresh) }
   }, [financeUserId, designPreview, showToast])
   useEffect(() => onProfileChange(setProfileState), [])
 

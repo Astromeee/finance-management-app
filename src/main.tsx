@@ -28,9 +28,12 @@ import { initTheme } from './lib/theme'
 import { isNativeApp } from './lib/platform'
 import { installNativeNavigation } from './lib/nativeNavigation'
 import { installNativeAuth } from './lib/nativeAuth'
+import { isQuickEntry } from './lib/quickEntry'
+import { QuickEntryWindow } from './components/QuickEntryWindow'
 
 initTheme() // apply saved dark/light theme before first paint
-if (isNativeApp) {
+if (isQuickEntry) document.documentElement.classList.add('quick-entry')
+if (isNativeApp && !isQuickEntry) {
   document.documentElement.classList.add('native-app')
   void installNativeNavigation().catch(() => console.warn('Android navigation could not be initialized.'))
   void installNativeAuth().catch(() => console.warn('Native sign-in could not be initialized.'))
@@ -39,12 +42,12 @@ if (isNativeApp) {
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <ErrorBoundary>
-      <BrowserRouter>
+      {isQuickEntry ? <QuickEntryWindow /> : <BrowserRouter>
         <SplashScreen duration={900} />
         <OfflineBanner />
         {!isNativeApp && <PwaInstallPrompt />}
         <App />
-      </BrowserRouter>
+      </BrowserRouter>}
     </ErrorBoundary>
   </StrictMode>,
 )

@@ -4,4 +4,5 @@
     <string name="title_activity_main">Pocket Ledger</string>
     <string name="package_name">app.pocketledger.mobile</string>
     <string name="custom_url_scheme">app.pocketledger.mobile</string>
+    <string name="widget_description">Record an expense or income from your home screen.</string>
 </resources>

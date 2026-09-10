@@ -243,9 +243,9 @@ export async function loadArchivedAccounts(): Promise<Account[]> {
 
 export type FinanceAction = Omit<Transaction, 'id' | 'createdAt'> & { id?: string }
 
-export async function recordFinanceAction(action: FinanceAction) {
+export async function recordFinanceAction(action: FinanceAction, signal?: AbortSignal) {
   const normalizedCategory = generalizeCategory(action.category ?? action.source ?? '')
-  const { data, error } = await client().rpc('record_finance_action', {
+  const request = client().rpc('record_finance_action', {
     p_action: {
       ...action,
       id: action.id ?? crypto.randomUUID(),
@@ -253,6 +253,7 @@ export async function recordFinanceAction(action: FinanceAction) {
       source: action.source ? generalizeCategory(action.source) : undefined,
     },
   })
+  const { data, error } = await (signal ? request.abortSignal(signal) : request)
   if (error) throw error
   recordMeaningfulActivity()
   trackEvent('finance_action_recorded', { finance_action: action.type })
