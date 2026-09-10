@@ -15,6 +15,7 @@ public class PocketReminderReceiver extends BroadcastReceiver {
             .setSmallIcon(R.drawable.ic_stat_pocket_ledger)
             .setContentTitle(intent.getStringExtra("title"))
             .setContentText(intent.getStringExtra("body"))
+            .setContentIntent(PocketNotificationsPlugin.openAppIntent(context, id))
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
             .setAutoCancel(true);
         try {

@@ -106,6 +106,7 @@ public class PocketNotificationsPlugin extends Plugin {
             .setSmallIcon(R.drawable.ic_stat_pocket_ledger)
             .setContentTitle("Pocket Ledger reminders are working")
             .setContentText("Bill and daily logging reminders can now appear on this device.")
+            .setContentIntent(openAppIntent(getContext(), 73003))
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
             .setAutoCancel(true);
         NotificationManagerCompat.from(getContext()).notify(73003, notification.build());
@@ -126,6 +127,18 @@ public class PocketNotificationsPlugin extends Plugin {
         if (body != null) intent.putExtra("body", body);
         intent.putExtra("id", id);
         return PendingIntent.getBroadcast(context, id, intent, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+    }
+
+    static PendingIntent openAppIntent(Context context, int notificationId) {
+        Intent intent = new Intent(context, MainActivity.class)
+            .setAction(context.getPackageName() + ".OPEN_FROM_NOTIFICATION." + notificationId)
+            .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+        return PendingIntent.getActivity(
+            context,
+            notificationId,
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
+        );
     }
 
     static void createChannel(Context context) {
