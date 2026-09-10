@@ -9,10 +9,9 @@
         android:background="@drawable/widget_background">
         <LinearLayout android:layout_width="0dp" android:layout_weight="1" android:layout_height="match_parent" android:gravity="center_vertical" android:paddingEnd="8dp">
             <ImageView android:layout_width="32dp" android:layout_height="32dp" android:src="@mipmap/ic_launcher" android:contentDescription="@null" />
-            <LinearLayout android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginStart="8dp" android:orientation="horizontal" android:gravity="center_vertical" android:baselineAligned="true">
-                <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Pocket" android:textColor="#2B241D" android:textSize="17sp" android:fontFamily="@font/instrument_serif_regular" android:maxLines="1" />
-                <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginStart="2dp" android:text="Ledger" android:textColor="#D7632D" android:textSize="17sp" android:fontFamily="@font/instrument_serif_italic" android:maxLines="1" />
-            </LinearLayout>
+            <ImageView android:layout_width="110dp" android:layout_height="26dp" android:layout_marginStart="8dp"
+                android:src="@drawable/widget_wordmark" android:scaleType="fitCenter" android:adjustViewBounds="true"
+                android:contentDescription="Pocket Ledger" />
         </LinearLayout>
         <TextView android:id="@+id/widget_expense" android:layout_width="62dp" android:layout_height="42dp" android:gravity="center" android:background="@drawable/widget_expense" android:text="Expense" android:textColor="#2B241D" android:textSize="11sp" android:fontFamily="sans-serif-medium" android:contentDescription="Add expense" />
         <TextView android:id="@+id/widget_income" android:layout_width="62dp" android:layout_height="42dp" android:layout_marginStart="6dp" android:gravity="center" android:background="@drawable/widget_income" android:text="Income" android:textColor="#F7F1E7" android:textSize="11sp" android:fontFamily="sans-serif-medium" android:contentDescription="Add income" />

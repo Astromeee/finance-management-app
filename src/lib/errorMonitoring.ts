@@ -22,7 +22,7 @@ export async function reportClientError(eventType: ClientErrorType, error: unkno
     event_type: eventType,
     error_name: safeErrorName(error),
     route: safeRoute(),
-    app_version: '0.1.0-beta.14',
+    app_version: '0.1.0-beta.15',
   })
 }
 
