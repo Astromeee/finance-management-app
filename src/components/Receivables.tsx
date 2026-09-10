@@ -24,7 +24,7 @@ export function Receivables({ accounts }: { accounts: Account[] }) {
     return () => { live = false; window.removeEventListener('pocket-finance-refresh', refresh) }
   }, [preview])
   const shown = items.filter((item) => !item.archived && (filter === 'bad' ? item.written_off > 0 : filter === 'settled' ? item.received >= item.amount : outstanding(item) > 0))
-  return <section className="vault-receivables mt-8" aria-label="Owed to me">
+  return <section id="receivables" className="vault-receivables mt-8" aria-label="Owed to me">
     <div className="flex items-center justify-between"><h2 className="vault-h2">Owed to <em>me.</em></h2><button className="vault-iconbtn" type="button" aria-label="Add receivable" onClick={() => setEditing('new')}><Plus size={17} /></button></div>
     <div className="vault-chiprow mt-4">{([['outstanding', 'Outstanding'], ['bad', 'Bad debts'], ['settled', 'Repaid']] as const).map(([id, label]) => <button key={id} className={`vault-chip${filter === id ? ' is-active' : ''}`} type="button" onClick={() => setFilter(id)}>{label}</button>)}</div>
     {shown.map((item) => <button key={item.id} className="vault-row w-full text-left" type="button" onClick={() => setDetail(item)}><ArrowDownLeft size={18} /><span className="vault-row-main"><span className="vault-row-title block">{item.person}</span><span className="vault-row-meta block">{filter === 'bad' ? 'Written off' : filter === 'settled' ? 'Fully repaid' : item.due_date ? `${item.due_date < localDateKey() ? 'Overdue · ' : 'Due '}${item.due_date}` : 'No due date'}</span></span><span className="vault-digits">{formatMoney(filter === 'bad' ? item.written_off : filter === 'settled' ? item.received : outstanding(item))}</span><ChevronRight size={15} /></button>)}
@@ -55,7 +55,7 @@ function ReceivableForm({ item, onClose, onSave }: { item?: Receivable; onClose:
     <label>Person<input className="form-input mt-2" required maxLength={100} value={person} onChange={(e) => setPerson(e.target.value)} /></label>
     <label>Amount owed<input className="form-input mt-2" inputMode="numeric" required type="number" min="1" step="1" value={amount} onChange={(e) => setAmount(e.target.value)} /></label>
     <label>Due date <span className="vault-sheet-note">(optional)</span><input className="form-input mt-2" type="date" value={due} onChange={(e) => setDue(e.target.value)} /></label>
-    <label>Note <span className="vault-sheet-note">(optional)</span><textarea className="form-input mt-2" maxLength={1000} value={notes} onChange={(e) => setNotes(e.target.value)} /></label>
+    <details><summary className="vault-link">Add a note (optional)</summary><label className="block mt-2">Note<textarea className="form-input mt-2" maxLength={1000} value={notes} onChange={(e) => setNotes(e.target.value)} /></label></details>
     <p className="vault-sheet-note">Tracks an existing amount owed. Adding it does not change your account balance.</p>
     {error && <p role="alert">{error}</p>}<button className="vault-commit is-espresso" disabled={!valid || busy}>{busy ? 'Saving…' : 'Save receivable'}</button>
   </form></VaultSheet>

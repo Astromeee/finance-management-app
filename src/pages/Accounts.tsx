@@ -372,7 +372,7 @@ function WalletList({ accounts, treatments, onOpen, onReorder }: {
               <span className="vault-acct-number block">···· ···· {account.cardLabel || '····'}</span>
             )}
             <span className="vault-acct-foot">
-              <span className="vault-acct-balance">{money(account.balance)}</span>
+              <span className="vault-acct-balance">{money(account.balance)}</span><button type="button" className="wallet-manage" onClick={(event) => { event.stopPropagation(); onOpen(account) }}>Manage <PencilLine size={14}/></button>
 
             </span>
           </div>

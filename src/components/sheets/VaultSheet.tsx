@@ -1,3 +1,4 @@
+import { X } from 'lucide-react'
 import { createPortal } from 'react-dom'
 import { useBackDismiss } from '../../lib/backNavigation'
 import { animate, motion, useMotionValue } from 'framer-motion'
@@ -122,7 +123,7 @@ export function VaultSheet({
         onPointerUp={endDrag}
         onPointerCancel={endDrag}
       >
-        <span aria-hidden className="vault-sheet-handle" />
+        <div className="sheet-top-controls"><span aria-hidden className="vault-sheet-handle" /><button type="button" className="vault-iconbtn" aria-label="Close sheet" onClick={onClose}><X size={18}/></button></div>
         <div ref={scrollRef} className="vault-sheet-body" style={{ touchAction: 'pan-y' }}>
           {children}
         </div>

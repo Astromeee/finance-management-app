@@ -1,0 +1,65 @@
+/* Shared finishing pass: warm surfaces, legible metadata and compact controls. */
+.profile-light { --ink:#2b241d; --muted:#6e6252; --muted-2:#6e6252; --surface-2:#eee6d8; --rule:#d7cbb8; color:#2b241d; padding-bottom:32px; }
+.profile-light .card { background:#faf6ef; border:1px solid #d7cbb8; box-shadow:none; border-radius:24px; }
+.profile-light .form-label { color:#554b3e; font-size:13px; }
+.profile-light .form-input { background:#fffdf8; color:#2b241d; border-color:#cfc2af; }
+.profile-light .btn-primary { background:#2b241d; color:#f8f3ea; }
+.vault-dock { box-shadow:0 6px 18px rgba(43,36,29,.16)!important; }
+.home-quick-links { display:flex; gap:10px; margin-top:22px; }
+.home-quick-links button { flex:1; padding:12px 15px; border:1px solid #d6cbb8; border-radius:16px; background:#f8f4ed; text-align:left; color:#2b241d; font-weight:650; font-size:14px; }
+.home-quick-links span { display:block; margin-top:4px; font-size:11px; color:#6d6050; font-weight:500; }
+.vault-chiprow { flex-wrap:wrap; overflow:visible; gap:8px; }
+.vault-chiprow .vault-chip { flex-shrink:0; }
+.vault-row-meta,.vault-h2-sub,.vault-cathelper,.vault-sheet-note,.vault-settings-row-title .sub { color:#706350; }
+.vault-screen select { min-height:44px; padding-right:30px; line-height:1.4; }
+.path-edit-action { min-height:44px; min-width:52px; padding:8px; font-size:12px; color:#6e503b; }
+#receivables { scroll-margin-top:24px; }
+.wallet-manage { display:inline-flex; align-items:center; gap:7px; padding:8px 12px; min-height:40px; border:1px solid currentColor; border-radius:12px; font-size:12px; color:inherit; }
+.sheet-top-controls { display:flex; align-items:center; justify-content:flex-end; min-height:48px; padding:6px 14px 0; position:relative; flex:none; }
+.sheet-top-controls .vault-sheet-handle { position:absolute; left:calc(50% - 20px); top:14px; margin:0; }
+.sheet-top-controls .vault-iconbtn { width:38px; height:38px; }
+.vault-sheet-body { padding-top:4px; }
+.record-category-choices { max-height:100px; overflow-y:auto; padding:2px; }
+.record-category-choices .vault-chip-lg { max-width:100%; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-size:12px; padding:8px 12px; }
+.vault-commit-row { position:sticky; bottom:0; z-index:2; background:#f3eee4; padding-top:8px; padding-bottom:6px; }
+.vault-sheet.is-compact .vault-move-tile { padding:10px 14px; min-height:62px; }
+.vault-sheet.is-compact .vault-amount { margin-top:12px; }
+.vault-sheet.is-compact .vault-key { min-height:42px; height:46px; }
+.vault-recap-head { align-items:center; gap:12px; }
+.vault-recap-positive { display:flex; align-items:center; gap:9px; color:#526044; }
+.daily-reminder-setting { margin:0!important; padding:0!important; background:transparent!important; border:0!important; }
+.daily-reminder-row { display:flex; align-items:center; gap:12px; }
+.daily-reminder-row>div { flex:1; min-width:0; }
+.daily-reminder-row strong { font-size:14px; font-weight:600; }
+.daily-reminder-row p { font-size:12px; margin-top:4px; line-height:1.5; }
+.daily-reminder-time { padding:0 16px 14px; }
+.android-download { display:flex; align-items:center; gap:12px; padding:16px; margin:12px 0; background:#f8f3e9; border:1px solid #d6cbb8; border-radius:18px; color:#2b241d; text-decoration:none; }
+.android-download>span:nth-child(2) { flex:1; }
+.android-download strong,.android-download small { display:block; }
+.android-download strong { font-size:14px; }
+.android-download small { margin-top:4px; color:#706350; font-size:12px; }
+.pl-mobile-plan .pl-hero { padding:18px 20px; margin-top:18px; }
+.pl-mobile-plan .pl-hero-figure { font-size:34px; }
+.pl-mobile-plan .pl-hero-sub { margin-top:8px; }
+.insights-detail { border:1px solid #d6cbb8; border-radius:18px; background:#faf6ef; }
+.insights-detail summary { padding:16px 20px; cursor:pointer; font-weight:600; color:#625542; font-size:13px; }
+@media(min-width:1280px) {
+ .d-entry small,.d-transaction>span,.d-date-row h2 small,.d-card>.d-muted { color:#71634f; }
+ .d-transaction>.d-money { color:#2b241d; font-size:16px; white-space:nowrap; }
+ .d-transaction { grid-template-columns:12px minmax(0,1.35fr) minmax(0,1fr) minmax(0,1fr) minmax(115px,.8fr); }
+ .pl-needs-attention.is-settled { min-height:0; flex:0; padding:16px 20px; }
+ .pl-needs-attention.is-settled .pl-desktop-empty { min-height:0; padding:12px 0; }
+ .d-settings-card .daily-reminder-row { padding:16px 0; }
+}
+@media(max-height:760px) {
+ .vault-sheet .vault-key { height:42px; min-height:42px; }
+ .vault-sheet .vault-amount { margin-top:12px; }
+ .vault-sheet .vault-amount-value { font-size:42px; }
+}
+@media(min-width:1280px) {
+ .d-filter-wrap { overflow:visible; flex-shrink:0; }
+ .d-filter { min-width:150px; white-space:nowrap; }
+ .d-filter-menu { min-width:190px; z-index:30; }
+ .d-top-actions { flex-wrap:wrap; }
+ .d-settings-card .android-download { display:flex; }
+}

@@ -206,6 +206,7 @@ export function Dashboard({
         <em>{firstNameOf(profile.name) || 'friend'}.</em>
       </h1>
 
+      <div className="home-quick-links"><button type="button" onClick={() => onNavigate('accounts')}>Wallet <span>View accounts ↗</span></button><button type="button" onClick={() => onNavigate('budgets')}>Plan <span>Bills & limits ↗</span></button></div>
       <section aria-label="Your balances" className="vault-hero mt-7">
         <div ref={balanceRailRef} aria-label="Balances. Swipe to view each account." className="vault-carousel" onScroll={handleBalanceRailScroll} role="region">
           {cards.map((card, index) => (

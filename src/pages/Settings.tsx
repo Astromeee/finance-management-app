@@ -1,3 +1,4 @@
+import { AndroidDownload } from '../components/AndroidDownload'
 import { loadReceivables } from '../lib/receivables'
 import { DailyReminderSetting } from '../components/DailyReminderSetting'
 import { BarChart3, Bell, Calendar, Check, ChevronLeft, ChevronRight, CreditCard, DollarSign, Download, HelpCircle, LayoutGrid, LogOut, Sparkles, Sun } from 'lucide-react'
@@ -148,12 +149,12 @@ export function Settings(props: Props) {
         <p className="vault-settings-group-label">Preferences</p>
         <div className="vault-settings-group">
           <Row icon={<Bell size={18} strokeWidth={1.9} />} title="Bill reminders" subtitle={notifyNote ?? 'When a bill is due or overdue'} trailing={<button aria-checked={notify} aria-label="Bill reminders" className={`vault-toggle${notify ? ' is-on' : ''}`} role="switch" type="button" onClick={() => { void toggleNotifications() }} />} />
+          <DailyReminderSetting />
           <Row icon={<Sun size={18} strokeWidth={1.9} />} title="Appearance" value="Warm" />
         </div>
         {notificationSettingsNeeded && <button className="vault-link mt-2" type="button" onClick={() => { void openNativeNotificationSettings() }}>Open Android notification settings</button>}
       </section>
 
-      <DailyReminderSetting />
       {isNativeApp && <div className="text-center"><button className="vault-link" type="button" onClick={() => {
         if (testNotificationBusy) return
         setTestNotificationBusy(true); setTestNotificationNote('Scheduling test…')
@@ -165,7 +166,7 @@ export function Settings(props: Props) {
 
       {/* Data & support */}
       <section className="mt-6">
-        <p className="vault-settings-group-label">Data &amp; support</p>
+        <p className="vault-settings-group-label">Data &amp; support</p><AndroidDownload />
         <div className="vault-settings-group">
           <Row icon={<Download size={18} strokeWidth={1.9} />} title="Export transactions" value="CSV" onPress={() => { void exportTransactionsCsv(props.transactions).catch(() => setBackupNote('Could not export transactions. Please try again.')) }} />
           <Row icon={<Download size={18} strokeWidth={1.9} />} title="Download full backup" subtitle={backupNote ?? "Everything in your ledger, as JSON"} value="JSON" onPress={() => { void downloadBackup() }} />
@@ -179,7 +180,7 @@ export function Settings(props: Props) {
       </section>
 
       <button className="vault-signout mt-8" type="button" onClick={props.onSignOut}><LogOut size={17} strokeWidth={2} /> Sign out</button>
-      <p className="vault-version mt-4">Pocket Ledger · v0.1.0-beta.15</p>
+      <p className="vault-version mt-4">Pocket Ledger · v0.1.0-beta.16</p>
 
       {supabase && (
         <div className="mt-3 text-center">

@@ -84,10 +84,10 @@ export function PlanDesktop(props: PlanData & PlanActions) {
       {view === 'overview' && <>
         <section className="pl-overview-grid">
           <SummaryCard icon={PieChart} label="Limit money left" value={`${money(left)}`} detail={`${money(used)} used this month`} onClick={() => setView('limits')} />
-          <SummaryCard icon={CalendarDays} label="Bills due in 30 days" value={String(dueSoon)} detail={`${money(activeBills.filter((bill) => daysUntil(bill.dueDate) <= 30).reduce((sum, bill) => sum + bill.amount, 0))} protected`} onClick={() => setView('bills')} />
+          <SummaryCard icon={CalendarDays} label="Bills due in 30 days" value={String(dueSoon)} detail={`${money(activeBills.filter((bill) => daysUntil(bill.dueDate) <= 30).reduce((sum, bill) => sum + bill.amount, 0))} planned`} onClick={() => setView('bills')} />
         </section>
         <div className="pl-overview-columns">
-          <section className="pl-desktop-card pl-needs-attention"><header><div><p>WHAT NEEDS YOU</p><h2>Needs attention</h2></div><span>{needsAttention.length}</span></header>{needsAttention.length ? needsAttention.slice(0, 6).map((item) => <button key={item.id} type="button" onClick={item.action}><span>{item.label}</span><p><strong>{item.title}</strong><small>{item.detail}</small></p><ChevronRight size={16} /></button>) : <Empty icon={Check} title="Your plan is settled" detail="Nothing is overdue, close to its limit, or waiting for a decision." />}</section>
+          <section className={`pl-desktop-card pl-needs-attention${needsAttention.length ? "" : " is-settled"}`}><header><div><p>WHAT NEEDS YOU</p><h2>Needs attention</h2></div><span>{needsAttention.length}</span></header>{needsAttention.length ? needsAttention.slice(0, 6).map((item) => <button key={item.id} type="button" onClick={item.action}><span>{item.label}</span><p><strong>{item.title}</strong><small>{item.detail}</small></p><ChevronRight size={16} /></button>) : <Empty icon={Check} title="Your plan is settled" detail="Nothing is overdue, close to its limit, or waiting for a decision." />}</section>
           <section className="pl-desktop-card pl-plan-guide"><p>THE PLAN, EXPLAINED</p><h2>Your limits and upcoming bills.</h2>{(['limits', 'bills'] as PlanSection[]).map((key) => <button key={key} type="button" onClick={() => setView(key)}><span>{key === 'cooling' ? 'Cool-off list' : key[0].toUpperCase() + key.slice(1)}</span><small>{sectionDescriptions[key]}</small><ChevronRight size={15} /></button>)}</section>
         </div>
       </>}

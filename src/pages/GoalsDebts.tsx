@@ -105,7 +105,7 @@ export function GoalsDebts({
         </div>
       </header>
 
-      <h1 className="vault-title">Your <em>paths.</em></h1>
+      <h1 className="vault-title">Your <em>paths.</em></h1><a className="vault-chip mt-4 inline-flex" href="#receivables">Owed to me ↗</a>
 
       <section aria-label="Progress across all paths" className="vault-strip mt-7">
         <div className="vault-cell">
@@ -282,9 +282,9 @@ function GoalNode({ goal, onQuickAdd, onEdit, onDelete }: { goal: Goal; onQuickA
         <p className="vault-digits mt-1 text-[13.5px] font-medium text-[var(--ink-soft)]">{nf(goal.saved)} of {nf(goal.target)}</p>
         <p className="mt-1.5 text-[11.5px] leading-5 text-[var(--taupe)]">{eta.text}</p>
         <p className="mt-1.5 text-[11px] font-semibold text-[var(--taupe)]">
-          <button className="underline-offset-2 hover:underline" type="button" onClick={onEdit}>Edit</button>
+          <button className="path-edit-action underline-offset-2 hover:underline" type="button" onClick={onEdit}>Edit</button>
           <span aria-hidden="true"> · </span>
-          <button className="underline-offset-2 hover:underline" type="button" onClick={onDelete}>Delete</button>
+          <button className="path-edit-action underline-offset-2 hover:underline" type="button" onClick={onDelete}>Delete</button>
         </p>
       </div>
     </div>
@@ -318,10 +318,10 @@ function DebtNode({ debt, onPay, onEdit, onDelete }: { debt: Debt; onPay: () => 
         {meta && <p className={cn('vault-debt-meta mt-2 text-[13px] font-semibold leading-[1.45]', paidOff ? 'text-[var(--taupe-faint)]' : 'text-[var(--clay-ink)]')}>{meta}</p>}
         {actionsOpen && (
           <p className={cn('vault-debt-actions mt-3 text-[11px] font-bold', paidOff ? 'text-[var(--taupe-faint)]' : 'text-[var(--clay-ink)]')}>
-            {!paidOff && <><button className="uppercase tracking-[1.2px]" type="button" onClick={(event) => { event.stopPropagation(); onPay() }}>Pay</button><span aria-hidden="true"> · </span></>}
-            <button className="uppercase tracking-[1.2px]" type="button" onClick={(event) => { event.stopPropagation(); onEdit() }}>Edit</button>
+            {!paidOff && <><button className="path-edit-action uppercase tracking-[1.2px]" type="button" onClick={(event) => { event.stopPropagation(); onPay() }}>Pay</button><span aria-hidden="true"> · </span></>}
+            <button className="path-edit-action uppercase tracking-[1.2px]" type="button" onClick={(event) => { event.stopPropagation(); onEdit() }}>Edit</button>
             <span aria-hidden="true"> · </span>
-            <button className="uppercase tracking-[1.2px]" type="button" onClick={(event) => { event.stopPropagation(); onDelete() }}>Delete</button>
+            <button className="path-edit-action uppercase tracking-[1.2px]" type="button" onClick={(event) => { event.stopPropagation(); onDelete() }}>Delete</button>
           </p>
         )}
       </div>

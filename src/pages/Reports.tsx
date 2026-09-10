@@ -99,7 +99,7 @@ export function Reports({
       ? <>You kept <span className="vault-digits">{money(netSaved)}</span> — that&rsquo;s {savingsRate}% of what came in.</>
       : 'Record a full cycle and your first win lands here.'
 
-  const eyebrow = `${range.label} · Story`.toUpperCase()
+  const eyebrow = `${range.label} · Insights`.toUpperCase()
 
   return (
     <div className="vault-screen">
@@ -107,7 +107,7 @@ export function Reports({
         <p className="vault-eyebrow">{eyebrow}</p>
       </header>
 
-      <h1 className="vault-title">The <em>story.</em></h1>
+      <h1 className="vault-title">Your <em>insights.</em></h1>
       <WeeklyRecapLink />
 
       <div className="vault-chiprow mt-6">
@@ -212,7 +212,7 @@ export function Reports({
               <div className="vault-strip mt-4 flex-wrap">
                 <StoryCell label="Money in" value={cycleStory.openingMoney} />
                 <StoryCell label="Spent" value={cycleStory.spent} />
-                <StoryCell label="Protected" value={cycleStory.protected} />
+                <StoryCell label="Goals & repayments" value={cycleStory.protected} />
                 <StoryCell label="Left" value={cycleStory.closingMoney} />
               </div>
             )}

@@ -46,7 +46,7 @@ export function ProfilePage({ onBack }: { onBack: () => void }) {
   }
 
   return (
-    <div className="mx-auto w-full max-w-xl space-y-5 pt-[max(0.75rem,env(safe-area-inset-top))]">
+    <div className="profile-light mx-auto w-full max-w-xl space-y-5 pt-[max(0.75rem,env(safe-area-inset-top))]">
       <button className="inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-[var(--muted)]" onClick={onBack}>
         <ArrowLeft size={17} /> Back
       </button>
@@ -55,7 +55,7 @@ export function ProfilePage({ onBack }: { onBack: () => void }) {
         <div className="rounded-2xl border border-[rgba(255, 122, 26,.25)] bg-[var(--accent-soft)] px-4 py-3 text-sm text-[var(--accent)]">{notice}</div>
       )}
 
-      {/* ---- Photo ---- */}
+      <h1 className="vault-title">Your <em>profile.</em></h1>
       <section className="card p-6">
         <div className="flex flex-col items-center">
           <div className="relative">

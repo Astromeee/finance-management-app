@@ -1,5 +1,5 @@
 import { formatMoney } from '../lib/currency'
-import { ChevronLeft, PencilLine, Plus, ShoppingBag } from 'lucide-react'
+import { ChevronLeft, Plus, ShoppingBag } from 'lucide-react'
 import { useMemo, useState, type FormEvent } from 'react'
 import { CategoryAppearancePicker } from '../components/categories/CategoryAppearancePicker'
 import { VaultSheet } from '../components/sheets/VaultSheet'
@@ -52,7 +52,7 @@ export function Categories({
       <header className="vault-detail-header relative flex items-center justify-center">
         <button aria-label="Back to settings" className="vault-iconbtn absolute left-0" type="button" onClick={() => onNavigate('settings')}><ChevronLeft size={18} strokeWidth={2} /></button>
         <p className="vault-eyebrow">Settings</p>
-        <button aria-label="Edit first category" className="vault-iconbtn absolute right-0" disabled={!shown[0]} type="button" onClick={() => shown[0] && setEditor({ category: shown[0], kind })}><PencilLine size={15} strokeWidth={1.8} /></button>
+        <button aria-label="Add category" className="vault-chip absolute right-0" type="button" onClick={() => setEditor({ kind })}><Plus size={15}/> Add</button>
       </header>
 
       <h1 className="vault-title">Categories</h1>
@@ -72,7 +72,7 @@ export function Categories({
             <button key={category.id} className="vault-cattile" type="button" onClick={() => setEditor({ category, kind })}>
               <span className="vault-cat-chip" style={{ background: color }}><Icon size={17} strokeWidth={2} /></span>
               <span className="vault-cat-name">{category.name}</span>
-              <span className="vault-cat-stat">{money(stat?.total ?? 0)} · {stat?.count ?? 0}</span>
+              <span className="vault-cat-stat">{stat?.count ? `${money(stat.total)} · ${stat.count} entries` : 'No entries this month'}</span>
             </button>
           )
         })}

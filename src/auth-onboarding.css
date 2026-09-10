@@ -1061,3 +1061,8 @@
   .ao-dot, .ao-cta, .ao-option { transition: none; }
   .ao-topbar, .ao-ribbon, .ao-shell.is-login .ao-surface-body { animation: none !important; }
 }
+
+/* Readable supporting copy on the warm onboarding canvas. */
+.ao-fineprint,.ao-pw-hint { color:#706350; font-size:13px; }
+.ao-fineprint a { color:#594a39; }
+.ao-option p,.ao-option small { color:#706350; }

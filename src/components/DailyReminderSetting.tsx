@@ -1,3 +1,4 @@
+import { Bell } from 'lucide-react'
 import { useEffect, useRef, useState, useId } from 'react'
 import { getDailyReminder, reminderSupport, setDailyReminder } from '../lib/dailyReminder'
 import { NativeNotificationPermissionError, openNativeNotificationSettings } from '../lib/nativeNotifications'
@@ -24,7 +25,7 @@ export function DailyReminderSetting() {
     finally { setBusy(false) }
   }
   return <div className="daily-reminder-setting">
-    <div className="daily-reminder-row"><div><strong>Daily logging reminder</strong><p className="vault-sheet-note">A gentle evening check-in on this device.</p></div><button type="button" className={`vault-toggle${enabled ? ' is-on' : ''}`} role="switch" aria-label="Daily logging reminder" aria-checked={enabled} aria-busy={busy || loading} disabled={Boolean(unsupported)} onClick={() => { if (!unsupported) void save(!enabled) }} /></div>
+    <div className="daily-reminder-row vault-settings-row"><span className="vault-settings-chip"><Bell size={18}/></span><div className="vault-settings-row-title"><strong>Daily logging reminder</strong><p className="vault-sheet-note">A gentle evening check-in on this device.</p></div><button type="button" className={`vault-toggle${enabled ? ' is-on' : ''}`} role="switch" aria-label="Daily logging reminder" aria-checked={enabled} aria-busy={busy || loading} disabled={Boolean(unsupported)} onClick={() => { if (!unsupported) void save(!enabled) }} /></div>
     {enabled && <div className="daily-reminder-time"><label htmlFor={timeId}>Once a day at</label><input id={timeId} className="form-input" aria-label="Daily reminder time" type="time" value={time} disabled={busy} onChange={(e) => setTime(e.target.value)} />{time !== savedTime && <button className="vault-link" type="button" disabled={busy || !time} onClick={() => void save(true)}>Save time</button>}<small>Your device’s time zone</small></div>}
     {(note || reminderSupport()) && <p className="vault-sheet-note mt-2" role="status">{note || reminderSupport()}</p>}
     {notificationSettingsNeeded && <button className="vault-link mt-2" type="button" onClick={() => { void openNativeNotificationSettings() }}>Open Android notification settings</button>}

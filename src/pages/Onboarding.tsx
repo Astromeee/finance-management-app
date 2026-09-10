@@ -1,5 +1,5 @@
 import { currencySymbol, formatAmount, formatMoney } from '../lib/currency'
-import { ArrowLeft, ArrowRight, Check, CreditCard, GraduationCap, Home, Landmark, Plus, ShieldCheck, Sparkles, WalletCards, X, Zap } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Check, CreditCard, GraduationCap, Home, Landmark, Plus, ShieldCheck, Sparkles, X, Zap } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { AuthShell } from '../components/auth/AuthShell'
 import { BrandLockup } from '../components/auth/BrandLockup'
@@ -46,7 +46,6 @@ const sourceOptions: Array<{ id: IncomeSourceType; title: string; detail: string
   { id: 'salary', title: 'Salary', detail: 'A regular payday', icon: Landmark },
   { id: 'allowance', title: 'Pocket money', detail: 'Allowance or family support', icon: GraduationCap },
   { id: 'irregular', title: 'Irregular', detail: 'Freelance, shifts or business', icon: Sparkles },
-  { id: 'mixed', title: 'A mix', detail: 'More than one of these', icon: WalletCards },
 ]
 
 const accountTypes: Array<{ id: AccountType; label: string }> = [
@@ -379,7 +378,7 @@ function BillsStep({ bills, setBills }: { bills: OnboardingBill[]; setBills: (va
     <div className="ao-ink-card ao-bill-summary">
       <div>
         <p className="ao-ink-label">Set aside each cycle</p>
-        <p className="ao-hero-note">Protected before you spend</p>
+        <p className="ao-hero-note">Planned for bills · money stays in your accounts</p>
       </div>
       <strong>{money(billsTotal(bills))}</strong>
     </div>

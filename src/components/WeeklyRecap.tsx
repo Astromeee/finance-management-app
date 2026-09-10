@@ -46,6 +46,6 @@ export function WeeklyRecap({ transactions, userId, enabled }: { transactions: T
       <p className="vault-recap-positive"><Check size={18} />You kept track on {recap.days} {recap.days === 1 ? 'day' : 'days'}.</p>
     </> : <p className="vault-sheet-note mt-6">Your next recap starts with your next entry. Come back on Sunday for a little look back.</p>}
     <button className="vault-commit is-espresso mt-6 w-full" type="button" onClick={() => setOpen(false)}>Done</button>
-    <p className="vault-sheet-note mt-4 text-center">Always available in The story.</p>
+    <p className="vault-sheet-note mt-4 text-center">Always available in Insights.</p>
   </VaultSheet>
 }

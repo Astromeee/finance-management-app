@@ -39,6 +39,7 @@ const GROUPS: Array<{ label: string; features: Feature[] }> = [
     features: [
       { id: 'bills', icon: CalendarDays, title: 'Scheduled bills', body: 'Keep rent, subscriptions and instalment due dates in view.', page: 'budgets' },
       { id: 'paths', icon: Target, title: 'Paths', body: 'Savings goals and money you owe, with what each one still needs and by when.', page: 'goals' },
+      { id: 'android', icon: Wallet, title: 'Android widgets & quick record', body: 'Download the Android app in Settings, then add a widget or assign Ledger Quick Record to Pixel Quick Tap.', page: 'settings' },
       { id: 'recap', icon: CalendarDays, title: 'Your Sunday recap', body: 'A small weekly summary, always available in Insights.', page: 'reports' },
       { id: 'receivables', icon: Wallet, title: 'Owed to me', body: 'Track repayments and write off amounts you no longer expect to collect.', page: 'goals' },
       { id: 'insights', icon: PieChart, title: 'Insights', body: 'Where the money actually went, which category leads, and how this cycle compares with the last.', page: 'reports' },

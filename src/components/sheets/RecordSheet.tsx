@@ -126,7 +126,7 @@ export function RecordSheet({
 
 
       {/* Category chips */}
-      <div className="mt-5 flex flex-wrap justify-center gap-2.5">
+      <div className="record-category-choices mt-5 flex flex-wrap justify-center gap-2.5">
         {visibleCategories.map((name) => (
           <button key={name} className={cn('vault-chip-lg', category === name && 'is-active')} type="button" onClick={() => setCategory(name)}>{name}</button>
         ))}
