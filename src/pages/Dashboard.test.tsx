@@ -48,6 +48,7 @@ describe('home screen', () => {
   const render = async (options: Options = {}) => {
     const onNavigate = vi.fn<(page: string) => void>()
     const onSetupJourney = vi.fn<() => void>()
+    const onAddAccount = vi.fn<() => void>()
     await act(async () => root.render(
       <Dashboard
         accounts={accounts}
@@ -60,12 +61,13 @@ describe('home screen', () => {
         wishlistItems={[]}
         onNavigate={onNavigate}
         onSetupJourney={onSetupJourney}
+        onAddAccount={onAddAccount}
         setAccounts={vi.fn()}
         setTransactions={vi.fn()}
         onNotice={vi.fn()}
       />,
     ))
-    return { onNavigate, onSetupJourney }
+    return { onNavigate, onSetupJourney, onAddAccount }
   }
 
   it('renders four blocks and none of the removed ones', async () => {
@@ -80,16 +82,19 @@ describe('home screen', () => {
     expect(container.querySelector('.vault-paths')).toBeFalsy()
   })
 
-  it('keeps the account carousel as the hero, one card per account plus a total', async () => {
-    await render()
+  it('keeps the account carousel as the hero and ends with an add-wallet card', async () => {
+    const { onAddAccount } = await render()
     const cards = container.querySelectorAll('.vault-balance-card')
-    expect(cards).toHaveLength(3)
+    expect(cards).toHaveLength(4)
     expect(cards[0].textContent).toContain('Total balance')
     expect(cards[0].textContent).toContain('55,600')
     expect(cards[0].textContent).toContain('Across 2 accounts')
     // the card foot no longer carries the meaningless "updated just now" tag
     expect(cards[0].textContent).not.toContain('updated just now')
     expect(cards[2].textContent).toContain('Bank')
+    expect(cards[3].textContent).toContain('Add a wallet')
+    await act(async () => { (cards[3] as HTMLButtonElement).click() })
+    expect(onAddAccount).toHaveBeenCalledOnce()
     expect(container.textContent).not.toContain('safe spend')
   })
 

@@ -140,6 +140,7 @@ function App() {
   const activePage = routePage
   const [activeModal, setActiveModal] = useState<ActionModal>(null)
   const [activeDebtId, setActiveDebtId] = useState<string | undefined>()
+  const [accountCreateSignal, setAccountCreateSignal] = useState(0)
   const [expenseDraft, setExpenseDraft] = useState<{ amount: number; category: string; wishlistId?: string }>()
   const [toast, setToast] = useState<ToastState | null>(null)
   const toastTimer = useRef<number | undefined>(undefined)
@@ -608,12 +609,12 @@ function App() {
   }
 
   const pages: Record<string, { title: string; subtitle: string; component: ReactNode }> = {
-    dashboard: { title: 'Home', subtitle: 'Your payday journey', component: <Dashboard accounts={accountsWithSavings} transactions={transactions} goals={goals} budgets={budgets} upcomingExpenses={upcomingExpenses} categories={categories} journeySettings={journeySettings} wishlistItems={wishlistItems} onNavigate={setActivePage} onSetupJourney={() => navigate('/onboarding')} setAccounts={setAccounts} setTransactions={setTransactions} onNotice={showToast} onAdjustBalance={designPreview ? undefined : async (account, transaction) => { await adjustAccountBalance(account, transaction) }} /> },
+    dashboard: { title: 'Home', subtitle: 'Your payday journey', component: <Dashboard accounts={accountsWithSavings} transactions={transactions} goals={goals} budgets={budgets} upcomingExpenses={upcomingExpenses} categories={categories} journeySettings={journeySettings} wishlistItems={wishlistItems} onNavigate={setActivePage} onSetupJourney={() => navigate('/onboarding')} onAddAccount={() => { setAccountCreateSignal((value) => value + 1); setActivePage('accounts') }} setAccounts={setAccounts} setTransactions={setTransactions} onNotice={showToast} onAdjustBalance={designPreview ? undefined : async (account, transaction) => { await adjustAccountBalance(account, transaction) }} /> },
     transactions: { title: 'Transactions', subtitle: 'Track income, spending, and transfers', component: <Transactions transactions={transactions} accounts={accountsWithSavings} expenseCategories={expenseCategoryNames} incomeCategories={incomeCategoryNames} onUpdateTransaction={updateTransaction} onDeleteTransaction={deleteTransaction} /> },
     accounts: {
       title: 'Accounts',
       subtitle: 'Manage cash, banks, and wallets',
-      component: <Accounts accounts={accounts} archivedAccounts={archivedAccounts} transactions={transactions} setAccounts={setAccounts} setTransactions={setTransactions} onTransfer={() => setActiveModal('transfer')} onOpenTransactions={() => setActivePage('transactions')} onSaveAccount={designPreview ? undefined : saveAccount} onAdjustBalance={designPreview ? undefined : async (account, transaction) => { await adjustAccountBalance(account, transaction) }} onArchiveAccount={handleArchiveAccount} onRestoreAccount={handleRestoreAccount} />,
+      component: <Accounts accounts={accounts} archivedAccounts={archivedAccounts} transactions={transactions} createSignal={accountCreateSignal} setAccounts={setAccounts} setTransactions={setTransactions} onTransfer={() => setActiveModal('transfer')} onOpenTransactions={() => setActivePage('transactions')} onSaveAccount={designPreview ? undefined : saveAccount} onAdjustBalance={designPreview ? undefined : async (account, transaction) => { await adjustAccountBalance(account, transaction) }} onArchiveAccount={handleArchiveAccount} onRestoreAccount={handleRestoreAccount} />,
     },
     goals: {
       title: 'Paths',

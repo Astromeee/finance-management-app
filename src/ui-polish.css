@@ -23,6 +23,7 @@
 .sheet-top-controls .vault-iconbtn { width:38px; height:38px; }
 .vault-sheet-body { padding-top:4px; }
 .record-category-choices { max-height:100px; overflow-y:auto; padding:2px; }
+.record-category-choices.is-expanded { max-height:none; overflow:visible; }
 .record-category-choices .vault-chip-lg { max-width:100%; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-size:12px; padding:8px 12px; }
 .vault-commit-row { position:sticky; bottom:0; z-index:2; background:#f3eee4; padding-top:8px; padding-bottom:6px; }
 .vault-sheet.is-compact .vault-move-tile { padding:10px 14px; min-height:62px; }

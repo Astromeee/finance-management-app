@@ -538,6 +538,27 @@ body::after,
   flex-direction: column;
   justify-content: space-between;
 }
+.vault-add-account-card {
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  border: 1px dashed var(--taupe);
+  background: color-mix(in srgb, var(--vault-surface) 72%, transparent);
+  color: var(--ink);
+  text-align: center;
+}
+.vault-add-account-icon {
+  width: 46px;
+  height: 46px;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  background: var(--surface-2);
+  color: var(--clay);
+}
+.vault-add-account-copy strong { display:block; font:400 25px/1.1 var(--font-display); }
+.vault-add-account-copy small { display:block; margin-top:5px; color:var(--taupe); font-size:13px; }
+.vault-add-account-foot { display:flex; align-items:center; gap:7px; color:var(--taupe); font-size:12px; font-weight:600; }
 .vault-balance-eyebrow {
   display: flex;
   align-items: center;

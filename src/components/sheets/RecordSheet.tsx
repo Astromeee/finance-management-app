@@ -126,12 +126,15 @@ export function RecordSheet({
 
 
       {/* Category chips */}
-      <div className="record-category-choices mt-5 flex flex-wrap justify-center gap-2.5">
+      <div className={cn('record-category-choices mt-5 flex flex-wrap justify-center gap-2.5', showAllCategories && 'is-expanded')}>
         {visibleCategories.map((name) => (
           <button key={name} className={cn('vault-chip-lg', category === name && 'is-active')} type="button" onClick={() => setCategory(name)}>{name}</button>
         ))}
         {!showAllCategories && order.length > visibleCategories.length && (
           <button className="vault-chip-lg" type="button" onClick={() => setShowAllCategories(true)}>More…</button>
+        )}
+        {showAllCategories && order.length > 4 && (
+          <button className="vault-chip-lg" type="button" onClick={() => setShowAllCategories(false)}>Show less</button>
         )}
       </div>
 

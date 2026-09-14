@@ -2,7 +2,7 @@ import { useBackDismiss } from '../lib/backNavigation'
 import { currencySymbol, formatMoney } from '../lib/currency'
 import { ArchiveRestore, ArrowRightLeft, GripVertical, PencilLine, Plus, RotateCcw, Trash2, WalletCards, X } from 'lucide-react'
 import { motion } from 'framer-motion'
-import { useRef, useState, type Dispatch, type PointerEvent as ReactPointerEvent, type SetStateAction } from 'react'
+import { useEffect, useRef, useState, type Dispatch, type PointerEvent as ReactPointerEvent, type SetStateAction } from 'react'
 import type { Account, Transaction } from '../types/finance'
 import { totalBalance } from '../utils/financeCalculations'
 import { cn } from '../utils/ui'
@@ -46,6 +46,7 @@ interface AccountsProps {
   onAdjustBalance?: (account: Account, transaction: Transaction) => Promise<void>
   onArchiveAccount?: (id: string) => Promise<void>
   onRestoreAccount: (id: string) => Promise<void>
+  createSignal?: number
 }
 
 const makeAccountId = (name: string) => `${name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'account'}-${Date.now().toString(36)}`
@@ -80,7 +81,7 @@ function typeTag(account: Account) {
 
 /* ============================================================ */
 
-export function Accounts({ accounts, archivedAccounts, setAccounts, setTransactions, onTransfer, onSaveAccount, onAdjustBalance, onArchiveAccount, onRestoreAccount }: AccountsProps) {
+export function Accounts({ accounts, archivedAccounts, setAccounts, setTransactions, onTransfer, onSaveAccount, onAdjustBalance, onArchiveAccount, onRestoreAccount, createSignal = 0 }: AccountsProps) {
   const [addingAccount, setAddingAccount] = useState(false)
   const [selectedAccount, setSelectedAccount] = useState<Account | null>(null)
   const [editingAccount, setEditingAccount] = useState<Account | null>(null)
@@ -88,6 +89,11 @@ export function Accounts({ accounts, archivedAccounts, setAccounts, setTransacti
   useBackDismiss(Boolean(menuAccount), () => setMenuAccount(null))
   const [notice, setNotice] = useState('')
   const [showArchived, setShowArchived] = useState(false)
+  useEffect(() => {
+    if (createSignal <= 0) return
+    const timer = window.setTimeout(() => setAddingAccount(true), 0)
+    return () => window.clearTimeout(timer)
+  }, [createSignal])
 
   const total = totalBalance(accounts)
   const fallbacks = fallbackTreatments(accounts)

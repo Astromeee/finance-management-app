@@ -1,6 +1,6 @@
 import { useBackDismiss } from '../lib/backNavigation'
 import { currencySymbol, formatAmount } from '../lib/currency'
-import { ArrowUpRight, Bell, ClipboardList, Eye, EyeOff, Settings, Target, UserRound } from 'lucide-react'
+import { ArrowUpRight, Bell, ClipboardList, Eye, EyeOff, Plus, Settings, Target, UserRound, WalletCards } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState, type Dispatch, type SetStateAction } from 'react'
 import { firstNameOf, getProfile, initialsOf } from '../lib/profile'
 import { trackEvent } from '../lib/analytics'
@@ -61,6 +61,7 @@ export function Dashboard({
   setAccounts,
   setTransactions,
   onAdjustBalance,
+  onAddAccount,
   onNotice,
 }: {
   accounts: Account[]
@@ -76,6 +77,7 @@ export function Dashboard({
   setAccounts: Dispatch<SetStateAction<Account[]>>
   setTransactions: Dispatch<SetStateAction<Transaction[]>>
   onAdjustBalance?: (account: Account, transaction: Transaction) => Promise<void>
+  onAddAccount: () => void
   onNotice: (message: string) => void
 }) {
   const [showBalance, setShowBalance] = useState(true)
@@ -102,19 +104,20 @@ export function Dashboard({
       foot: ACCOUNT_TYPE_LABEL[account.type],
     })),
   ], [accounts, totalBalance])
+  const carouselLength = cards.length + 1
 
   const handleBalanceRailScroll = useCallback(() => {
     if (balanceRailFrame.current !== undefined) window.cancelAnimationFrame(balanceRailFrame.current)
     balanceRailFrame.current = window.requestAnimationFrame(() => {
       const rail = balanceRailRef.current
       if (!rail) return
-      const nextCard = Math.max(0, Math.min(cards.length - 1, Math.round(rail.scrollLeft / railStep(rail))))
+      const nextCard = Math.max(0, Math.min(carouselLength - 1, Math.round(rail.scrollLeft / railStep(rail))))
       if (nextCard === activeBalanceCard.current) return
       activeBalanceCard.current = nextCard
       setActiveBalanceIndex(nextCard)
       if (!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) navigator.vibrate?.(8)
     })
-  }, [cards.length])
+  }, [carouselLength])
 
   useEffect(() => () => {
     if (balanceRailFrame.current !== undefined) window.cancelAnimationFrame(balanceRailFrame.current)
@@ -225,12 +228,18 @@ export function Dashboard({
               </div>
             </article>
           ))}
+          <button aria-label="Add a new wallet or account" className="vault-balance-card vault-add-account-card" type="button" onClick={onAddAccount}>
+            <span className="vault-add-account-icon"><Plus size={22} strokeWidth={1.8} /></span>
+            <span className="vault-add-account-copy"><strong>Add a wallet</strong><small>Cash, bank, or mobile wallet</small></span>
+            <span className="vault-add-account-foot"><WalletCards size={17} /> Set up another balance</span>
+          </button>
         </div>
-        {cards.length > 1 && (
+        {carouselLength > 1 && (
           <div className="vault-carousel-dots" role="tablist" aria-label="Balance cards">
             {cards.map((card, index) => (
               <button key={card.id} aria-label={`Show ${card.label}`} aria-selected={index === activeBalanceIndex} className={cn('vault-carousel-dot', index === activeBalanceIndex && 'is-active')} role="tab" type="button" onClick={() => scrollToBalanceIndex(index)} />
             ))}
+            <button aria-label="Show add wallet card" aria-selected={activeBalanceIndex === cards.length} className={cn('vault-carousel-dot', activeBalanceIndex === cards.length && 'is-active')} role="tab" type="button" onClick={() => scrollToBalanceIndex(cards.length)} />
           </div>
         )}
 
