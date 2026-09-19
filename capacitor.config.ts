@@ -8,7 +8,7 @@ const config: CapacitorConfig = {
   plugins: {
     // MainActivity fits the complete web viewport between system bars/keyboard.
     SystemBars: { insetsHandling: 'disable' },
-    LocalNotifications: { iconColor: '#C65D35' },
+    LocalNotifications: { iconColor: '#C65D35', presentationOptions: ['banner', 'list', 'sound'] },
   },
 };
 

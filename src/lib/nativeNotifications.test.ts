@@ -8,14 +8,21 @@ const nativeNotifications = vi.hoisted(() => ({
   sendTest: vi.fn(),
 }))
 const appSettings = vi.hoisted(() => ({ openNotificationSettings: vi.fn() }))
+const platform = vi.hoisted(() => ({ value: 'android' }))
+const iosNotifications = vi.hoisted(() => ({
+  cancel: vi.fn(), checkPermissions: vi.fn(), requestPermissions: vi.fn(), schedule: vi.fn(),
+}))
 vi.mock('@capacitor/core', () => ({
+  Capacitor: { getPlatform: () => platform.value },
   registerPlugin: (name: string) => name === 'PocketNotifications' ? nativeNotifications : appSettings,
 }))
+vi.mock('@capacitor/local-notifications', () => ({ LocalNotifications: iosNotifications }))
 import { getStoredNativeDailyReminder, sendNativeTestNotification, setNativeDailyReminder, syncNativeBillReminders } from './nativeNotifications'
 
 describe('Android native reminders', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    platform.value = 'android'
     const values = new Map<string, string>()
     vi.stubGlobal('localStorage', {
       getItem: (key: string) => values.get(key) ?? null,
@@ -29,6 +36,10 @@ describe('Android native reminders', () => {
     nativeNotifications.schedule.mockImplementation(async ({ notifications }: { notifications: unknown[] }) => ({ count: notifications.length }))
     nativeNotifications.sendTest.mockResolvedValue(undefined)
     appSettings.openNotificationSettings.mockResolvedValue(undefined)
+    iosNotifications.cancel.mockResolvedValue(undefined)
+    iosNotifications.checkPermissions.mockResolvedValue({ display: 'granted' })
+    iosNotifications.requestPermissions.mockResolvedValue({ display: 'granted' })
+    iosNotifications.schedule.mockImplementation(async ({ notifications }: { notifications: { id: number }[] }) => ({ notifications: notifications.map(({ id }) => ({ id })) }))
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2026-09-10T12:00:00'))
   })
@@ -63,5 +74,16 @@ describe('Android native reminders', () => {
   it('uses the direct native test notification method', async () => {
     await sendNativeTestNotification()
     expect(nativeNotifications.sendTest).toHaveBeenCalledOnce()
+  })
+
+  it('uses iOS local notifications for daily reminders and test alerts', async () => {
+    platform.value = 'ios'
+    await setNativeDailyReminder(true, '21:30')
+    expect(iosNotifications.schedule).toHaveBeenCalledWith({ notifications: [expect.objectContaining({
+      id: 73001, schedule: { on: { hour: 21, minute: 30 } },
+    })] })
+    await sendNativeTestNotification()
+    expect(iosNotifications.schedule).toHaveBeenCalledTimes(2)
+    expect(nativeNotifications.schedule).not.toHaveBeenCalled()
   })
 })

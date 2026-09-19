@@ -9,7 +9,7 @@ import { VaultSheet } from '../components/sheets/VaultSheet'
 import { exportLedgerJson, exportTransactionsCsv } from '../lib/exports'
 import { supabase } from '../lib/supabase'
 import { requestPwaInstall } from '../lib/pwaInstall'
-import { isNativeApp } from '../lib/platform'
+import { isIOSNative, isNativeApp } from '../lib/platform'
 import { NativeNotificationPermissionError, openNativeNotificationSettings, sendNativeTestNotification, syncNativeBillReminders } from '../lib/nativeNotifications'
 import { initialsOf } from '../lib/profile'
 import type { Profile } from '../lib/profile'
@@ -82,7 +82,7 @@ export function Settings(props: Props) {
     if (notifyBusy) return
     const wanted = !notify
     setNotifyBusy(true)
-    setNotifyNote(wanted ? 'Checking Android notification access…' : 'Turning reminders off…')
+    setNotifyNote(wanted ? `Checking ${isIOSNative ? 'iPhone' : 'Android'} notification access…` : 'Turning reminders off…')
     setNotificationSettingsNeeded(false)
     try {
       const permission = await setNotificationsEnabled(wanted)
@@ -96,7 +96,7 @@ export function Settings(props: Props) {
           : permission === 'granted' ? isNativeApp
             ? scheduled ? `On · ${scheduled} reminder${scheduled === 1 ? '' : 's'} scheduled` : 'On · New bills will be scheduled'
             : 'On'
-            : permission === 'denied' ? isNativeApp ? 'Blocked in Android notification settings.' : 'Blocked in your browser settings.'
+            : permission === 'denied' ? isNativeApp ? `Blocked in ${isIOSNative ? 'iPhone' : 'Android'} notification settings.` : 'Blocked in your browser settings.'
               : permission === 'unsupported' ? 'This device cannot show reminders.'
                 : 'Permission was dismissed.',
       )
@@ -152,7 +152,9 @@ export function Settings(props: Props) {
           <DailyReminderSetting />
           <Row icon={<Sun size={18} strokeWidth={1.9} />} title="Appearance" value="Warm" />
         </div>
-        {notificationSettingsNeeded && <button className="vault-link mt-2" type="button" onClick={() => { void openNativeNotificationSettings() }}>Open Android notification settings</button>}
+        {notificationSettingsNeeded && (isIOSNative
+          ? <p className="vault-sheet-note mt-2 text-center">Open iPhone Settings → Notifications → Pocket Ledger to allow reminders.</p>
+          : <button className="vault-link mt-2" type="button" onClick={() => { void openNativeNotificationSettings() }}>Open Android notification settings</button>)}
       </section>
 
       {isNativeApp && <div className="text-center"><button className="vault-link" type="button" onClick={() => {
