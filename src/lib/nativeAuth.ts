@@ -14,7 +14,11 @@ export async function startNativeGoogleSignIn() {
   if (!supabase) throw new Error('Secure sign-in is not configured.')
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: 'google',
-    options: { redirectTo: nativeOAuthBridgeUrl, skipBrowserRedirect: true },
+    options: {
+      redirectTo: nativeOAuthBridgeUrl,
+      skipBrowserRedirect: true,
+      queryParams: { prompt: 'select_account' },
+    },
   })
   if (error) throw error
   if (!data.url) throw new Error('Google sign-in could not be started.')

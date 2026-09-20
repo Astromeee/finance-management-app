@@ -111,7 +111,7 @@ export function AuthPage({ mode }: { mode: AuthMode }) {
 
   const google = async () => {
     if (!supabase) {
-      setMessage('Google sign-in is not configured in this app build. Please install the latest APK.')
+      setMessage('Google sign-in is not configured in this app build. Please install the latest app update.')
       return
     }
     setLoading(true)

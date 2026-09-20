@@ -29,7 +29,11 @@ describe('native Google sign-in', () => {
     await startNativeGoogleSignIn()
     expect(mocks.signInWithOAuth).toHaveBeenCalledWith({
       provider: 'google',
-      options: { redirectTo: 'https://pocket-ledger-seven-phi.vercel.app/auth/callback?native=android', skipBrowserRedirect: true },
+      options: {
+        redirectTo: 'https://pocket-ledger-seven-phi.vercel.app/auth/callback?native=android',
+        skipBrowserRedirect: true,
+        queryParams: { prompt: 'select_account' },
+      },
     })
     expect(mocks.open).toHaveBeenCalledWith(expect.objectContaining({ url: 'https://accounts.google.test/oauth' }))
   })
